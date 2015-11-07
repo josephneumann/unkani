@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#Run script for app
 import os
 from app import create_app, db
 from app.models import User, Role

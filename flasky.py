@@ -1,5 +1,6 @@
 #flasky.py
 import os
+from threading import Thread
 #from datetime import datetime
 #from flask.ext.moment import Moment
 from flask.ext.script import Manager
@@ -9,12 +10,12 @@ from flask.ext.wtf import Form
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext.script import Shell
 from flask.ext.migrate import Migrate, MigrateCommand
-from flask.ext.mail import Mail
+from flask.ext.mail import Mail, Message
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
-from sqlalchemy import func
 
-#basedir = os.path.abspath(os.path.dirname(__file__))
+
+#basedir = os.path.abspath.dirname(__file__))
 
 #Initialize flask app
 app = Flask(__name__)
@@ -42,7 +43,6 @@ manager = Manager(app)
 bootstrap = Bootstrap(app)
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-manager.add_command('db', MigrateCommand)
 mail = Mail(app)
 
 #Define ORM Models
@@ -60,24 +60,37 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, index=True)
-    emial = db.Column(db.String(64), unique=True, index=True, nullable=True)
+    email = db.Column(db.String(64), unique=True, index=True, nullable=True)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
 
     def __repr__(self):
         return '<User %r>' % self.username
 
-#Define classes
-class NameForm(Form):
-    name = StringField('What is your name?', validators=[DataRequired()])
-    submit = SubmitField('Submit')
+#Define classes and helper functions
+def send_async_email(app, msg):
+    with app.app_context():
+        mail.send(msg)
 
-#Define helper functions
+
 def send_email(to, subject, template, **kwargs):
     msg = Message(app.config['FLASKY_MAIL_SUBJECT_PREFIX'] + subject,
                   sender=app.config['FLASKY_MAIL_SENDER'], recipients=[to])
     msg.body = render_template(template + '.txt', **kwargs)
     msg.html = render_template(template + '.html', **kwargs)
-    mail.send(msg)
+    thr = Thread(target=send_async_email , args=[app,msg])
+    thr.start()
+    return thr
+
+
+class NameForm(Form):
+    name = StringField('What is your name?', validators=[DataRequired()])
+    submit = SubmitField('Submit')
+
+def make_shell_context():
+    return dict (app=app, db=db, User=User, Role=Role)
+manager.add_command("shell", Shell(make_context=make_shell_context))
+manager.add_command('db', MigrateCommand)
+
 
 #Import Database and Models Automatically
 def make_shell_context():
@@ -110,19 +123,12 @@ def index():
         else:
             session['known'] = True
         session['name'] = form.name.data
-        form.name.data = ''
         return redirect(url_for('index'))
     return render_template('index.html', form=form, name=session.get('name'),
                            known=session.get('known', False))
 
-
-@app.route('/user/<name>')
-def user(name):
-    return render_template('user.html', name=name)
-
-
 if __name__ == '__main__':
     db.create_all()
-    #app.run()
+    #app.run(debug="True")
     manager.run()
 

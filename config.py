@@ -20,22 +20,18 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
-        'postgresql://JosephNeumann:rascal60276@localhost' \
-        ':5432/flasky'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or 'postgresql://JosephNeumann:rascal60276@localhost:5432/flasky'
 
 
 class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL') or \
-        'postgres://hslqnqtjihillg:o9XY1CJdt9jfap4Ziy6OYJ5y-g@ec2-54-225-134-223.compute-1.amazonaws.com:' \
-        '5432/dc5po9n7vk0vjr'
+        'postgres://hslqnqtjihillg:o9XY1CJdt9jfap4Ziy6OYJ5y-g@ec2-54-225-134-223.compute-1.amazonaws.com:5432/dc5po9n7vk0vjr'
 
 
 class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'postgres://jqipmfcikgmzvx:9ItJ3ZsSGLRfvf1AZmi3pAMnXA@ec2-107-21-223-72.compute-1.amazonaws.com' \
-        ':5432/dl78gbk5f6cmd'
+        'postgres://jqipmfcikgmzvx:9ItJ3ZsSGLRfvf1AZmi3pAMnXA@ec2-107-21-223-72.compute-1.amazonaws.com:5432/dl78gbk5f6cmd'
 
 
 config = {

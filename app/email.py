@@ -3,6 +3,7 @@ from flask import current_app, render_template
 from flask.ext.mail import Message
 from . import mail
 
+#Encapsulate all email support
 
 def send_async_email(app, msg):
     with app.app_context():

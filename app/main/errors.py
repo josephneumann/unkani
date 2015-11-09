@@ -1,6 +1,7 @@
 from flask import render_template
 from . import main
 
+#Application wide error handlers use main.app_errorhandler
 
 @main.app_errorhandler(404)
 def page_not_found(e):

@@ -1,8 +1,7 @@
 import os
 basedir = os.path.abspath(os.path.dirname(__file__))
 
-#Test pull from staging branch with even more info
-
+#Define base configuration class for configuration settings that are shared
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hfwznel2805lkd43o98udnj'
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
@@ -15,11 +14,12 @@ class Config:
     FLASKY_MAIL_SENDER = 'Flasky Admin <flasky@example.com>'
     FLASKY_ADMIN = os.environ.get('FLASKY_ADMIN')
 
+#Define an init_app class method that allows for config specific initialization
     @staticmethod
     def init_app(app):
         pass
 
-
+#Define specific configuration variables as Config subclasses
 class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://JosephNeumann:rascal60276@localhost:5432/flasky'

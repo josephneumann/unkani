@@ -10,8 +10,8 @@ class Config:
     MAIL_USE_TLS = True
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
-    FLASKY_MAIL_SUBJECT_PREFIX = '[Flasky]'
-    FLASKY_MAIL_SENDER = 'Flasky Admin <flasky@example.com>'
+    FLASKY_MAIL_SUBJECT_PREFIX = '[unkani]'
+    FLASKY_MAIL_SENDER = 'unkani admin <unkani@example.com>'
     FLASKY_ADMIN = os.environ.get('FLASKY_ADMIN')
 
 #Define an init_app class method that allows for config specific initialization
@@ -22,7 +22,7 @@ class Config:
 #Define specific configuration variables as Config subclasses
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://JosephNeumann:rascal60276@localhost:5432/flasky'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://JosephNeumann:rascal60276@localhost:5432/unkani'
 
 
 class StagingConfig(Config):
@@ -41,4 +41,3 @@ config = {
 
     'default': DevelopmentConfig
 }
-

@@ -1,0 +1,12 @@
+/*!
+ * Custom CSS for unKani
+ * Built on top of Bootstrap v3.3
+ */
+#uk-logo-navbar{
+    height: 40px;
+    margin-top: -10px;
+}
+
+#uk-navbar{
+    margin-top: 5px;
+}

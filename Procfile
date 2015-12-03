@@ -1,1 +1,1 @@
-web: python manage.py gunicorn manage:app
+web: python manage.py collectstatic --noinput gunicorn manage:app

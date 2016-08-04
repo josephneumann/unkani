@@ -4,7 +4,6 @@ from flask.ext.bootstrap import Bootstrap
 from flask.ext.mail import Mail
 from flask.ext.moment import Moment
 from flask.ext.sqlalchemy import SQLAlchemy
-from flask.ext.login import LoginManager
 from config import config
 
 #Intialize Flask extensions, but do not specify application instance
@@ -12,10 +11,6 @@ bootstrap = Bootstrap()
 mail = Mail()
 moment = Moment()
 db = SQLAlchemy()
-
-login_manager = LoginManager()
-login_manager.session_protection = 'basic'
-login_manager.login_view = 'auth.login'
 
 #Application factory function
 #Use app.config.from_object method to pull config dict / object
@@ -30,14 +25,10 @@ def create_app(config_name):
     mail.init_app(app)
     moment.init_app(app)
     db.init_app(app)
-    login_manager.init_app(app)
 
-#Register blueprint objects with application object
+#Register blueprint object with application object
     from .main import main as main_blueprint
     app.register_blueprint(main_blueprint)
-
-    from .auth import auth as auth_blueprint
-    app.register_blueprint(auth_blueprint)
 
     return app
 

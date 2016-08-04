@@ -2,11 +2,21 @@
  * Custom CSS for unKani
  * Built on top of Bootstrap v3.3
  */
-#uk-logo-navbar{
+#uk-navbar-logo{
     max-height: 40px;
     margin-top: -12px;
 }
 
-#uk-navbar{
+#uk-navbar-collapse{
     margin-top: 5px;
+}
+
+#uk-navbar-login-collapsed{
+    float: right !important;
+    display: inline !important;
+}
+
+#uk-navbar-login{
+    float: right !important;
+    display: inline !important;
 }

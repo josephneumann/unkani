@@ -22,7 +22,7 @@ class Config:
 #Define specific configuration variables as Config subclasses
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgresql://JosephNeumann:rascal60276@localhost:5432/unkani'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'postgres://vqcacoubeivowt:O-imkkMzZhDc2ObP5wSqt1eMsM@ec2-107-21-219-201.compute-1.amazonaws.com:5432/d142erar1mp2nr'
 
 
 class StagingConfig(Config):

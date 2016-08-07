@@ -1,88 +1,91 @@
 {% block doc -%}
-<!DOCTYPE html>
-<html{% block html_attribs %}lang="en"{% endblock html_attribs %}>
-{%- block html %}
-  <head>
-    {%- block head %}
-    <title>{% block title %}unKani{% endblock %}</title>
-    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <!DOCTYPE html>
+    <html{% block html_attribs %}lang="en"{% endblock html_attribs %}>
+    {%- block html %}
+        <head>
+            {%- block head %}
+                <link rel="shortcut icon" href="{{ url_for('static', filename = 'img/favicon.ico') }}">
+                <link rel="shortcut icon" href="{{ url_for('static', filename = 'favicon.ico') }}">
+                <title>{% block title %}unKani{% endblock %}</title>
 
-    {%- block metas %}
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="x-ua-compatible" content="ie=edge">
-    {%- endblock metas %}
 
-    {%- block styles %}
-    <!-- Bootstrap Stylesheet from Static Folder -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/unkani.css') }}">
-    {%- endblock styles %}
+                {%- block metas %}
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <meta http-equiv="x-ua-compatible" content="ie=edge">
+                {%- endblock metas %}
 
-    {%- endblock head %}
-  </head>
-  <body{% block body_attribs %}{% endblock body_attribs %}>
-    {% block body -%}
+                {%- block styles %}
+                    <!-- Bootstrap Stylesheet from Static Folder -->
+                    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+                    <link rel="stylesheet" href="{{ url_for('static', filename='css/unkani.css') }}">
+                {%- endblock styles %}
 
-    {% block navbar %}
-    <nav class="navbar navbar-default navbar-static-top">
-        <div class="container-fluid">
-            <div class="navbar-header">
-                <button class="navbar-toggle collapsed" type="button" data-toggle="collapse"
-                        data-target="#uk-navbar" aria-expanded="false" aria-controls="navbar">
-                    <!-- Icons for navbar -->
-                    <span class="sr-only">Toggle navigation</span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                </button>
-                <a class="navbar-brand" href="/">
-                    <img id="uk-logo-navbar" alt="brand" src="{{ url_for('static', filename='img/unkani_logo_navbar2.png') }}"/>
-                </a>
-            </div>
-            <div id="uk-navbar" class="navbar-collapse collapse" >
-                <ul class="nav nav-pills">
-                    <li class="active">
-                        <a href="/">Home <span class="sr-only">(current)</span></a>
-                    </li>
-                    <li>
-                        <a href="#">Profile</a>
-                    </li>
-                    <li>
-                        <a href="#">Schedule</a>
-                    </li>
-                    <li>
-                        <a href="#">Our Team</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+            {%- endblock head %}
+        </head>
+        <body{% block body_attribs %}{% endblock body_attribs %}>
+        {% block body -%}
 
-    {%- endblock navbar %}
+            {% block navbar %}
+                <nav class="navbar navbar-default navbar-static-top">
+                    <div class="container-fluid">
+                        <div class="navbar-header">
+                            <button class="navbar-toggle collapsed" type="button" data-toggle="collapse"
+                                    data-target="#uk-navbar" aria-expanded="false" aria-controls="navbar">
+                                <!-- Icons for navbar -->
+                                <span class="sr-only">Toggle navigation</span>
+                                <span class="icon-bar"></span>
+                                <span class="icon-bar"></span>
+                                <span class="icon-bar"></span>
+                            </button>
+                            <a class="navbar-brand" href="/">
+                                <img id="uk-logo-navbar" alt="brand"
+                                     src="{{ url_for('static', filename='img/unkani_logo_navbar2.png') }}"/>
+                            </a>
+                        </div>
+                        <div id="uk-navbar" class="navbar-collapse collapse">
+                            <ul class="nav nav-pills">
+                                <li class="active">
+                                    <a href="/">Home <span class="sr-only">(current)</span></a>
+                                </li>
+                                <li>
+                                    <a href="#">Profile</a>
+                                </li>
+                                <li>
+                                    <a href="#">Schedule</a>
+                                </li>
+                                <li>
+                                    <a href="#">My Patients</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
 
-    {% block content -%}
-    <div class="container">
-        {% for message in get_flashed_messages() %}
-            <div class="alert alert-warning">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
-                {{ message }}
-            </div>
-        {% endfor %}
+            {%- endblock navbar %}
 
-    {% block page_content %}
-    {%- endblock page_content %}
-    </div>
-    {%- endblock content %}
+            {% block content -%}
+                <div class="container">
+                    {% for message in get_flashed_messages() %}
+                        <div class="alert alert-warning">
+                            <button type="button" class="close" data-dismiss="alert">&times;</button>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
 
-    {% block scripts %}
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
-    {%- endblock scripts %}
+                    {% block page_content %}
+                    {%- endblock page_content %}
+                </div>
+            {%- endblock content %}
 
-    {%- endblock body %}
-  </body>
-{%- endblock html %}
-</html>
+            {% block scripts %}
+                <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+                <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+                {{ moment.include_moment() }}
+            {%- endblock scripts %}
+
+        {%- endblock body %}
+        </body>
+    {%- endblock html %}
+    </html>
 {% endblock doc -%}

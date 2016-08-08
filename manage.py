@@ -12,6 +12,13 @@ manager = Manager(app)
 migrate = Migrate(app, db)
 
 #Create custom context with Flask-Script and set default import objects
+# To create/upgrade the databases:
+# $ python manage.py db upgrade
+# $ heroku run python manage.py db upgrade --app unkani-staging
+# $ heroku run python manage.py db upgrade --app unkani
+
+# To run as a shell:
+# $ python manage.py shell
 def make_shell_context():
     return dict(app=app, db=db, User=User, Role=Role)
 manager.add_command("shell", Shell(make_context=make_shell_context))

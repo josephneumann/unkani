@@ -1,0 +1,2 @@
+heroku run python manage.py db upgrade --app unkani-staging
+heroku run python manage.py db upgrade --app unkani

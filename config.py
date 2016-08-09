@@ -11,8 +11,8 @@ class Config:
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     FLASKY_MAIL_SUBJECT_PREFIX = '[unkani]'
-    FLASKY_MAIL_SENDER = 'unkani admin <unkani@example.com>'
-    FLASKY_ADMIN = os.environ.get('FLASKY_ADMIN')
+    FLASKY_MAIL_SENDER = 'unkani admin <unkani@gmail.com>'
+    UNKANI_ADMIN = os.environ.get('UNKANI_ADMIN')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 #Define an init_app class method that allows for config specific initialization

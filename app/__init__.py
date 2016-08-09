@@ -16,7 +16,6 @@ db = SQLAlchemy()
 #Use app.config.from_object method to pull config dict / object
 def create_app(config_name):
     app = Flask(__name__)
-    #Captures config from env variable, looks up dict object
     app.config.from_object(config[config_name])
     config[config_name].init_app(app)
 

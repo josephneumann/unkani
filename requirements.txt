@@ -5,6 +5,7 @@ click==6.6
 dominate==2.2.1
 Flask==0.11.1
 Flask-Bootstrap==3.3.6.0
+Flask-Login==0.3.2
 Flask-Mail==0.9.1
 Flask-Migrate==2.0.0
 Flask-Moment==0.5.1
@@ -18,6 +19,7 @@ Jinja2==2.8
 Mako==1.0.4
 MarkupSafe==0.23
 mimerender==0.6.0
+moment==0.5.1
 psycopg2==2.6.2
 python-dateutil==2.5.3
 python-editor==1.0.1

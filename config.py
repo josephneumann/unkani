@@ -1,5 +1,4 @@
 import os
-basedir = os.path.abspath(os.path.dirname(__file__))
 
 #Define base configuration class for configuration settings that are shared
 class Config:
@@ -32,9 +31,9 @@ class StagingConfig(Config):
 
 
 class ProductionConfig(Config):
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') #or 'postgres://jqipmfcikgmzvx:9ItJ3ZsSGLRfvf1AZmi3pAMnXA@ec2-107-21-223-72.compute-1.amazonaws.com:5432/dl78gbk5f6cmd'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
-
+#Configuration objects are assigned to a dict for access in intitialization script from objects
 config = {
     'development': DevelopmentConfig,
     'staging': StagingConfig,

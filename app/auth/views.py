@@ -20,6 +20,7 @@ def login():
 @auth.route('/logout')
 @login_required
 def logout():
+    #Remove and reset the user sesssion
     logout_user()
     flash('You have been logged out.')
     return redirect(url_for('main.index'))

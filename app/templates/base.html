@@ -57,7 +57,7 @@
                                     <a href="#">My Patients</a>
                                 </li>
                                 {% if current_user.is_authenticated %}
-                                    <li class="navbar-rght"><a href="{{ url_for('auth.logout') }}">Sign Out</a></li>
+                                    <li class="navbar-right"><a href="{{ url_for('auth.logout') }}">Sign Out</a></li>
                                 {% else %}
                                     <li class="navbar-right"><a href="{{ url_for('auth.login') }}">Sign In</a></li>
                                 {% endif %}

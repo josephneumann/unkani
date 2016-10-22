@@ -5,8 +5,9 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hfwznel2805lkd43o98udnj'
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
     MAIL_SERVER = 'smtp.googlemail.com'
-    MAIL_PORT = 587
-    MAIL_USE_TLS = True
+    MAIL_PORT = 465 #587 for TLS
+    MAIL_USE_TLS = False
+    MAIL_USE_SSL = True
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     FLASKY_MAIL_SUBJECT_PREFIX = '[unkani]'
@@ -24,6 +25,9 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
+class TestingConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
 class StagingConfig(Config):
     TESTING = True
@@ -38,6 +42,6 @@ config = {
     'development': DevelopmentConfig,
     'staging': StagingConfig,
     'production': ProductionConfig,
-
+    'testing': TestingConfig,
     'default': DevelopmentConfig
 }

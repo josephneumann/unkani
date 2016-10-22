@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 from app import create_app, db, mail
-from app.models import User, Role, Animal
+from app.models import User, Role
 from flask_script import Manager, Shell
 from flask_migrate import Migrate, MigrateCommand
 
@@ -12,7 +12,7 @@ migrate = Migrate(app, db)
 
 #Create custom context with Flask-Script and set default import objects
 # To create/upgrade the databases:
-# $ python manage.py db migrate --m "Commit commet"
+# $ python manage.py db migrate --m "Commit comment"
 # $ python manage.py db upgrade
 # $ heroku run python manage.py db upgrade --app unkani-staging
 # $ heroku run python manage.py db upgrade --app unkani
@@ -26,7 +26,7 @@ migrate = Migrate(app, db)
 # To run as a shell:
 # $ python manage.py shell
 def make_shell_context():
-    return dict(app=app, db=db, mail=mail, User=User, Role=Role, Animal=Animal)
+    return dict(app=app, db=db, mail=mail, User=User, Role=Role)
 manager.add_command("shell", Shell(make_context=make_shell_context))
 manager.add_command('db', MigrateCommand)
 

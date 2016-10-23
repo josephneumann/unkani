@@ -30,6 +30,33 @@ def make_shell_context():
 manager.add_command("shell", Shell(make_context=make_shell_context))
 manager.add_command('db', MigrateCommand)
 
+@manager.command
+def refresh_db():
+    print (""""
+    __________________________________________________________________________
+    |                        !!!-----WARNING-----!!!                          |
+    |This command drops all tables, re-creates them and initializes some data |
+    |As a result ALL data will be lost from the target environment            |
+    --------------------------------------------------------------------------
+
+    """)
+    ans = input("Are you sure you want to proceed? [y/n]: ")
+    if ans[0] in ['Y','y']:
+        print('database is refreshing...')
+        #Drop and recreate db from migrations
+        db.drop_all()
+        db.create_all()
+        db.update
+        #Initialize roles
+        admin_role = Role(name='Admin', id=0)
+        user_role = Role(name='User', id=1)
+        db.session.add_all([admin_role, user_role])
+        db.session.commit()
+        print('all done... enjoy your new database!')
+    else:
+        print('oh thank god............')
+        print('That was a close call!')
+
 
 @manager.command
 def test():

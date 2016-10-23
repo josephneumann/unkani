@@ -1,4 +1,6 @@
 import unittest
+import time
+
 from app.models import User
 from app import db
 

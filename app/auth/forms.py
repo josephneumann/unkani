@@ -29,3 +29,24 @@ class RegistrationForm(Form):
             raise ValidationError('Username already in use.')
 
 
+class ChangePasswordForm(Form):
+    old_password = PasswordField('Password', validators=[DataRequired()])
+    password = PasswordField('New Password', validators=[DataRequired(),Length(10,128), EqualTo('password2', message = 'Passwords must match')])
+    password2 = PasswordField('Confirm New Password', validators = [DataRequired()])
+    submit = SubmitField('Change Password')
+
+class ResetPasswordRequestForm(Form):
+    email = StringField('Email', validators=[DataRequired(), Length(1, 128), Email()])
+    submit = SubmitField('Reset Password')
+
+class ResetPasswordForm(Form):
+    email = StringField('Email', validators=[DataRequired(), Length(1, 128), Email()])
+    password = PasswordField('New Password', validators=[DataRequired(),Length(10,128), EqualTo('password2', message = 'Passwords must match')])
+    password2 = PasswordField('Confirm New Password', validators = [DataRequired()])
+    submit = SubmitField('Reset Password')
+
+class ChangeEmailForm(Form):
+    new_email = StringField('New Email', validators=[DataRequired(), Length(1, 128), Email(), EqualTo('new_email2', message='Emails must match')])
+    new_email2 = StringField('Re-Enter Email', validators=[DataRequired(), Length(1, 128), Email()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Change Email')

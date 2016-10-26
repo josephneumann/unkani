@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 import os
-from names import get_first_name, get_last_name
 from app import create_app, db, mail
 from app.models import User, Role
 from flask_script import Manager, Shell
 from flask_migrate import Migrate, MigrateCommand
-from utilities import reset_db, create_random_user
+from utilities import reset_db
 
 #Create app with create_app class defined in __init__.py  test
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')

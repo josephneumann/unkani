@@ -5,6 +5,9 @@ from flask_mail import Mail
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from raven.contrib.flask import Sentry
+import logging
+
 #Import config object [which is itself a dict of config objects] from config package
 from config import config
 
@@ -18,6 +21,7 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 login_manager.session_protection = 'strong'
 login_manager.login_view = 'auth.login'
+sentry = Sentry()
 
 #Application factory function
 #Use Flask's app.config.from_object method to pull config object
@@ -35,6 +39,7 @@ def create_app(config_name):
     moment.init_app(app)
     db.init_app(app)
     login_manager.init_app(app)
+    sentry.init_app(app, logging=True, level=logging.ERROR)
 
 #Register blueprint objects with application object
 #These MUST be imported last, to avoid circular dependencies in the blueprint

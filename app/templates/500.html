@@ -1,9 +1,22 @@
-{% extends "base.html" %}
+<!-- Sentry JS SDK 2.1.+ required -->
+<script src="https://cdn.ravenjs.com/2.3.0/raven.min.js"></script>
 
-{% block title %}Flasky - Internal Server Error{% endblock %}
+{% if event_id %}
+  <script>
+  Raven.showReportDialog({
+    eventId: '{{ event_id }}',
+    dsn: '{{ public_dsn }}'
+  });
+  </script>
+{% endif %}
+
+{% extends "base.html" %}
+{% block title %}Unkani - Internal Server Error{% endblock %}
 
 {% block page_content %}
-<div class="page-header">
-    <h1>Internal Server Error</h1>
-</div>
+
+    <div class="page-header">
+        <h1>Internal Server Error</h1>
+    </div>
+
 {% endblock %}

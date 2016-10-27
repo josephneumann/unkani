@@ -14,6 +14,8 @@ class Config:
     FLASKY_MAIL_SENDER = 'unkani admin <unkani@gmail.com>'
     UNKANI_ADMIN = os.environ.get('UNKANI_ADMIN')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SENTRY_DSN = os.environ.get('SENTRY_DSN')
+    SENTRY_USER_ATTRS = ['username', 'first_name', 'last_name', 'email']
 
 #Define an init_app class method that allows for config specific initialization
     @staticmethod
@@ -22,19 +24,18 @@ class Config:
 
 #Define specific configuration variables as Config subclasses
 class DevelopmentConfig(Config):
-    DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-
-class TestingConfig(Config):
-    TESTING = True
+    DEBUG = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
 class StagingConfig(Config):
+    DEBUG = True
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
 
 class ProductionConfig(Config):
+    DEBUG = False
+    TESTING = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
 #Configuration objects are assigned to a dict for access in intitialization script from objects
@@ -42,6 +43,5 @@ config = {
     'development': DevelopmentConfig,
     'staging': StagingConfig,
     'production': ProductionConfig,
-    'testing': TestingConfig,
     'default': DevelopmentConfig
 }

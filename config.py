@@ -8,11 +8,11 @@ class Config:
     MAIL_PORT = 465 #587 for TLS
     MAIL_USE_TLS = False
     MAIL_USE_SSL = True
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME') or 'app.unkani@gmail.com'
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     FLASKY_MAIL_SUBJECT_PREFIX = '[unkani]'
     FLASKY_MAIL_SENDER = 'unkani admin <unkani@gmail.com>'
-    UNKANI_ADMIN = os.environ.get('UNKANI_ADMIN')
+    UNKANI_ADMIN = os.environ.get('UNKANI_ADMIN') or 'app.ukani@gmail.com'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SENTRY_DSN = os.environ.get('SENTRY_DSN')
     SENTRY_USER_ATTRS = ['username', 'first_name', 'last_name', 'email']
@@ -24,7 +24,7 @@ class Config:
 
 #Define specific configuration variables as Config subclasses
 class DevelopmentConfig(Config):
-    DEBUG = False
+    DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
 class StagingConfig(Config):

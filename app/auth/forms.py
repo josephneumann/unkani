@@ -1,22 +1,22 @@
-from flask_wtf import Form
+from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField
 from wtforms.validators import DataRequired, Length, Email, Regexp, EqualTo, ValidationError
 from .. models import User
 
-class LoginForm(Form):
-    email = StringField('Email', validators=[DataRequired(),Length(1,128),Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
+class LoginForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(),Length(1,128),Email()],render_kw={"placeholder": "Email"})
+    password = PasswordField('Password', validators=[DataRequired(message='Password is required')],render_kw={"placeholder": "Password"})
     remember_me = BooleanField('Keep me logged in')
     submit = SubmitField('Log In')
 
-class RegistrationForm(Form):
-    first_name = StringField('First Name', validators=[DataRequired(), Length(1,128)])
-    last_name = StringField('Last Name', validators=[DataRequired(), Length(1,128)])
+class RegistrationForm(FlaskForm):
+    first_name = StringField('First Name', validators=[DataRequired(), Length(1,128)],render_kw={"placeholder": "First Name"})
+    last_name = StringField('Last Name', validators=[DataRequired(), Length(1,128)],render_kw={"placeholder": "Last Name"})
     #dob=DateField('DOB', validators=[DataRequired])
-    email = StringField('Email', validators=[DataRequired(),Length(1,128),Email()])
+    email = StringField('Email', validators=[DataRequired(),Length(1,128),Email()],render_kw={"placeholder": "Email"})
     #phone=StringField('phone', validators=None)
-    username = StringField('Username', validators=[DataRequired(), Length(5,64), Regexp('^[A-Za-z][A-Za-z0-9_.]*$', flags = 0, message = 'Usernames must have only letters, numbers, dots or underscores')])
-    password = PasswordField('Password', validators=[DataRequired(),Length(10,128), EqualTo('password2', message = 'Passwords must match')])
+    username = StringField('Username', validators=[DataRequired(), Length(5,64), Regexp('^[A-Za-z][A-Za-z0-9_.]*$', flags = 0, message = 'Usernames must have only letters, numbers, dots or underscores')],render_kw={"placeholder": "Username"})
+    password = PasswordField('Password', validators=[DataRequired(),Length(10,128), EqualTo('password2', message = 'Passwords must match')],render_kw={"placeholder": "Password"})
     password2 = PasswordField('Confirm Password', validators = [DataRequired()])
     submit = SubmitField('Register')
 
@@ -29,24 +29,24 @@ class RegistrationForm(Form):
             raise ValidationError('Username already in use.')
 
 
-class ChangePasswordForm(Form):
-    old_password = PasswordField('Password', validators=[DataRequired()])
-    password = PasswordField('New Password', validators=[DataRequired(),Length(10,128), EqualTo('password2', message = 'Passwords must match')])
-    password2 = PasswordField('Confirm New Password', validators = [DataRequired()])
+class ChangePasswordForm(FlaskForm):
+    old_password = PasswordField('Password', validators=[DataRequired()],render_kw={"placeholder": "Current Password"})
+    password = PasswordField('New Password', validators=[DataRequired(),Length(10,128), EqualTo('password2', message = 'Passwords must match')],render_kw={"placeholder": "New Password"})
+    password2 = PasswordField('Confirm New Password', validators = [DataRequired()],render_kw={"placeholder": "Confirm New Password"})
     submit = SubmitField('Change Password')
 
-class ResetPasswordRequestForm(Form):
-    email = StringField('Email', validators=[DataRequired(), Length(1, 128), Email()])
+class ResetPasswordRequestForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Length(1, 128), Email()],render_kw={"placeholder": "Email"})
     submit = SubmitField('Reset Password')
 
-class ResetPasswordForm(Form):
-    email = StringField('Email', validators=[DataRequired(), Length(1, 128), Email()])
-    password = PasswordField('New Password', validators=[DataRequired(),Length(10,128), EqualTo('password2', message = 'Passwords must match')])
-    password2 = PasswordField('Confirm New Password', validators = [DataRequired()])
+class ResetPasswordForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Length(1, 128), Email()],render_kw={"placeholder": "Email"})
+    password = PasswordField('New Password', validators=[DataRequired(),Length(10,128), EqualTo('password2', message = 'Passwords must match')],render_kw={"placeholder": "Password"})
+    password2 = PasswordField('Confirm New Password', validators = [DataRequired()],render_kw={"placeholder": "Password"})
     submit = SubmitField('Reset Password')
 
-class ChangeEmailForm(Form):
-    new_email = StringField('New Email', validators=[DataRequired(), Length(1, 128), Email(), EqualTo('new_email2', message='Emails must match')])
-    new_email2 = StringField('Re-Enter Email', validators=[DataRequired(), Length(1, 128), Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
+class ChangeEmailForm(FlaskForm):
+    new_email = StringField('New Email', validators=[DataRequired(), Length(1, 128), Email(), EqualTo('new_email2', message='Emails must match')],render_kw={"placeholder": "New Email"})
+    new_email2 = StringField('Re-Enter Email', validators=[DataRequired(), Length(1, 128), Email()],render_kw={"placeholder": "Confirm New Email"})
+    password = PasswordField('Password', validators=[DataRequired()],render_kw={"placeholder": "Password"})
     submit = SubmitField('Change Email')

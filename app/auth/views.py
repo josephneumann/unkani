@@ -8,6 +8,10 @@ from .. import db
 from ..models import User
 from ..email import send_email
 
+#flash('Info message, blue', 'info')
+#flash('Success messag, green.', 'success')
+#flash('Warning message, yellow.', 'warning')
+#flash('Dange message, red/orange.', 'danger')
 
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
@@ -16,9 +20,9 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         if user is not None and user.verify_password(form.password.data):
             login_user(user, form.remember_me.data)
-            return redirect(request.args.get('next') or url_for('main.index'))
+            return redirect(request.args.get('next') or url_for('main.landing'))
         else:
-            flash('Invalid username or password.')
+            flash('Invalid username or password.', 'danger')
     return render_template('auth/login.html', form=form)
 
 
@@ -27,8 +31,8 @@ def login():
 def logout():
     # Remove and reset the user sesssion
     logout_user()
-    flash('Successfully logged out.')
-    return redirect(url_for('main.index'))
+    flash('Successfully logged out.', 'success')
+    return redirect(url_for('main.landing'))
 
 
 @auth.route('/register', methods=['GET', 'POST'])
@@ -41,7 +45,7 @@ def register():
         db.session.commit()
         token = user.generate_confirmation_token()
         send_email(user.email, 'Confirm Your Account', 'auth/email/confirm', user=user, token=token)
-        flash('A confirmation message has been sent to your email.')
+        flash('A confirmation message has been sent to your email.', 'info')
         return (redirect(url_for('auth.login')))
     return render_template('auth/register.html', form=form)
 
@@ -50,12 +54,12 @@ def register():
 @login_required
 def confirm(token):
     if current_user.confirmed:
-        return redirect(url_for('main.index'))
+        return redirect(url_for('main.landing'))
     if current_user.confirm(token):
-        flash('You have confirmed your account. Thank you!')
+        flash('You have confirmed your account.','success')
     else:
-        flash('The confirmation link is invalid or has expired.')
-    return redirect(url_for('main.index'))
+        flash('The confirmation link is invalid or has expired.','danger')
+    return redirect(url_for('main.landing'))
 
 
 @auth.route('/confirm')
@@ -63,8 +67,8 @@ def confirm(token):
 def resend_confirmation():
     token = current_user.generate_confirmation_token()
     send_email(current_user.email, 'Confirm Your Account', 'auth/email/confirm', user=current_user, token=token)
-    flash('A new confirmation email has been sent to your email address.')
-    return redirect(url_for('main.index'))
+    flash('A new confirmation email has been sent to your email address.','info')
+    return redirect(url_for('main.landing'))
 
 
 @auth.before_app_request
@@ -77,7 +81,7 @@ def before_request():
 @auth.route('/unconfirmed')
 def unconfirmed():
     if current_user.is_anonymous or current_user.confirmed:
-        return redirect(url_for('main.index'))
+        return redirect(url_for('main.landing'))
     return render_template('auth/unconfirmed.html')
 
 
@@ -89,17 +93,17 @@ def change_password():
         if current_user.verify_password(form.old_password.data):
             current_user.password = form.password.data
             db.session.add(current_user)
-            flash('Your password has been changed.')
-            return redirect(url_for('main.index'))
+            flash('Your password has been changed.','success')
+            return redirect(url_for('main.landing'))
         else:
-            flash('You entered an invalid password')
+            flash('You entered an invalid password','danger')
     return render_template("auth/change_password.html", form=form)
 
 
 @auth.route('/reset_password', methods=['GET', 'POST'])
 def reset_password_request():
     if not current_user.is_anonymous:
-        return redirect(url_for('main.index'))
+        return redirect(url_for('main.landing'))
     form = ResetPasswordRequestForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
@@ -108,35 +112,35 @@ def reset_password_request():
                 token = user.generate_reset_token()
                 send_email(user.email, 'Reset Your Password', 'auth/email/reset_password', user=user, token=token,
                            next=request.args.get('next'))
-                flash('An email with instructions for resetting your password has been sent to you.')
+                flash('An email with instructions for resetting your password has been sent to you.','info')
                 return redirect(url_for('auth.login'))
             else:
-                flash('That user account is no longer active.')
-                return render_template('auth/reset_password.html', form=form)
+                flash('That user account is no longer active.','danger')
+                return render_template('auth/reset_password_request.html', form=form)
         else:
             flash('A user account with that password does not exist. '
-                  'Please enter a valid email account')
-            return render_template('auth/reset_password.html', form=form)
+                  'Please enter a valid email address.','danger')
+            return render_template('auth/reset_password_request.html', form=form)
 
-    return render_template('auth/reset_password.html', form=form)
+    return render_template('auth/reset_password_request.html', form=form)
 
 
 @auth.route('/reset_password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     if not current_user.is_anonymous:
-        return redirect(url_for('main.index'))
+        return redirect(url_for('main.landing'))
     form = ResetPasswordForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
         if user is None:
-            return redirect(url_for('main.index'))
+            return redirect(url_for('main.landing'))
         new_password = form.password.data
         if user.reset_password(token, new_password):
-            flash('Your password has been reset.')
+            flash('Your password has been reset.', 'success')
             return redirect(url_for('auth.login'))
         else:
-            flash('There was an error resetting your password')
-            return redirect(url_for('main.index'))
+            flash('There was an error resetting your password', 'danger')
+            return redirect(url_for('main.landing'))
     return render_template('auth/reset_password.html', form=form)
 
 
@@ -149,21 +153,21 @@ def change_email_request():
             new_email = form.new_email.data
             user = User.query.filter_by(email=new_email).first()
             if user is not None:
-                flash('Email is already registered ')
+                flash('Email is already registered ','warning')
             else:
                 token = current_user.generate_email_change_token(new_email)
                 send_email(new_email, 'Confirm your email address', 'auth/email/change_email', token=token, user=current_user)
-                flash('A confirmation email  has been sent to your new email.')
-                return redirect(url_for('main.index'))
+                flash('A confirmation email  has been sent to your new email.', 'info')
+                return redirect(url_for('main.landing'))
         else:
-            flash('Invalid password')
+            flash('Invalid password', 'danger')
     return render_template('auth/change_email.html', form=form)
 
 @auth.route('/change_email/<token>')
 @login_required
 def change_email(token):
     if current_user.change_email(token):
-        flash('Your email has been updated')
+        flash('Your email has been updated','success')
     else:
-        flash('Invalid email change request')
-    return redirect(url_for('main.index'))
+        flash('Invalid email change request','danger')
+    return redirect(url_for('main.landing'))

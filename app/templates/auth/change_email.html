@@ -1,13 +1,19 @@
-{% extends "base.html" %}
-{% import "bootstrap/wtf.html" as wtf %}
+{% extends "auth/login.html" %}
+{% from "_formhelpers.html" import render_field, render_field_w_errors%}
 
-{% block title %}Unkani - Change Email Address{% endblock %}
+{% block form_content %}
+    <div class="demo-card">
+        <h3 class="title">Change Password</h3>
+        <form class="register-form" method="post">
+            {{ form.hidden_tag() }}
+            {{ form.new_email.label }}
+            {{ render_field_w_errors(form.new_email) }}
+            {{ form.new_email2.label }}
+            {{ render_field_w_errors(form.new_email2) }}
+            {{ form.password.label }}
+            {{ render_field_w_errors(form.password) }}
 
-{% block page_content %}
-<div class="page-header">
-    <h1>Change Your Email Address</h1>
-</div>
-<div class="col-md-4">
-    {{ wtf.quick_form(form) }}
-</div>
-{% endblock %}
+            <button class="btn btn-danger btn-block">Password Change</button>
+        </form>
+    </div>
+{% endblock form_content %}

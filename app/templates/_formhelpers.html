@@ -1,0 +1,25 @@
+{% macro render_field(field) %}
+    {{ field(class="form-control", ** kwargs)|safe }}
+{% endmacro %}
+{% macro render_error_field(field) %}
+     <span class="glyphicon glyphicon-remove form-control-feedback">
+    {{ field(** kwargs)|safe }}
+    </span>
+{% endmacro %}
+
+{#Render a field and it's label with error display on form validation#}
+{%  macro render_field_w_errors(field) %}
+{% if field.errors %}
+    <div class="form-group has-error has-feedback">
+        {% for error in field.errors %}
+            {{ render_field(field, class="form-control", value=error) }}
+        {% endfor %}
+    </div>
+{% else %}
+    {{ render_field(field) }}
+{% endif %}
+{% endmacro %}
+
+
+
+

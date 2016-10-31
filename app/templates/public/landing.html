@@ -1,0 +1,233 @@
+{% extends "paper_base.html" %}
+
+{% block body %}
+    {% block navbar %}
+        <nav class="navbar navbar-default" role="navigation-demo">
+            <div class="container">
+                <!-- Brand and toggle get grouped for better mobile display -->
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse"
+                            data-target="#navigation-example-2">
+                        <span class="sr-only">Toggle navigation</span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <a href="{{ url_for('main.landing') }}">
+                        <div class="logo-container">
+                            <div class="logo">
+                                <img src="{{ url_for("static", filename="img/logo/unkani_cat.svg") }}"
+                                     alt="Unkani Logo">
+                            </div>
+                            <div class="brand">
+                                unKani App
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Collect the nav links, forms, and other content for toggling -->
+                <div class="collapse navbar-collapse" id="navigation-example-2">
+                    <ul class="nav navbar-nav navbar-right">
+                        <li>
+                            <a href=#" target="_blank" class="btn btn-simple btn-neutral"><i class="fa fa-twitter"></i></a>
+                        </li>
+                        <li>
+                            <a href="#" target="_blank" class="btn btn-simple btn-neutral"><i
+                                    class="fa fa-facebook"></i></a>
+                        </li>
+                        {% if current_user.is_authenticated %}
+                            <li class="dropdown">
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown"> {{ current_user.username }}
+                                    <b class="caret"></b></a>
+                                <ul class="dropdown-menu">
+                                    <li><a href="{{ url_for('auth.change_password') }}">Change Password</a></li>
+                                    <li><a href="{{ url_for('auth.change_email_request') }}">Change Email</a></li>
+                                    <li><a href="{{ url_for('auth.logout') }}">Sign Out</a></li>
+                                </ul>
+                            </li>
+                        {% else %}
+                            <li>
+                                <a href="{{ url_for('auth.login') }}" class="btn btn-simple btn-neutral">Log In</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div><!-- /.navbar-collapse -->
+            </div><!-- /.container-->
+        </nav>
+    {% endblock navbar %}
+    {% block page_content %}
+        <div class="wrapper">
+            <div class="landing-header" style="background-image: url({{ url_for("static", filename="img/cat.jpg") }});">
+                <div class="container">
+                    <div class="motto">
+                        <h1 class="title">Unkani</h1>
+                        <h3>The world's only fully integrated</h3>
+                        <h3>platform for pet services</h3>
+                        <br/>
+                        <a href="#" class="btn"><i class="fa fa-play"></i>Watch video</a>
+                        <a class="btn">Download</a>
+                    </div>
+                </div>
+            </div>
+            <div class="main">
+                <div class="section text-center landing-section">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-md-8 col-md-offset-2">
+                                <h2>Take control of your business</h2>
+                                <h5>Tired of cobbling tools together to operate your organization? Unkani is the
+                                    answered.
+                                    With over 100,000 daily users, the Unkani team has spent 10+ years developing a
+                                    product
+                                    that has a serious pet-focused organization needs.</h5>
+                                <br/>
+                                <a href="#" class="btn btn-danger btn-fill">See Details</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section section-light-brown landing-section">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-md-4 column">
+                                <h4>Operational Power</h4>
+                                <p>Manage your schedule online and connect with clients electronically. Setup and
+                                    maintain
+                                    your website and client portal. Communicate en masse with clients and automatically
+                                    update them about their services in real-time.</p>
+                                <a class="btn btn-danger btn-simple" href="#">See more <i
+                                        class="fa fa-chevron-right"></i></a>
+                            </div>
+                            <div class="col-md-4 column">
+                                <h4>Business Management</h4>
+                                <p>Process credit card or mobile phone payments. Manage your finances and balance your
+                                    books. Optimize your inventory and automatically identify opportunities for
+                                    increased
+                                    profitability. All in one tool</p>
+                                <a class="btn btn-danger btn-simple" href="#">See more <i
+                                        class="fa fa-chevron-right"></i></a>
+                            </div>
+                            <div class="col-md-4 column">
+                                <h4>Client Engagement</h4>
+                                <p>With Unkani Social, pet owners can stream live video of their pet, manage their pup's
+                                    social circle, see what other pets are coming in today, network with other owners,
+                                    instant message your business's team right from their phone.</p>
+                                <a class="btn btn-danger btn-simple" href="#">See more <i
+                                        class="fa fa-chevron-right"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section section-dark text-center landing-section">
+                    <div class="container">
+                        <h2>The Unkani Team</h2>
+                        <div class="col-md-4">
+                            <div class="team-player">
+                                <img src="{{ url_for("static", filename="img/team/danky_dog.jpg") }}"
+                                     alt="Thumbnail Image"
+                                     class="img-circle img-responsive">
+                                <h5>Hank <br/>
+                                    <small class="text-muted">Design & Squirrels</small>
+                                </h5>
+                                <p>A Lake Tahoe native, hank aka "Dankie" brings his appreciation for beauty to the
+                                    Unkani team
+                                    as the UI and design lead.
+                                    Hank is also a well respected <a href="https://www.youtube.com/watch?v=IDaqFiLvcB0">squirrel
+                                        behavior</a> scholar.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="team-player">
+                                <img src="{{ url_for("static", filename="img/team/shadow.jpg") }}" alt="Thumbnail Image"
+                                     class="img-circle img-responsive">
+                                <h5>Shadow <br/>
+                                    <small class="text-muted">Customer Relations</small>
+                                </h5>
+                                <p>Small dog. Big heart. Shadow's commitment and success as our customer relations lead
+                                    shows
+                                    that great things
+                                    really do come in small packages. Shadow has inspired millions of dogs world-wide
+                                    with her
+                                    quest to overcome
+                                    her limited cognitive capacity.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="team-player">
+                                <img src="{{ url_for("static", filename="img/team/kiffy.jpg") }}" alt="Thumbnail Image"
+                                     class="img-circle img-circle img-responsive">
+                                <h5>Kiffy <br/>
+                                    <small class="text-muted">Business Development</small>
+                                </h5>
+                                <p>With style and poise of regal lord, this cool cat makes sure our team
+                                    continues to grow. His effortless aptitude for all things business has allowed
+                                    Unkani to be the <a href="#">number one pet services suite</a> in the world</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section landing-section">
+                    <div class="container">
+                        <div class="row">
+                            <div class="col-md-8 col-md-offset-2">
+                                <h2 class="text-center">Keep in touch?</h2>
+                                <form class="contact-form">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label>Name</label>
+                                            <input class="form-control" placeholder="Name">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label>Email</label>
+                                            <input class="form-control" placeholder="Email">
+                                        </div>
+                                    </div>
+                                    <label>Message</label>
+                                    <textarea class="form-control" rows="4"
+                                              placeholder="Tell us your thoughts and feelings..."></textarea>
+                                    <div class="row">
+                                        <div class="col-md-4 col-md-offset-4">
+                                            <button class="btn btn-danger btn-block btn-lg btn-fill">Send Message
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endblock page_content %}
+
+    {% block footer %}
+        <footer class="footer-demo section-dark">
+            <div class="container">
+                <nav class="pull-left">
+                    <ul>
+
+                        <li>
+                            <a href="{{ url_for("main.landing") }}">
+                                <h4> Unkani App</h4>
+
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                <div class="copyright pull-right">
+                    &copy; 2016, Unkani. Made with <i class="fa fa-heart heart"></i>
+                </div>
+            </div>
+        </footer>
+    {% endblock footer %}
+
+{% endblock body %}
+
+{% block scripts %}
+    {{ super() }}
+    <!-- Just in case we need to import more scripts here -->
+{% endblock scripts %}

@@ -1,13 +1,87 @@
-{% extends "base.html" %}
-{% import "bootstrap/wtf.html" as wtf %}
-
-{% block title %}Unkani - Register{% endblock %}
-
+{% extends "auth/login.html" %}
+{% from "_formhelpers.html" import render_field, render_field_w_errors %}
+{% block body_attribs %} class="full-screen register" {% endblock body_attribs %}
+{% block navbar %}
+    {{ super() }}
+{% endblock navbar %}
 {% block page_content %}
-    <div class="page-header">
-        <h1>Register</h1>
+    <div class="wrapper">
+        <div class="background" style="background-image: url({{ url_for("static",filename="img/register_background_mountains.jpg")}});">
+            <div class="filter-black"></div>
+            <div class="container">
+                    <div class="row">
+                        <div class="col-md-6 col-md-offset-1 col-sm-7 col-xs-12">
+                            <div class="info info-horizontal">
+                                <div class="icon">
+                                    <i class="fa fa-umbrella"></i>
+                                </div>
+                                <div class="description">
+                                    <h3> We've got you covered </h3>
+                                    <p>Everything you need, all in one platform.  Unkani is the world's only fully integrated platform for pet services.  See why hundreds
+                                    of thousands of people have already signed up.</p>
+                                </div>
+                            </div>
+                            <div class="info info-horizontal">
+                                <div class="icon">
+                                    <i class="fa fa-cloud"></i>
+                                </div>
+                                <div class="description">
+                                    <h3> Cutting-Edge Tech </h3>
+                                    <p>Let us be your IT department. Unkani is entirely cloud based, utilizing modern web-based technology.  Never worry about upgrading your
+                                    system again.</p>
+                                </div>
+                            </div>
+                            <div class="info info-horizontal">
+                                <div class="icon">
+                                    <i class="fa fa-lock"></i>
+                                </div>
+                                <div class="description">
+                                    <h3> Unparalleled Security</h3>
+                                    <p>With Unkani, you and your clients' data is 100% secure.  Let us keep your business safe and secure.</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% block form_container %}
+                        <div class="col-md-4 col-sm-5 col-xs-12">
+                            {% block form_content %}
+                            <div class="demo-card">
+                                <h3 class="title text-center">Register</h3>
+
+                                <div class="social">
+                                    <button href="#" class="btn btn-fill btn-icon btn-facebook"><i class="fa fa-facebook"></i></button>
+                                    <button href="#" class="btn btn-fill btn-icon btn-google"><i class="fa fa-google"></i></button>
+                                    <button href="#" class="btn btn-fill btn-icon btn-twitter"><i class="fa fa-twitter"></i></button>
+                                </div>
+
+                                <div class="division">
+                                    <div class="line l"></div>
+                                    <span>or</span>
+                                    <div class="line r"></div>
+                                </div>
+                                <form class="register-form" method="post">
+                                    {{ form.hidden_tag() }}
+                                    {{ render_field_w_errors(form.first_name) }}
+                                    {{ render_field_w_errors(form.last_name) }}
+                                    {{ render_field_w_errors(form.username) }}
+                                    {{ render_field_w_errors(form.email) }}
+                                    {{ render_field_w_errors(form.password) }}
+                                    {{ render_field_w_errors(form.password2) }}
+
+                                    <button class="btn btn-fill btn-block">Register</button>
+                                </form>
+                                <div class="login">
+                                    <p>Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a>.</p>
+                                </div>
+                            </div>
+                            {% endblock form_content %}
+                        </div>
+                        {% endblock form_container %}
+                    </div>
+            </div>
+
+            <div class="demo-footer text-center">
+                <h6>&copy; 2016, unKani <i class="fa fa-heart heart"></i></h6>
+            </div>
+        </div>
     </div>
-    <div class="col-md-4">
-        {{ wtf.quick_form(form) }}
-    </div>
-{% endblock %}
+{% endblock page_content %}

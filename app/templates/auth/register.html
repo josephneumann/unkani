@@ -1,8 +1,34 @@
-{% extends "auth/login.html" %}
-{% from "_formhelpers.html" import render_field, render_field_w_errors %}
+{% extends "paper_base.html" %}
+{% from "_formhelpers.html" import render_form_field_no_border %}
 {% block body_attribs %} class="full-screen register" {% endblock body_attribs %}
 {% block navbar %}
-    {{ super() }}
+    <nav class="navbar navbar-ct-transparent navbar-fixed-top" role="navigation-demo" id="register-navbar">
+        <div class="container">
+            <!-- Brand and toggle get grouped for better mobile display -->
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navigation-example-2">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href={{ url_for('main.landing') }}>unKani App</a>
+            </div>
+
+            <!-- Collect the nav links, forms, and other content for toggling -->
+            <div class="collapse navbar-collapse" id="navigation-example-2">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+	                   <a href="{{ url_for('auth.login') }}" class="btn">
+	                        Looking to login?
+	                    </a>
+	                </li>
+                </ul>
+            </div><!-- /.navbar-collapse -->
+        </div><!-- /.container-->
+    </nav>
+
+
 {% endblock navbar %}
 {% block page_content %}
     <div class="wrapper">
@@ -58,20 +84,16 @@
                                     <span>or</span>
                                     <div class="line r"></div>
                                 </div>
-                                <form class="register-form" method="post">
+                                <form class="register-form" method="post" id="registerFormValidation">
                                     {{ form.hidden_tag() }}
-                                    {{ render_field_w_errors(form.first_name) }}
-                                    {{ render_field_w_errors(form.last_name) }}
-                                    {{ render_field_w_errors(form.username) }}
-                                    {{ render_field_w_errors(form.email) }}
-                                    {{ render_field_w_errors(form.password) }}
-                                    {{ render_field_w_errors(form.password2) }}
+                                    {{ render_form_field_no_border(form.first_name) }}
+                                    {{ render_form_field_no_border(form.last_name) }}
+                                    {{ render_form_field_no_border(form.username) }}
+                                    {{ render_form_field_no_border(form.email) }}
+                                    {{ render_form_field_no_border(form.password) }}
 
                                     <button class="btn btn-fill btn-block">Register</button>
                                 </form>
-                                <div class="login">
-                                    <p>Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a>.</p>
-                                </div>
                             </div>
                             {% endblock form_content %}
                         </div>
@@ -85,3 +107,14 @@
         </div>
     </div>
 {% endblock page_content %}
+{% block scripts %}
+    {{ super() }}
+    <!--  Forms Validations Plugin -->
+    <script src="{{ url_for("static", filename="js/paper_dashboard/jquery.validate.min.js") }}"></script>
+
+     <script type="text/javascript">
+        $().ready(function(){
+            $('#registerFormValidation').validate();
+        });
+    </script>
+{% endblock scripts %}

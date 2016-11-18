@@ -1,0 +1,85 @@
+/*! =========================================================
+ *
+ * Paper Dashboard PRO - V1.1.0
+ *
+ * =========================================================
+ *
+ * Copyright 2016 Creative Tim
+ * Available with purchase of license from http://www.creative-tim.com/product/paper-dashboard-pro
+ *
+ *                       _oo0oo_
+ *                      o8888888o
+ *                      88" . "88
+ *                      (| -_- |)
+ *                      0\  =  /0
+ *                    ___/`---'\___
+ *                  .' \\|     |// '.
+ *                 / \\|||  :  |||// \
+ *                / _||||| -:- |||||- \
+ *               |   | \\\  -  /// |   |
+ *               | \_|  ''\---/''  |_/ |
+ *               \  .-\__  '-'  ___/-. /
+ *             ___'. .'  /--.--\  `. .'___
+ *          ."" '<  `.___\_<|>_/___.' >' "".
+ *         | | :  `- \`.;`\ _ /`;.`/ - ` : | |
+ *         \  \ `_.   \_ __\ /__ _/   .-` /  /
+ *     =====`-.____`.___ \_____/___.-`___.-'=====
+ *                       `=---='
+ *
+ *     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ *               Buddha Bless:  "No Bugs"
+ *
+ * ========================================================= */
+
+@import "paper_dashbaord/variables";
+@import "paper_dashbaord/mixins";
+
+//plugins css
+@import "paper_dashbaord/plugins/animate";
+@import "paper_dashbaord/plugins/sweetalert2";
+@import "paper_dashbaord/plugins/bootstrap-table";
+@import "paper_dashbaord/plugins/datatables.net";
+@import "paper_dashbaord/plugins/fullcalendar";
+@import "paper_dashbaord/plugins/chartist";
+@import "paper_dashbaord/plugins/perfect-scrollbar";
+@import "paper_dashbaord/plugins/jquery.jvectormap";
+@import "paper_dashbaord/plugins/bootstrap-select";
+@import "paper_dashbaord/plugins/datetime-picker";
+
+// Core CSS
+@import "paper_dashbaord/typography";
+@import "paper_dashbaord/sidebar-and-main-panel";
+@import "paper_dashbaord/buttons";
+@import "paper_dashbaord/misc";
+@import "paper_dashbaord/inputs";
+@import "paper_dashbaord/progress-bars";
+@import "paper_dashbaord/sliders";
+@import "paper_dashbaord/forms";
+@import "paper_dashbaord/alerts";
+@import "paper_dashbaord/tables";
+@import "paper_dashbaord/tooltips-and-popovers";
+@import "paper_dashbaord/navbars";
+@import "paper_dashbaord/footers";
+@import "paper_dashbaord/cards";
+@import "paper_dashbaord/timeline";
+@import "paper_dashbaord/labels";
+@import "paper_dashbaord/chat-message";
+@import "paper_dashbaord/checkbox-radio";
+
+// Fancy Stuff
+@import "paper_dashbaord/dropdown";
+@import "paper_dashbaord/social";
+@import "paper_dashbaord/tags";
+@import "paper_dashbaord/collapse";
+@import "paper_dashbaord/carousel";
+@import "paper_dashbaord/animated-buttons";
+@import "paper_dashbaord/switch";
+
+//SCSS for Pages
+@import "paper_dashbaord/pages";
+
+@import "paper_dashbaord/tabs-navs-pagination";
+@import "paper_dashbaord/circlechart";
+
+@import "paper_dashbaord/responsive";

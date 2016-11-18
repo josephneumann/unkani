@@ -1,0 +1,55 @@
+{% extends "dashboard_base.html" %}
+
+            {% block head %}
+                {{ super() }}
+            {% endblock head %}
+
+        {% block body %}
+            {% block navbar %}
+                <nav class="navbar navbar-transparent navbar-absolute">
+                    <div class="container">
+                        <div class="navbar-header">
+                            <button type="button" class="navbar-toggle" data-toggle="collapse"
+                                    data-target="#navigation-example-2">
+                                <span class="sr-only">Toggle navigation</span>
+                                <span class="icon-bar"></span>
+                                <span class="icon-bar"></span>
+                                <span class="icon-bar"></span>
+                            </button>
+                            <a class="navbar-brand" href={{ url_for('main.landing') }}>Unkani App</a>
+                        </div>
+                        <div class="collapse navbar-collapse">
+                            <ul class="nav navbar-nav navbar-right">
+                                <li>
+                                    <a href={{ url_for('auth.register') }}>
+                                        Register
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
+            {% endblock navbar %}
+            {% block content %}
+            {% block page_content %}
+                        {% block footer %}
+                        <footer class="footer footer-transparent">
+                            <div class="container">
+                                <div class="copyright">
+                                    &copy;
+                                    <script>document.write(new Date().getFullYear())</script>
+                                    , made with <i class="fa fa-heart heart"></i> by <a
+                                        href={{ url_for('main.landing') }}>Unkani</a>
+                                </div>
+                            </div>
+                        </footer>
+                        {% endblock footer %}
+                    </div>
+                </div>
+            {% endblock page_content %}
+        {% endblock content %}
+
+    {% endblock body %}
+    {% block scripts %}
+        {{ super() }}
+    {% endblock scripts %}

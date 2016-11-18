@@ -1,0 +1,62 @@
+{% extends "dashboard/user_profile.html" %}
+{% from "_formhelpers.html" import render_form_field_w_border, render_form_datepicker_field_w_border %}
+{% block user_profile_form %}
+    <div class="col-lg-8 col-md-7">
+        <div class="card">
+            <div class="header">
+                <h4 class="title">Update Email</h4>
+            </div>
+            <div class="content">
+                <form id="changeEmailFormValidation" method="post">
+                    {{ form.csrf_token }}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>New Email</label>
+                                {{ render_form_field_w_border(form.new_email) }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Confirm Email</label>
+                                {{ render_form_field_w_border(form.new_email2) }}
+
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Password</label>
+                                {{ render_form_field_w_border(form.password) }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <a href="{{ url_for('dashboard.user_profile') }}" class="btn btn-wd btn-info btn-move-left">
+                                            <span class="btn-label">
+	                                                <i class="ti ti-user"></i>
+                                            </span>
+                            Back To User Profile
+                        </a>
+                        <button type="submit" class="btn btn-wd btn-success btn-magnify pull-right">
+	                                            <span class="btn-label">
+	                                                <i class="ti ti-check"></i>
+	                                            </span>
+                            Update Email
+                        </button>
+                        <div class="clearfix"></div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock user_profile_form %}
+{% block scripts %}
+    {{ super() }}
+    <script type="text/javascript">
+        $().ready(function () {
+            $('#changeEmailFormValidation').validate();
+        });
+    </script>
+{% endblock scripts %}

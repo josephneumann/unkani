@@ -1,0 +1,157 @@
+{% extends "dashboard/dashboard.html" %}
+{% from "_formhelpers.html" import render_form_field_w_border, render_form_datepicker_field_w_border %}
+{% block content %}
+    <div class="content">
+        <div class="container-fluid">
+            <div class="row">
+                {% block user_card %}
+                    <div class="col-lg-4 col-md-5">
+                        <div class="card card-user">
+                            <div class="image">
+                                <img src="{{ url_for("static", filename="img/tahoe-winter.jpg") }}" alt="..."/>
+                            </div>
+                            <div class="content">
+                                <div class="author">
+                                    <img class="avatar border-white"
+                                         src="{{ url_for("static", filename="img/team/shadow.jpg") }}" alt="..."/>
+                                    <h4 class="title">{{ current_user.first_name }} {{ current_user.last_name }}<br/>
+                                        <a href="#">
+                                            <small>@{{ current_user.username }}</small>
+                                        </a>
+                                    </h4>
+                                </div>
+                                <p class="description text-center">
+                                    "Lead designer <br>
+                                    of Unkani. Lake <br>
+                                    Tahoe native"
+                                </p>
+                            </div>
+                            <hr>
+                            <div class="text-center">
+                                <div class="row">
+                                    <div class="col-md-3 col-md-offset-1">
+                                        <h5>5<br/>
+                                            <small>Locations</small>
+                                        </h5>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h5>290GB<br/>
+                                            <small>Used</small>
+                                        </h5>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <h5>250k<br/>
+                                            <small>Followers</small>
+                                        </h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endblock user_card %}
+                {% block user_profile_form %}
+                    <div class="col-lg-8 col-md-7">
+                        <div class="card">
+                            <div class="header">
+                                <h4 class="title">User Profile</h4>
+                            </div>
+                            <div class="content">
+                                <form id="updateUserProfileFormValidation" method="post">
+                                    {{ form.csrf_token }}
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label>Username</label>
+                                                {{ render_form_field_w_border(form.username) }}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label>Email address</label>
+                                                <input type="email" class="form-control border-input"
+                                                       placeholder="Email"
+                                                       value="{{ current_user.email }}" disabled="">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label>First Name</label>
+                                                {{ render_form_field_w_border(form.first_name) }}
+
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label>Last Name</label>
+                                                {{ render_form_field_w_border(form.last_name) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label>Phone</label>
+                                                {{ render_form_field_w_border(form.phone) }}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label>DOB</label>
+                                                {{ render_form_datepicker_field_w_border(form.dob) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <div class="form-group">
+                                                <label>About Me</label>
+                                                <textarea rows="5" class="form-control border-input"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer">
+                                        <button type="submit" class="btn btn-wd btn-success btn-magnify pull-right">
+	                                            <span class="btn-label">
+	                                                <i class="ti ti-check"></i>
+	                                            </span>
+                                            Save Changes
+                                        </button>
+                                        <div class="form-group pull-left">
+                                            <a href="{{ url_for('dashboard.change_password') }}"
+                                               class="btn btn-wd btn-info btn-rotate">
+                                            <span class="btn-label">
+	                                                <i class="ti ti-lock"></i>
+                                            </span>
+                                                Change Password
+                                            </a>
+                                        </div>
+                                        <a href="{{ url_for('dashboard.change_email_request') }}"
+                                           class="btn btn-wd btn-info btn-move-left">
+                                            <span class="btn-label">
+	                                                <i class="ti ti-email"></i>
+                                            </span>
+                                            Update Email
+                                        </a>
+                                    </div>
+                                    <div class="clearfix"></div>
+                            </div>
+                            </form>
+                        </div>
+                    </div>
+                    </div>
+                {% endblock user_profile_form %}
+        </div>
+    </div>
+    </div>
+{% endblock content %}
+
+{% block scripts %}
+    {{ super() }}
+    <script type="text/javascript">
+        $().ready(function () {
+            $('#UpdateUserProfileFormValidation').validate();
+        });
+    </script>
+{% endblock scripts %}

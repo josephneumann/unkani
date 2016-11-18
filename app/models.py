@@ -6,6 +6,7 @@ from flask_login import UserMixin
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from datetime import datetime
 
+
 class Role(db.Model):
     __tablename__ = 'role'
     id = db.Column(db.Integer, primary_key=True)
@@ -16,7 +17,12 @@ class Role(db.Model):
         return '<Role %r>' % self.name
 
 
-class User(UserMixin,db.Model):
+# UserMixin from flask_login
+# is_authenticated() - Returns True if user has login credentials, else False
+# is_active() - Returns True if user is allowed to login, else False.
+# is_anonymous() - Returns False for logged in users
+# get_id() - Returns unique identifier for user, as Unicode string
+class User(UserMixin, db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(128), unique=True, index=True)
@@ -39,19 +45,19 @@ class User(UserMixin,db.Model):
 
     @property
     def password(self):
-        raise AttributeError ('Password is not a readable attribute')
+        raise AttributeError('Password is not a readable attribute')
 
     @password.setter
     def password(self, password):
         if self.password_hash:
             self.last_password_hash = self.password_hash
-        self.password_hash = generate_password_hash(password, method='pbkdf2:sha1',salt_length=8)
+        self.password_hash = generate_password_hash(password, method='pbkdf2:sha1', salt_length=8)
         self.password_timestamp = datetime.utcnow()
 
-    def verify_password(self,password):
-        return check_password_hash(self.password_hash,password)
+    def verify_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
-    def verify_last_password(self,password):
+    def verify_last_password(self, password):
         return check_password_hash(self.last_password_hash, password)
 
     def generate_confirmation_token(self, expiration=3600):
@@ -72,7 +78,7 @@ class User(UserMixin,db.Model):
 
     def generate_reset_token(self, expiration=3600):
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'reset':self.id})
+        return s.dumps({'reset': self.id})
 
     def reset_password(self, token, new_password):
         s = Serializer(current_app.config['SECRET_KEY'])
@@ -86,9 +92,9 @@ class User(UserMixin,db.Model):
         db.session.add(self)
         return True
 
-    def generate_email_change_token(self,new_email, expiration=3600):
+    def generate_email_change_token(self, new_email, expiration=3600):
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'change_password':self.id,'new_email':new_email})
+        return s.dumps({'change_password': self.id, 'new_email': new_email})
 
     def change_email(self, token):
         s = Serializer(current_app.config['SECRET_KEY'])
@@ -108,19 +114,21 @@ class User(UserMixin,db.Model):
         db.session.add(self)
         return True
 
-    def verify_email(self,email):
+    def verify_email(self, email):
         if self.email == email:
             return True
         else:
             return False
 
-    def verify_last_email(self,email):
+    def verify_last_email(self, email):
         if self.last_email == email:
             return True
         else:
             return False
 
-#Callback function, receives a user identifier and returns either user object or None
+
+# Callback function, receives a user identifier and returns either user object or None
+# used by Flask-Login to set current_user()
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))

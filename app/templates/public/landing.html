@@ -29,36 +29,49 @@
                 <!-- Collect the nav links, forms, and other content for toggling -->
                 <div class="collapse navbar-collapse" id="navigation-example-2">
                     <ul class="nav navbar-nav navbar-right">
-                        <li>
-                            <a href=#" target="_blank" class="btn btn-simple btn-neutral"><i class="fa fa-twitter"></i></a>
-                        </li>
-                        <li>
-                            <a href="#" target="_blank" class="btn btn-simple btn-neutral"><i
-                                    class="fa fa-facebook"></i></a>
-                        </li>
                         {% if current_user.is_authenticated %}
+                            <li><a href="{{ url_for('dashboard.dashboard_main') }}">Dashboard</a></li>
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown"> {{ current_user.username }}
-                                    <b class="caret"></b></a>
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                    <p>@{{ current_user.username }}<b class="caret"></b></p>
+                                </a>
                                 <ul class="dropdown-menu">
-                                    <li><a href="{{ url_for('auth.change_password') }}">Change Password</a></li>
-                                    <li><a href="{{ url_for('auth.change_email_request') }}">Change Email</a></li>
+                                    <li><a href="{{ url_for('dashboard.dashboard_main') }}">Dashboard</a></li>
+                                    <li><a href="{{ url_for('dashboard.user_profile') }}">My Profile</a></li>
                                     <li><a href="{{ url_for('auth.logout') }}">Sign Out</a></li>
                                 </ul>
                             </li>
                         {% else %}
                             <li>
-                                <a href="{{ url_for('auth.login') }}" class="btn btn-simple btn-neutral">Log In</a>
+                                <a href="{{ url_for('auth.login') }}" class="btn btn-default btn-fill">Log In</a>
                             </li>
                         {% endif %}
+
                     </ul>
                 </div><!-- /.navbar-collapse -->
             </div><!-- /.container-->
         </nav>
+        {% block landing_alert %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} landing-alert" data-notify="container">
+                        <div class="container">
+                            <div class="alert-wrapper">
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                                <div class="message text-center">{{ message }}</div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endwith %}
+        {% endblock landing_alert %}
     {% endblock navbar %}
     {% block page_content %}
         <div class="wrapper">
-            <div class="landing-header" style="background-image: url({{ url_for("static", filename="img/cat.jpg") }});">
+            <div class="landing-header"
+                 style="background-image: url({{ url_for("static", filename="img/landing/cat.jpg") }});">
                 <div class="container">
                     <div class="motto">
                         <h1 class="title">Unkani</h1>
@@ -71,7 +84,7 @@
                 </div>
             </div>
             <div class="main">
-                <div class="section text-center landing-section">
+                <div class="section section-gray text-center landing-section">
                     <div class="container">
                         <div class="row">
                             <div class="col-md-8 col-md-offset-2">
@@ -82,12 +95,12 @@
                                     product
                                     that has a serious pet-focused organization needs.</h5>
                                 <br/>
-                                <a href="#" class="btn btn-danger btn-fill">See Details</a>
+                                <a href="#" class="btn btn-default btn-fill">See Details</a>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="section section-light-brown landing-section">
+                <div class="section section-dark-blue landing-section">
                     <div class="container">
                         <div class="row">
                             <div class="col-md-4 column">
@@ -96,7 +109,7 @@
                                     maintain
                                     your website and client portal. Communicate en masse with clients and automatically
                                     update them about their services in real-time.</p>
-                                <a class="btn btn-danger btn-simple" href="#">See more <i
+                                <a class="btn btn-neutral btn-simple" href="#">See more <i
                                         class="fa fa-chevron-right"></i></a>
                             </div>
                             <div class="col-md-4 column">
@@ -105,7 +118,7 @@
                                     books. Optimize your inventory and automatically identify opportunities for
                                     increased
                                     profitability. All in one tool</p>
-                                <a class="btn btn-danger btn-simple" href="#">See more <i
+                                <a class="btn btn-neutral btn-simple" href="#">See more <i
                                         class="fa fa-chevron-right"></i></a>
                             </div>
                             <div class="col-md-4 column">
@@ -113,7 +126,7 @@
                                 <p>With Unkani Social, pet owners can stream live video of their pet, manage their pup's
                                     social circle, see what other pets are coming in today, network with other owners,
                                     instant message your business's team right from their phone.</p>
-                                <a class="btn btn-danger btn-simple" href="#">See more <i
+                                <a class="btn btn-neutral btn-simple" href="#">See more <i
                                         class="fa fa-chevron-right"></i></a>
                             </div>
                         </div>
@@ -190,7 +203,7 @@
                                               placeholder="Tell us your thoughts and feelings..."></textarea>
                                     <div class="row">
                                         <div class="col-md-4 col-md-offset-4">
-                                            <button class="btn btn-danger btn-block btn-lg btn-fill">Send Message
+                                            <button class="btn btn-primary btn-block btn-lg btn-fill">Send Message
                                             </button>
                                         </div>
                                     </div>
@@ -205,7 +218,7 @@
     {% endblock page_content %}
 
     {% block footer %}
-        <footer class="footer-demo section-dark">
+        <footer class="footer-demo section-white">
             <div class="container">
                 <nav class="pull-left">
                     <ul>
@@ -219,7 +232,7 @@
                     </ul>
                 </nav>
                 <div class="copyright pull-right">
-                    &copy; 2016, Unkani. Made with <i class="fa fa-heart heart"></i>
+                    &copy; 2016 <i class="fa fa-heart heart"></i> Unkani
                 </div>
             </div>
         </footer>
@@ -227,7 +240,6 @@
 
 {% endblock body %}
 
-{% block scripts %}
-    {{ super() }}
-    <!-- Just in case we need to import more scripts here -->
-{% endblock scripts %}
+{% block alerts %}
+    <!-- Intentionally left empty-->
+{% endblock alerts %}

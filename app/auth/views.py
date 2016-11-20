@@ -5,7 +5,7 @@ from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from .. import db
 from ..models import User
-from ..email import send_email
+from .. import sendgrid
 
 
 # flash('Info message, blue', 'info')
@@ -62,7 +62,8 @@ def register():
             db.session.add(user)
             db.session.commit()
             token = user.generate_confirmation_token()
-            send_email(user.email, 'Confirm Your Account', 'auth/email/confirm', user=user, token=token)
+            sendgrid.send_email(to=[user.email], user=user, token=token,
+                                subject='Confirm Your Account', template='auth/email/confirm')
             flash('A confirmation message has been sent to your email.', 'info')
             return (redirect(url_for('auth.login')))
     return render_template('auth/register.html', form=form)
@@ -84,7 +85,8 @@ def confirm(token):
 @login_required
 def resend_confirmation():
     token = current_user.generate_confirmation_token()
-    send_email(current_user.email, 'Confirm Your Account', 'auth/email/confirm', user=current_user, token=token)
+    sendgrid.send_email(to=[current_user.email], subject='Confirm Your Account', template='auth/email/confirm'
+                        , user=current_user, token=token)
     flash('A new confirmation email has been sent to your email address.', 'info')
     return redirect(url_for('main.landing'))
 
@@ -106,8 +108,9 @@ def reset_password_request():
         if user:
             if user.active:
                 token = user.generate_reset_token()
-                send_email(user.email, 'Reset Your Password', 'auth/email/reset_password', user=user, token=token,
-                           next=request.args.get('next'))
+                sendgrid.send_email(to=[user.email], subject='Reset Your Password', template='auth/email/reset_password'
+                                    ,user=user, token=token, next=request.args.get('next'))
+
                 flash('An email with instructions for resetting your password has been sent to you.', 'info')
                 return redirect(url_for('auth.login'))
             else:

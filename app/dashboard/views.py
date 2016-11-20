@@ -5,7 +5,7 @@ from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
 from .. import db
 from ..models import User
-from ..email import send_email
+from .. import sendgrid
 
 
 @dashboard.route('/change_password', methods=['GET', 'POST'])
@@ -35,8 +35,7 @@ def change_email_request():
                 flash('Email is already registered ', 'warning')
             else:
                 token = current_user.generate_email_change_token(new_email)
-                send_email(new_email, 'Confirm your email address', 'auth/email/change_email', token=token,
-                           user=current_user)
+                sendgrid.send_email(to=[new_email],template='auth/email/change_email',token=token, user=current_user)
                 flash('A confirmation email  has been sent to your new email.', 'info')
                 return redirect(url_for('dashboard.user'))
         else:

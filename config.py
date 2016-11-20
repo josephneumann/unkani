@@ -16,6 +16,10 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SENTRY_DSN = os.environ.get('SENTRY_DSN')
     SENTRY_USER_ATTRS = ['username', 'first_name', 'last_name', 'email']
+    SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
+    SENDGRID_PASSWORD = os.environ.get('SENDGRID_PASSWORD')
+    SENDGRID_USERNAME = os.environ.get('SENDGRID_USERNAME')
+    SENDGRID_DEFAULT_FROM = 'admin@unkani.com'
 
 #Define an init_app class method that allows for config specific initialization
     @staticmethod

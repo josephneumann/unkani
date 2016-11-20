@@ -8,4 +8,6 @@ DATABASE_URL=postgresql://jneumann:hFN2cNoiYR7C@localhost:5432/unkani
 FLASK_CONFIG=production
 TEST_USER_PASSWORD=unkanitest
 SENTRY_DSN=https://63569e2fb0d347a3bbc487269fdae8cd:e21b8fdb12704fae936db58c9f460a72@sentry.io/109676
-
+SENDGRID_API_KEY=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
+SENDGRID_PASSWORD=zvtmfolv5454
+SENDGRID_USERNAME=app43601799@heroku.com

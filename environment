@@ -1,5 +1,6 @@
 #Environment file to be uploaded during deploy
-#Excluded from git
+#Excluded from
+#Used for digial ocean
 
 PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
 SECRET_KEY=*k4Aq1D8XS&QAvA49bv4
@@ -11,3 +12,4 @@ SENDGRID_API_KEY=SG.LnYvswscRwy2gnOm-dZj9Q.0FhOxen4z5S2IVUf9tyrQ1dOBTlZBYWhgZeXZ
 SENDGRID_PASSWORD=zvtmfolv5454
 SENDGRID_USERNAME=app43601799@heroku.com
 CELERY_TASK_SERIALIZER=json
+REDIS_URL=redis://localhost:6379/0

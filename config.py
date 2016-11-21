@@ -22,7 +22,8 @@ class Config:
     SENDGRID_USERNAME = os.environ.get('SENDGRID_USERNAME')
     SENDGRID_DEFAULT_FROM = 'admin@unkani.com'
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-
+    CELERY_BROKER_URL = os.environ.get('REDIS_URL')
+    CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL')
 
 #Define an init_app class method that allows for config specific initialization
     @staticmethod

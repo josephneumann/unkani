@@ -8,6 +8,7 @@ from flask_login import LoginManager
 from raven.contrib.flask import Sentry
 import logging
 from celery import Celery
+import os
 from config import config, Config
 
 # Import config object [which is itself a dict of config objects] from config package
@@ -26,7 +27,7 @@ login_manager.login_view = 'auth.login'
 login_manager.login_message = 'You must log in to view this page.'
 login_manager.login_message_category = 'info'
 sentry = Sentry()
-celery = Celery(__name__, broker=Config.CELERY_BROKER_URL)
+celery = Celery(__name__, broker=os.environ.get('CELERY_BROKER_URL')
 
 
 # Application factory function

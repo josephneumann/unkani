@@ -6,13 +6,14 @@ from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from raven.contrib.flask import Sentry
-from .flask_sendgrid import FlaskSendGrid
 import logging
+from celery import Celery
+from config import config, Config
 
-#Import config object [which is itself a dict of config objects] from config package
+# Import config object [which is itself a dict of config objects] from config package
 from config import config
 
-#Intialize Flask extensions, but do not specify application instance
+# Intialize Flask extensions, but do not specify application instance
 # Since no application instance to initialize flask extensions with,
 # we create them uninitialized by passing no arguments into their constructors.
 bootstrap = Bootstrap()
@@ -22,30 +23,33 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 login_manager.session_protection = 'strong'
 login_manager.login_view = 'auth.login'
+login_manager.login_message = 'You must log in to view this page.'
+login_manager.login_message_category = 'info'
 sentry = Sentry()
-sendgrid = FlaskSendGrid()
+celery = Celery(__name__, broker=Config.CELERY_BROKER_URL)
 
-#Application factory function
-#Use Flask's app.config.from_object method to pull config object
-#The configuration name is pulled from env variable and then that is
-#Used as a key for accessing config dict's configuration object
+
+# Application factory function
+# Use Flask's app.config.from_object method to pull config object
+# The configuration name is pulled from env variable and then that is
+# Used as a key for accessing config dict's configuration object
 
 def create_app(config_name):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
     config[config_name].init_app(app)
 
-#Complete initialization of extension objects with the app object
+    # Complete initialization of extension objects with the app object
     bootstrap.init_app(app)
     mail.init_app(app)
     moment.init_app(app)
     db.init_app(app)
     login_manager.init_app(app)
     sentry.init_app(app, logging=True, level=logging.ERROR)
-    sendgrid.init_app(app)
+    celery.conf.update(app.config)
 
-#Register blueprint objects with application object
-#These MUST be imported last, to avoid circular dependencies in the blueprint
+    # Register blueprint objects with application object
+    # These MUST be imported last, to avoid circular dependencies in the blueprint
     from .main import main as main_blueprint
     app.register_blueprint(main_blueprint)
 
@@ -56,4 +60,3 @@ def create_app(config_name):
     app.register_blueprint(dashboard_blueprint, url_prefix='/app')
 
     return app
-

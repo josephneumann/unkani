@@ -18,6 +18,8 @@ class Config:
     BROKER_URL = CELERY_BROKER_URL
     CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL')
     CELERY_TASK_SERIALIZER = 'json'
+    CELERY_RESULT_SERIALIZER = 'json'
+    CELERY_ACCEPT_CONTENT=['json']
     BROKER_TRANSPORT = 'redis'
 
     # Define an init_app class method that allows for config specific initialization

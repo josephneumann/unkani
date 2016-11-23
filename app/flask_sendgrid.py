@@ -17,6 +17,7 @@ from sendgrid.helpers.mail import *
 from flask import render_template, current_app
 from . import celery
 
+
 @celery.task()
 def send_async_email(data):
     app = current_app._get_current_object()

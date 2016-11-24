@@ -1,2 +1,2 @@
 web: gunicorn manage:app
-celeryworker: celery worker -A celery_worker.celery --loglevel=info
+celery: celery multi start 3 -E -c 3 -A celery_worker.celery --loglevel=info

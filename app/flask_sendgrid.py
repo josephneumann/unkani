@@ -18,7 +18,7 @@ from flask import render_template, current_app
 from . import celery
 
 
-@celery.task(name='app.flask_sendgrid.send_async_email')
+@celery.task()
 def send_async_email(data):
     app = current_app._get_current_object()
     api_key = app.config['SENDGRID_API_KEY']

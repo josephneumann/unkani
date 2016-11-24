@@ -22,7 +22,6 @@ class Config:
     CELERY_ACCEPT_CONTENT=['json']
     BROKER_TRANSPORT = 'redis'
     CELERY_IMPORTS = ['app.flask_sendgrid']
-    CELERY_INCLUDE = ['app.flask_sendgrid']
 
     # Define an init_app class method that allows for config specific initialization
     @staticmethod
@@ -39,11 +38,10 @@ class DevelopmentConfig(Config):
 class TestingConfig(Config):
     DEBUG = True
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get('TESTING_DATABASE_URL')
     WTF_CSRF_ENABLED = False
 
 class StagingConfig(Config):
-    DEBUG = True
+    DEBUG = False
     TESTING = False
 
 

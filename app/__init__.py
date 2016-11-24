@@ -61,3 +61,4 @@ def create_app(config_name):
     app.register_blueprint(dashboard_blueprint, url_prefix='/app')
 
     return app
+

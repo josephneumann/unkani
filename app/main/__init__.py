@@ -5,6 +5,6 @@ from flask import Blueprint
 
 main = Blueprint('main', __name__)
 
-#Import routes and error handlers to associate with blueprint
-#Must remain at bottom to avoid circular dependencies
+# Import routes and error handlers to associate with blueprint
+# Must remain at bottom to avoid circular dependencies
 from . import views, errors

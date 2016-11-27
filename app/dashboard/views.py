@@ -16,10 +16,11 @@ def change_password():
         if current_user.verify_password(form.old_password.data):
             current_user.password = form.password.data
             db.session.add(current_user)
+            db.session.commit()
             flash('Your password has been changed.', 'success')
             return redirect(url_for('dashboard.user_profile'))
         else:
-            flash('You entered an invalid password', 'danger')
+            flash('You entered an invalid password.', 'danger')
     return render_template("dashboard/change_password.html", form=form)
 
 
@@ -32,14 +33,14 @@ def change_email_request():
             new_email = form.new_email.data
             user = User.query.filter_by(email=new_email).first()
             if user is not None:
-                flash('Email is already registered ', 'warning')
+                flash('Email is already registered.', 'warning')
             else:
                 token = current_user.generate_email_change_token(new_email)
-                send_email(to=[new_email],template='auth/email/change_email',token=token, user=current_user)
+                send_email(subject='Unkani - Email Change', to=[new_email],template='auth/email/change_email',token=token, user=current_user)
                 flash('A confirmation email  has been sent to your new email.', 'info')
-                return redirect(url_for('dashboard.user'))
+                return redirect(url_for('dashboard.user_profile'))
         else:
-            flash('Invalid password', 'danger')
+            flash('Invalid password.', 'danger')
     return render_template('dashboard/change_email.html', form=form)
 
 
@@ -47,9 +48,9 @@ def change_email_request():
 @login_required
 def change_email(token):
     if current_user.change_email(token):
-        flash('Your email has been updated', 'success')
+        flash('Your email has been updated.', 'success')
     else:
-        flash('Invalid email change request', 'danger')
+        flash('Invalid email change request.', 'danger')
     return redirect(url_for('dashboard.user_profile'))
 
 
@@ -72,8 +73,7 @@ def user_profile():
                 flash(
                     'The username '
                     + form.username.data
-                    + '''Is already taken. We kept your username the same.
-                    Please select another username if you wish to change it.'''
+                    + ''' is already taken. We kept your username the same.'''
                     ,'danger')
         else:
             username = form.username.data

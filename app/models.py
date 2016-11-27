@@ -4,7 +4,10 @@ from . import db, login_manager
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
-from datetime import datetime
+from datetime import datetime, date
+from random import randint, choice
+from names import get_first_name, get_last_name
+import os
 
 
 class Role(db.Model):
@@ -16,10 +19,24 @@ class Role(db.Model):
     def __repr__(self):
         return '<Role %r>' % self.name
 
+    @staticmethod
+    def initialize_roles():
+        roles = {
+            'Admin': ('0'),
+            'User': ('1'),
+        }
+        for r in roles:
+            role = Role.query.filter_by(name=r).first()
+            if role is None:
+                role = Role(name=r)
+                role.id = int(roles[r][0])
+                db.session.add(role)
+        db.session.commit()
+
 
 # UserMixin from flask_login
 # is_authenticated() - Returns True if user has login credentials, else False
-# is_active() - Returns True if user is allowed to login, else False.
+# is_active() - Returns True if useris allowed to login, else False.
 # is_anonymous() - Returns False for logged in users
 # get_id() - Returns unique identifier for user, as Unicode string
 class User(UserMixin, db.Model):
@@ -46,6 +63,34 @@ class User(UserMixin, db.Model):
     @property
     def password(self):
         raise AttributeError('Password is not a readable attribute')
+
+    @staticmethod
+    def random_dob():
+        current_datetime = datetime.now()
+        year = choice(range(current_datetime.year - 100, current_datetime.year - 10))
+        month = choice(range(1, 13))
+        day = choice(range(1, 29))
+        dob = date(year, month, day)
+        return dob
+
+    @staticmethod
+    def random_phone():
+        p = list('0000000000')
+        p[0] = str(randint(1, 9))
+        for i in [1, 2, 6, 7, 8]:
+            p[i] = str(randint(0, 9))
+        for i in [3, 4]:
+            p[i] = str(randint(0, 8))
+        if p[3] == p[4] == 0:
+            p[5] = str(randint(1, 8))
+        else:
+            p[5] = str(randint(0, 8))
+        n = range(10)
+        if p[6] == p[7] == p[8]:
+            n = [i for i in n if i != p[6]]
+        p[9] = str(choice(n))
+        p = ''.join(p)
+        return str(p[:3] + '-' + p[3:6] + '-' + p[6:])
 
     @password.setter
     def password(self, password):
@@ -105,9 +150,7 @@ class User(UserMixin, db.Model):
         if data.get('change_password') != self.id:
             return False
         new_email = data.get('new_email')
-        if new_email is None:
-            return False
-        if self.query.filter_by(email=new_email).first() != None:
+        if self.query.filter_by(email=new_email).first() is not None:
             return False
         self.last_email = self.email
         self.email = new_email
@@ -125,6 +168,29 @@ class User(UserMixin, db.Model):
             return True
         else:
             return False
+
+    def create_random_user(self, gender=None, **kwargs):
+        allowed_genders = ['male', 'female']
+        if gender:
+            if gender not in allowed_genders:
+                gender = None
+
+        email_domains = ['@gmail.com', '@icloud.com', '@yahoo.com', '@microsoft.com'
+            , '@aol.com', '@comcast.com', '@mail.com', '@inbox.com', '@outlook.com']
+        email_domains_number = len(email_domains)
+        random_number = str(randint(0, 1000))
+        rand_email_index = randint(0, (email_domains_number - 1))
+        self.first_name = get_first_name(gender)
+        self.last_name = get_last_name()
+        self.username = self.first_name + '.' + self.last_name + random_number
+        rand_domain = email_domains[rand_email_index]
+        self.email = self.username + rand_domain
+        self.dob = self.random_dob()
+        self.phone = self.random_phone()
+        password = kwargs.get('password')
+        if not password:
+            password = os.environ.get('TEST_USER_PASSWORD')
+        self.password = password
 
 
 # Callback function, receives a user identifier and returns either user object or None

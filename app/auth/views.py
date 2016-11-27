@@ -31,7 +31,7 @@ def login():
             login_user(user, form.remember_me.data)
             return redirect(request.args.get('next') or url_for('dashboard.dashboard_main'))
         else:
-            flash('Invalid username or password.', 'danger')
+            flash('Invalid email or password.', 'danger')
     return render_template('auth/login.html', form=form)
 
 
@@ -49,7 +49,7 @@ def register():
     form = RegistrationForm()
     if form.validate_on_submit():
         if User.query.filter_by(email=form.email.data).first():
-            flash('Email is already registered. Please enter a different email address  '
+            flash('Email is already registered. Please enter a different email address '
                   'or recover your password for your existing account to proceed.', 'danger')
 
         if User.query.filter_by(username=form.username.data).first():
@@ -73,6 +73,7 @@ def register():
 @login_required
 def confirm(token):
     if current_user.confirmed:
+        flash('Your account has already been confirmed.', 'success')
         return redirect(url_for('main.landing'))
     if current_user.confirm(token):
         flash('You have confirmed your account.', 'success')
@@ -132,12 +133,13 @@ def reset_password(token):
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
         if user is None:
+            flash('That does not appear to be a valid email.', 'danger')
             return redirect(url_for('main.landing'))
         new_password = form.password.data
         if user.reset_password(token, new_password):
             flash('Your password has been reset.', 'success')
             return redirect(url_for('auth.login'))
         else:
-            flash('There was an error resetting your password', 'danger')
+            flash('There was an error resetting your password.', 'danger')
             return redirect(url_for('main.landing'))
     return render_template('auth/reset_password.html', form=form)

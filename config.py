@@ -13,9 +13,6 @@ class Config:
     SENDGRID_PASSWORD = os.environ.get('SENDGRID_PASSWORD')
     SENDGRID_USERNAME = os.environ.get('SENDGRID_USERNAME')
     SENDGRID_DEFAULT_FROM = 'admin@unkani.com'
-    # SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    # DB for Testing
-    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL')
     CELERY_BROKER_URL = os.environ.get('REDIS_URL')
     BROKER_URL = CELERY_BROKER_URL
     CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL')
@@ -35,23 +32,30 @@ class Config:
 class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
-
+    EMAIL_OFF = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
 class TestingConfig(Config):
     DEBUG = True
     TESTING = True
+    SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL')
     WTF_CSRF_ENABLED = False
     PRESERVE_CONTEXT_ON_EXCEPTION = False
+    EMAIL_OFF = True
 
 
 class StagingConfig(Config):
     DEBUG = False
     TESTING = False
+    EMAIL_OFF = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
 
 class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
+    EMAIL_OFF = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
 
 # Configuration objects are assigned to a dict for access in intitialization script from objects

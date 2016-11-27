@@ -31,11 +31,11 @@ class AuthViewsFormsTestCase(TestCase):
         self.assert_template_used('auth/register.html')
 
     def test_invalid_login_message(self):
-        u = User(email='johndoe@gmail.com', password='cat')
+        u = User(email='johndoe@example.com', password='cat')
         db.session.add(u)
         db.session.commit()
         response = self.client.post(url_for('auth.login'), data={
-            'email': 'johndoe@gmail.com',
+            'email': 'johndoe@example.com',
             'password': 'dog'
         }, follow_redirects=True)
         self.assertMessageFlashed(message='Invalid email or password.', category='danger')
@@ -140,12 +140,12 @@ class AuthViewsFormsTestCase(TestCase):
         self.assert_template_used('auth/register.html')
 
     def test_resgister_existing_username(self):
-        u = User(email='johndoe@example.com', username='john.doe')
+        u = User(email='johndoe1@example.com', username='john.doe1')
         db.session.add(u)
         db.session.commit()
         response = self.client.post(url_for('auth.register'), data={
-            'email': 'johndoe@gmail.com',
-            'username': 'john.doe',
+            'email': 'johndoe2@example.com',
+            'username': 'john.doe1',
             'password': 'cat',
             'first_name': 'john',
             'last_name': 'doe',
@@ -156,11 +156,11 @@ class AuthViewsFormsTestCase(TestCase):
         self.assert_template_used('auth/register.html')
 
     def test_logout_success(self):
-        u = User(email='johndoe@gmail.com', password='cat')
+        u = User(email='johndoe@example.com', password='cat')
         db.session.add(u)
         db.session.commit()
         response = self.client.post(url_for('auth.login'), data={
-            'email': 'johndoe@gmail.com',
+            'email': 'johndoe@example.com',
             'password': 'cat'
         }, follow_redirects=True)
         response = self.client.get(url_for('auth.logout'), follow_redirects=True)

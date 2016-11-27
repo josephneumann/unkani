@@ -26,11 +26,11 @@ class AuthViewsFormsTestCase(TestCase):
 
     def test_change_password_success(self):
         with self.client:
-            u = User(email='johndoe@gmail.com', password='cat', confirmed=True)
+            u = User(email='johndoe@example.com', password='cat', confirmed=True)
             db.session.add(u)
             db.session.commit()
             response = self.client.post(url_for('auth.login'), data={
-                'email': 'johndoe@gmail.com',
+                'email': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
 
@@ -44,11 +44,11 @@ class AuthViewsFormsTestCase(TestCase):
 
     def test_change_password_invalid_request(self):
         with self.client:
-            u = User(email='johndoe@gmail.com', password='cat', confirmed=True)
+            u = User(email='johndoe@example.com', password='cat', confirmed=True)
             db.session.add(u)
             db.session.commit()
             response = self.client.post(url_for('auth.login'), data={
-                'email': 'johndoe@gmail.com',
+                'email': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
 
@@ -63,16 +63,16 @@ class AuthViewsFormsTestCase(TestCase):
 
     def test_change_email_request_success(self):
         with self.client:
-            u = User(email='johndoe@gmail.com', password='cat', confirmed=True)
+            u = User(email='johndoe@example.com', password='cat', confirmed=True)
             db.session.add(u)
             db.session.commit()
             response = self.client.post(url_for('auth.login'), data={
-                'email': 'johndoe@gmail.com',
+                'email': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
             response = self.client.post(url_for('dashboard.change_email_request'), data={
-                'new_email': 'johndoe2@gmail.com',
-                'new_email2': 'johndoe2@gmail.com',
+                'new_email': 'johndoe2@example.com',
+                'new_email2': 'johndoe2@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
             db.session.remove()
@@ -80,73 +80,73 @@ class AuthViewsFormsTestCase(TestCase):
 
     def test_change_invalid_change_email_request_existing_email(self):
         with self.client:
-            u = User(email='johndoe@gmail.com', password='cat', confirmed=True)
+            u = User(email='johndoe@example.com', password='cat', confirmed=True)
             db.session.add(u)
             db.session.commit()
             response = self.client.post(url_for('auth.login'), data={
-                'email': 'johndoe@gmail.com',
+                'email': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
             response = self.client.post(url_for('dashboard.change_email_request'), data={
-                'new_email': 'johndoe@gmail.com',
-                'new_email2': 'johndoe@gmail.com',
+                'new_email': 'johndoe@example.com',
+                'new_email2': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
             self.assertMessageFlashed('Email is already registered.','warning')
 
     def test_change_invalid_change_email_request_wrong_password(self):
         with self.client:
-            u = User(email='johndoe@gmail.com', password='cat', confirmed=True)
+            u = User(email='johndoe@example.com', password='cat', confirmed=True)
             db.session.add(u)
             db.session.commit()
             response = self.client.post(url_for('auth.login'), data={
-                'email': 'johndoe@gmail.com',
+                'email': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
             response = self.client.post(url_for('dashboard.change_email_request'), data={
-                'new_email': 'johndoe2@gmail.com',
-                'new_email2': 'johndoe2@gmail.com',
+                'new_email': 'johndoe2@example.com',
+                'new_email2': 'johndoe2@example.com',
                 'password': 'invalidpassword'
             }, follow_redirects=True)
             self.assertMessageFlashed('Invalid password.','danger')
 
     def test_change_email_token_success(self):
         with self.client:
-            u = User(email='johndoe@gmail.com', password='cat', confirmed=True)
+            u = User(email='johndoe@example.com', password='cat', confirmed=True)
             db.session.add(u)
             db.session.commit()
             response = self.client.post(url_for('auth.login'), data={
-                'email': 'johndoe@gmail.com',
+                'email': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
-            token = current_user.generate_email_change_token('johndoe2@gmail.com')
+            token = current_user.generate_email_change_token('johndoe2@example.com')
             response = self.client.get(url_for('dashboard.change_email', token=token), follow_redirects=True)
             self.assertMessageFlashed('Your email has been updated.','success')
-            self.assertEqual(current_user.email, 'johndoe2@gmail.com')
+            self.assertEqual(current_user.email, 'johndoe2@example.com')
 
     def test_invalid_change_email_token(self):
         with self.client:
-            u1 = User(email='johndoe@gmail.com', password='cat', confirmed=True)
-            u2 = User(email='janedoe@gmail.com', password='cat', confirmed=True)
+            u1 = User(email='johndoe@example.com', password='cat', confirmed=True)
+            u2 = User(email='janedoe@example.com', password='cat', confirmed=True)
             db.session.add(u1)
             db.session.add(u2)
             db.session.commit()
             response = self.client.post(url_for('auth.login'), data={
-                'email': 'johndoe@gmail.com',
+                'email': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
-            user2 = User.query.filter_by(email='janedoe@gmail.com').first()
-            token = user2.generate_email_change_token('janedoe2@gmail.com')
+            user2 = User.query.filter_by(email='janedoe@example.com').first()
+            token = user2.generate_email_change_token('janedoe2@example.com')
             response = self.client.get(url_for('dashboard.change_email', token=token), follow_redirects=True)
             self.assertMessageFlashed('Invalid email change request.','danger')
 
     def test_user_profile_update_success(self):
         with self.client:
-            u = User(email='johndoe@gmail.com', username='john.doe', password='cat', confirmed=True)
+            u = User(email='johndoe@example.com', username='john.doe', password='cat', confirmed=True)
             db.session.add(u)
             db.session.commit()
             response = self.client.post(url_for('auth.login'), data={
-                'email': 'johndoe@gmail.com',
+                'email': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
             current_date = datetime.now().date()
@@ -166,13 +166,13 @@ class AuthViewsFormsTestCase(TestCase):
 
     def test_user_profile_invalid_update_existing_username(self):
         with self.client:
-            u = User(email='johndoe@gmail.com', username='john.doe', password='cat', confirmed=True)
-            u2 = User(email='janedoe@gmail.com', username='jane.doe', password='cat', confirmed=True)
+            u = User(email='johndoe@example.com', username='john.doe', password='cat', confirmed=True)
+            u2 = User(email='janedoe@example.com', username='jane.doe', password='cat', confirmed=True)
             db.session.add(u)
             db.session.add(u2)
             db.session.commit()
             response = self.client.post(url_for('auth.login'), data={
-                'email': 'johndoe@gmail.com',
+                'email': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
             current_date = datetime.now().date()

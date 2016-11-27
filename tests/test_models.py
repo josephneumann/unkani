@@ -99,7 +99,7 @@ class UserModelTestCase(TestCase):
         self.assertTrue(u2.verify_password('dog'))
 
     def test_valid_email_change_token_and_last_email_saved(self):
-        test_email = 'johndoe@gmail.com'
+        test_email = 'johndoe@example.com'
         u = User(email=test_email)
         db.session.add(u)
         db.session.commit()
@@ -107,9 +107,9 @@ class UserModelTestCase(TestCase):
         self.assertTrue(u.change_email(token))
 
     def test_invalid_email_change_token_wrong_user(self):
-        email1 = 'johdoe@gmail.com'
-        email2 = 'janedoe@gmail.com'
-        email3 = 'joedoe@gmail.com'
+        email1 = 'johdoe@example.com'
+        email2 = 'janedoe@example.com'
+        email3 = 'joedoe@example.com'
         u1 = User(email=email1)
         u2 = User(email=email2)
         u3 = User(email=email3)
@@ -126,7 +126,7 @@ class UserModelTestCase(TestCase):
         self.assertFalse(u1.change_email(u1_token_taken_email))
 
     def test_verify_last_email(self):
-        test_email = 'johndoe@gmail.com'
+        test_email = 'johndoe@example.com'
         u = User(email=test_email)
         db.session.add(u)
         db.session.commit()
@@ -137,7 +137,7 @@ class UserModelTestCase(TestCase):
         self.assertFalse(u.verify_last_email(new_email))
 
     def test_verify_email(self):
-        test_email = 'johndoe@gmail.com'
+        test_email = 'johndoe@example.com'
         u = User(email=test_email)
         db.session.add(u)
         db.session.commit()
@@ -196,7 +196,7 @@ class UserModelTestCase(TestCase):
         self.assertTrue(user is not None)
 
     def test_random_dob(self):
-        test_length = 50
+        test_length = 10
         dob_list = []
         for x in range(0, test_length):
             user = User()
@@ -210,7 +210,7 @@ class UserModelTestCase(TestCase):
 
     def test_random_phone(self):
         phone_list = []
-        test_length = 50
+        test_length = 10
         for x in range(0, test_length):
             user = User()
             phone_list.append(user.random_phone())

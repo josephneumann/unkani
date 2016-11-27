@@ -16,6 +16,7 @@ from sendgrid import *
 from sendgrid.helpers.mail import *
 from flask import render_template, current_app
 from . import celery
+import re
 
 
 @celery.task()
@@ -32,6 +33,7 @@ def send_async_email(data):
 def send_email(**kwargs):
     app = current_app._get_current_object()
     default_from = app.config['SENDGRID_DEFAULT_FROM']
+    dummy_email = False
     if not kwargs.get('from_email', None) and not default_from:
         raise ValueError('No from email or default_from email configured')
 
@@ -48,9 +50,20 @@ def send_email(**kwargs):
     message.add_content(Content("text/html", render_template(kwargs.get('template') + '.html', **kwargs)))
 
     personalization = Personalization()
+    to_emails = []
     for email in kwargs['to']:
+        to_emails.append(email)
         personalization.add_to(Email(email))
     message.add_personalization(personalization)
 
-    data = message.get()
-    send_async_email.delay(data=data)
+    for email in to_emails:
+        if re.search(r'(@example.com)+', email):
+            dummy_email = True
+
+    if current_app.config['EMAIL_OFF']:
+        pass
+    elif dummy_email:
+        pass
+    else:
+        data = message.get()
+        send_async_email.delay(data=data)

@@ -272,3 +272,15 @@ class AuthViewsFormsTestCase(TestCase):
         token = user.generate_reset_token()
         response = self.client.get(url_for('auth.reset_password', token=token), follow_redirects=True)
         self.assertTemplateUsed('auth/reset_password.html')
+
+    def test_last_seen_ping_on_login(self):
+        u = User(email='johndoe@example.com', password='cat', confirmed=True)
+        db.session.add(u)
+        db.session.commit()
+        response = self.client.post(url_for('auth.login'), data={
+            'email': 'johndoe@example.com',
+            'password': 'cat'
+        }, follow_redirects=True)
+        user = User.query.filter_by(email='johndoe@example.com').first()
+        last_seen = user.last_seen
+        self.assertTrue(last_seen)

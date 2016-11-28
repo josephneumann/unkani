@@ -227,4 +227,3 @@ class UserModelTestCase(TestCase):
         self.assertTrue(admin_role is not None)
         self.assertEqual(admin_role.name, 'Admin')
         self.assertTrue(user_role.name, 'User')
-

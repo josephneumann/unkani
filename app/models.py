@@ -1,4 +1,4 @@
-from flask import current_app
+from flask import current_app, request
 
 from . import db, login_manager
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -8,6 +8,8 @@ from datetime import datetime, date
 from random import randint, choice
 from names import get_first_name, get_last_name
 import os
+import re
+import hashlib
 
 
 class Role(db.Model):
@@ -56,9 +58,15 @@ class User(UserMixin, db.Model):
     confirmed = db.Column(db.Boolean, default=False)
     active = db.Column(db.BOOLEAN, default=True)
     create_timestamp = db.Column(db.TIMESTAMP, default=datetime.utcnow())
+    last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
+    avatar_hash = db.Column(db.String(32))
 
     def __repr__(self):
         return '<User %r>' % self.username
+
+    def ping(self):
+        self.last_seen = datetime.utcnow()
+        db.session.add(self)
 
     @property
     def password(self):
@@ -154,6 +162,8 @@ class User(UserMixin, db.Model):
             return False
         self.last_email = self.email
         self.email = new_email
+        if not re.search(r'(@example.com)+', new_email):
+            self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
         db.session.add(self)
         return True
 
@@ -191,6 +201,15 @@ class User(UserMixin, db.Model):
         if not password:
             password = os.environ.get('TEST_USER_PASSWORD')
         self.password = password
+
+    def gravatar(self, size=100, default='identicon', rating='g'):
+        if request.is_secure:
+            url = 'https://secure.gravatar.com/avatar'
+        else:
+            url = 'http://www.gravatar.com/avatar'
+        hash = self.avatar_hash or hashlib.md5(self.email.encode('utf-8')).hexdigest()
+        return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
+            url=url, hash=hash, size=size, default=default, rating=rating)
 
 
 # Callback function, receives a user identifier and returns either user object or None

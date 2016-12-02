@@ -1,0 +1,130 @@
+{% extends "dashboard/dashboard.html" %}
+{% from "_formhelpers.html" import render_form_field_w_border, render_form_datepicker_field_w_border %}
+{% block content %}
+    <div class="content">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="content">
+                            <div class="toolbar">
+                                <!--Here you can write extra buttons/actions for the toolbar-->
+                            </div>
+                            <table id="bootstrap-table" class="table">
+                                <thead>
+                                <th data-field="state" data-checkbox="true"></th>
+                                <th data-field="id" data-sortable="true" class="text-center">ID</th>
+                                <th data-field="first_name" data-sortable="true">First Name</th>
+                                <th data-field="last_name" data-sortable="true">Last Name</th>
+                                <th data-field="username" data-sortable="true">Username</th>
+                                <th data-field="email" data-sortable="true">Email</th>
+                                <th data-field="role" data-sortable="true">Role</th>
+                                <th data-field="actions" class="td-actions text-right" data-events="operateEvents"
+                                    data-formatter="operateFormatter">Actions
+                                </th>
+                                </thead>
+                                <tbody>
+                                {% for user in userlist %}
+                                <tr>
+                                    <td></td>
+                                    <td>{{ user.id }}</td>
+                                    <td>{{ user.first_name }}</td>
+                                    <td>{{ user.last_name }}</td>
+                                    <td>@{{ user.username }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ user.role.name }}</td>
+                                </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div><!--  end card  -->
+                </div> <!-- end col-md-12 -->
+            </div> <!-- end row -->
+        </div>
+    </div>
+{% endblock content %}
+
+{% block scripts %}
+    {{ super() }}
+    <script type="text/javascript">
+
+        var $table = $('#bootstrap-table');
+
+        function operateFormatter(value, row, index) {
+            return [
+                '<div class="table-icons">',
+                '<a rel="tooltip" title="View" class="btn btn-simple btn-info btn-icon table-action view" href="javascript:void(0)">',
+                '<i class="ti-image"></i>',
+                '</a>',
+                '<a rel="tooltip" title="Edit" class="btn btn-simple btn-warning btn-icon table-action edit" href="javascript:void(0)">',
+                '<i class="ti-pencil-alt"></i>',
+                '</a>',
+                '<a rel="tooltip" title="Remove" class="btn btn-simple btn-danger btn-icon table-action remove" href="javascript:void(0)">',
+                '<i class="ti-close"></i>',
+                '</a>',
+                '</div>',
+            ].join('');
+        }
+
+        $().ready(function () {
+            window.operateEvents = {
+                'click .view': function (e, value, row, index) {
+                    info = JSON.stringify(row);
+
+                    swal('You clicked the view icon, row: ', info);
+                    console.log(info);
+                },
+                'click .edit': function (e, value, row, index) {
+                    info = JSON.stringify(row);
+
+                    swal('You clicked the edit icon, row: ', info);
+                    console.log(info);
+                },
+                'click .remove': function (e, value, row, index) {
+                    console.log(row);
+                    $table.bootstrapTable('remove', {
+                        field: 'id',
+                        values: [row.id]
+                    });
+                }
+            };
+
+            $table.bootstrapTable({
+                toolbar: ".toolbar",
+                clickToSelect: true,
+                showRefresh: true,
+                search: true,
+                showToggle: true,
+                showColumns: true,
+                pagination: true,
+                searchAlign: 'left',
+                pageSize: 10,
+                clickToSelect: true,
+                pageList: [10, 20, 50, 100],
+
+                formatShowingRows: function (pageFrom, pageTo, totalRows) {
+                    //do nothing here, we don't want to show the text "showing x of y from..."
+                },
+                formatRecordsPerPage: function (pageNumber) {
+                    return pageNumber + " rows visible";
+                },
+                icons: {
+                    refresh: 'fa fa-refresh',
+                    toggle: 'fa fa-th-list',
+                    columns: 'fa fa-columns',
+                    detailOpen: 'fa fa-plus-circle',
+                    detailClose: 'ti-close'
+                }
+            });
+
+            //activate the tooltips after the data table is initialized
+            $('[rel="tooltip"]').tooltip();
+
+            $(window).resize(function () {
+                $table.bootstrapTable('resetView');
+            });
+        });
+
+    </script>
+{% endblock scripts %}

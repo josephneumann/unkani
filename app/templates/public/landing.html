@@ -37,7 +37,7 @@
                                 </a>
                                 <ul class="dropdown-menu">
                                     <li><a href="{{ url_for('dashboard.dashboard_main') }}">Dashboard</a></li>
-                                    <li><a href="{{ url_for('dashboard.user_profile') }}">My Profile</a></li>
+                                    <li><a href="{{ url_for('dashboard.user_profile', userid = current_user.id) }}">My Profile</a></li>
                                     <li><a href="{{ url_for('auth.logout') }}">Sign Out</a></li>
                                 </ul>
                             </li>

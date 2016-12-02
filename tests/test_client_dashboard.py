@@ -76,7 +76,7 @@ class AuthViewsFormsTestCase(TestCase):
                 'password': 'cat'
             }, follow_redirects=True)
             db.session.remove()
-            self.assertMessageFlashed('A confirmation email  has been sent to your new email.','info')
+            self.assertMessageFlashed('A confirmation email  has been sent to your new email.', 'info')
 
     def test_change_invalid_change_email_request_existing_email(self):
         with self.client:
@@ -92,7 +92,7 @@ class AuthViewsFormsTestCase(TestCase):
                 'new_email2': 'johndoe@example.com',
                 'password': 'cat'
             }, follow_redirects=True)
-            self.assertMessageFlashed('Email is already registered.','warning')
+            self.assertMessageFlashed('Email is already registered.', 'warning')
 
     def test_change_invalid_change_email_request_wrong_password(self):
         with self.client:
@@ -108,7 +108,7 @@ class AuthViewsFormsTestCase(TestCase):
                 'new_email2': 'johndoe2@example.com',
                 'password': 'invalidpassword'
             }, follow_redirects=True)
-            self.assertMessageFlashed('Invalid password.','danger')
+            self.assertMessageFlashed('Invalid password.', 'danger')
 
     def test_change_email_token_success(self):
         with self.client:
@@ -121,7 +121,7 @@ class AuthViewsFormsTestCase(TestCase):
             }, follow_redirects=True)
             token = current_user.generate_email_change_token('johndoe2@example.com')
             response = self.client.get(url_for('dashboard.change_email', token=token), follow_redirects=True)
-            self.assertMessageFlashed('Your email has been updated.','success')
+            self.assertMessageFlashed('Your email has been updated.', 'success')
             self.assertEqual(current_user.email, 'johndoe2@example.com')
 
     def test_invalid_change_email_token(self):
@@ -138,7 +138,7 @@ class AuthViewsFormsTestCase(TestCase):
             user2 = User.query.filter_by(email='janedoe@example.com').first()
             token = user2.generate_email_change_token('janedoe2@example.com')
             response = self.client.get(url_for('dashboard.change_email', token=token), follow_redirects=True)
-            self.assertMessageFlashed('Invalid email change request.','danger')
+            self.assertMessageFlashed('Invalid email change request.', 'danger')
 
     def test_user_profile_update_success(self):
         with self.client:
@@ -150,7 +150,7 @@ class AuthViewsFormsTestCase(TestCase):
                 'password': 'cat'
             }, follow_redirects=True)
             current_date = datetime.now().date()
-            response = self.client.post(url_for('dashboard.user_profile'), data={
+            response = self.client.post(url_for('dashboard.user_profile', userid=current_user.id), data={
                 'first_name': 'john',
                 'last_name': 'doe',
                 'username': 'john.doe',
@@ -176,7 +176,7 @@ class AuthViewsFormsTestCase(TestCase):
                 'password': 'cat'
             }, follow_redirects=True)
             current_date = datetime.now().date()
-            response = self.client.post(url_for('dashboard.user_profile'), data={
+            response = self.client.post(url_for('dashboard.user_profile', userid=current_user.id), data={
                 'first_name': 'john',
                 'last_name': 'doe',
                 'username': 'jane.doe',
@@ -184,4 +184,33 @@ class AuthViewsFormsTestCase(TestCase):
                 'phone': '222-888-9988'
             }, follow_redirects=True)
             db.session.remove()
-            self.assertMessageFlashed('The username jane.doe is already taken. We kept your username the same.', 'danger')
+            self.assertMessageFlashed('The username jane.doe is already taken. We kept your username the same.',
+                                      'danger')
+
+    def test_unable_to_access_user_profile_of_another_user(self):
+        u = User(email='johndoe@example.com', username='john.doe', password='cat', confirmed=True)
+        u2 = User(email='janedoe@example.com', username='jane.doe', password='cat', confirmed=True)
+        db.session.add(u)
+        db.session.add(u2)
+        db.session.commit()
+        user2 = User.query.filter_by(email='janedoe@example.com').first()
+        userid2 = user2.id
+        response = self.client.post(url_for('auth.login'), data={
+            'email': 'johndoe@example.com',
+            'password': 'cat'
+        }, follow_redirects=True)
+        response = self.client.get(url_for('dashboard.user_profile', userid=int(userid2)), follow_redirects=True)
+        self.assertMessageFlashed('You do not have access to this user profile.', 'danger')
+
+    def test_unable_to_access_user_profile_of_none_user(self):
+        u = User(email='johndoe@example.com', username='john.doe', password='cat', confirmed=True)
+        u2 = User(email='janedoe@example.com', username='jane.doe', password='cat', confirmed=True)
+        db.session.add(u)
+        db.session.add(u2)
+        db.session.commit()
+        response = self.client.post(url_for('auth.login'), data={
+            'email': 'johndoe@example.com',
+            'password': 'cat'
+        }, follow_redirects=True)
+        response = self.client.get(url_for('dashboard.user_profile', userid=9999), follow_redirects=True)
+        self.assertMessageFlashed('You do not have access to this user profile.', 'danger')

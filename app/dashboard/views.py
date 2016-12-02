@@ -18,7 +18,7 @@ def change_password():
             db.session.add(current_user)
             db.session.commit()
             flash('Your password has been changed.', 'success')
-            return redirect(url_for('dashboard.user_profile'))
+            return redirect(url_for('dashboard.user_profile', userid=current_user.id))
         else:
             flash('You entered an invalid password.', 'danger')
     return render_template("dashboard/change_password.html", form=form)
@@ -36,9 +36,10 @@ def change_email_request():
                 flash('Email is already registered.', 'warning')
             else:
                 token = current_user.generate_email_change_token(new_email)
-                send_email(subject='Unkani - Email Change', to=[new_email],template='auth/email/change_email',token=token, user=current_user)
+                send_email(subject='Unkani - Email Change', to=[new_email], template='auth/email/change_email',
+                           token=token, user=current_user)
                 flash('A confirmation email  has been sent to your new email.', 'info')
-                return redirect(url_for('dashboard.user_profile'))
+                return redirect(url_for('dashboard.user_profile', userid=current_user.id))
         else:
             flash('Invalid password.', 'danger')
     return render_template('dashboard/change_email.html', form=form)
@@ -51,7 +52,7 @@ def change_email(token):
         flash('Your email has been updated.', 'success')
     else:
         flash('Invalid email change request.', 'danger')
-    return redirect(url_for('dashboard.user_profile'))
+    return redirect(url_for('dashboard.user_profile', userid=current_user.id))
 
 
 @dashboard.route('/dashboard')
@@ -60,11 +61,14 @@ def dashboard_main():
     return render_template('dashboard/dashboard.html')
 
 
-@dashboard.route('/user', methods=['GET', 'POST'])
+@dashboard.route('/user/<userid>', methods=['GET', 'POST'])
 @login_required
-def user_profile():
+def user_profile(userid):
     form = UpdateUserProfileForm()
-    user = current_user
+    user = User.query.filter_by(id=userid).first()
+    if not user or current_user.id != user.id:
+        flash('You do not have access to this user profile.', 'danger')
+        return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if form.validate_on_submit():
         username = None
         if form.username.data != current_user.username:
@@ -74,7 +78,7 @@ def user_profile():
                     'The username '
                     + form.username.data
                     + ''' is already taken. We kept your username the same.'''
-                    ,'danger')
+                    , 'danger')
         else:
             username = form.username.data
         user.username = username
@@ -91,3 +95,10 @@ def user_profile():
     form.dob.data = current_user.dob
     form.phone.data = current_user.phone
     return render_template('dashboard/user_profile.html', form=form)
+
+
+@dashboard.route('/admin/user_list', methods=['GET', 'POST'])
+@login_required
+def admin_user_list():
+    userlist = User.query.order_by(User.id).all()
+    return render_template('dashboard/admin_user_list.html', userlist=userlist)

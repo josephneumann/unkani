@@ -16,11 +16,11 @@
                     Unkani
                 </a>
             </div>
-			<div class="logo logo-mini">
-				<a href="{{ url_for('main.landing') }}" class="simple-text">
-					UK
-				</a>
-			</div>
+            <div class="logo logo-mini">
+                <a href="{{ url_for('main.landing') }}" class="simple-text">
+                    UK
+                </a>
+            </div>
             <div class="sidebar-wrapper">
                 <div class="user">
                     <div class="photo">
@@ -31,34 +31,35 @@
                             @{{ current_user.username }}
                             <b class="caret"></b>
                         </a>
-                        <div class="collapse" id="collapseExample">
+                        <div class="collapse {% if request.endpoint in ['dashboard.user_profile', 'dashboard.change_password', 'dashboard.change_email_request'] %}in{% endif %}"id="collapseExample">
                             <ul class="nav">
-                                <li><a href="{{ url_for('dashboard.user_profile') }}">My Profile</a></li>
+                                <li class ="{% if request.endpoint in['dashboard.user_profile', 'dashboard.change_password', 'dashboard.change_email_request'] %}active{% endif %}"><a href="{{ url_for('dashboard.user_profile', userid=current_user.id) }}">My
+                                    Profile</a></li>
                                 <li><a href="{{ url_for('auth.logout') }}">Sign Out</a></li>
                             </ul>
                         </div>
                     </div>
                 </div>
                 <ul class="nav">
-                    <li>
-                        <a data-toggle="collapse" href="#dashboardOverview">
+                    <li class={% if request.endpoint == 'dashboard.admin_user_list' %} "active" {% endif %}>
+                        <a data-toggle="collapse" href="#dashboardAdminUserList">
                             <i class="ti-panel"></i>
-                            <p>Collapse
+                            <p>Admin
                                 <b class="caret"></b>
                             </p>
                         </a>
-                        <div class="collapse" id="dashboardOverview">
+                        <div class="collapse {% if request.endpoint == 'dashboard.admin_user_list' %}in {% endif %}" id="dashboardAdminUserList">
                             <ul class="nav">
-                                <li><a href="#">Collapse 1</a></li>
-                                <li><a href="#">Collapse2</a></li>
+                                <li class={% if request.endpoint == 'dashboard.admin_user_list' %}"active"{% endif %}><a href="{{ url_for('dashboard.admin_user_list') }}">User
+                                    Management</a></li>
                             </ul>
                         </div>
                     </li>
 
                     <li>
-                        <a href="#">
-                            <i class="ti-calendar"></i>
-                            <p>Simple Link</p>
+                        <a href="{{ url_for('main.landing') }}">
+                            <i class="ti-home"></i>
+                            <p>Unkani Home</p>
                         </a>
                     </li>
 
@@ -98,18 +99,15 @@
                             <li class="dropdown">
                                 <a href="#" class="dropdown-toggle btn-rotate" data-toggle="dropdown">
                                     <i class="ti-bell"></i>
-                                    <span class="notification">5</span>
+                                    <span class="notification">2</span>
                                     <p class="hidden-md hidden-lg">
                                         Notifications
                                         <b class="caret"></b>
                                     </p>
                                 </a>
                                 <ul class="dropdown-menu">
-                                    <li><a href="#">Notification 1</a></li>
-                                    <li><a href="#">Notification 2</a></li>
-                                    <li><a href="#">Notification 3</a></li>
-                                    <li><a href="#">Notification 4</a></li>
-                                    <li><a href="#">Another notification</a></li>
+                                    <li><a href="#">request.path: {{ request.endpoint }}</a></li>
+                                    <li><a href="#">request.data: {{ request.data }}</a></li>
                                 </ul>
                             </li>
                             <li>
@@ -126,7 +124,8 @@
                                     <p>Account</p>
                                 </a>
                                 <ul class="dropdown-menu">
-                                    <li><a href="{{ url_for('dashboard.user_profile') }}">My Profile</a></li>
+                                    <li><a href="{{ url_for('dashboard.user_profile', userid = current_user.id) }}">My
+                                        Profile</a></li>
                                     <li><a href="{{ url_for('auth.logout') }}">Sign Out</a></li>
                                 </ul>
                             </li>
@@ -153,7 +152,7 @@
                             <ul>
                                 <li>
                                     <a href="{{ url_for('main.landing') }}">
-                                         Unkani
+                                        Unkani
                                     </a>
                                 </li>
                                 <li>
@@ -166,7 +165,7 @@
                         <div class="copyright pull-right">
                             &copy;
                             <script>document.write(new Date().getFullYear())</script>
-                            ,Unkani  <i class="fa fa-heart heart"></i> <a href="{{ url_for('main.landing') }}"></a>
+                            ,Unkani <i class="fa fa-heart heart"></i> <a href="{{ url_for('main.landing') }}"></a>
                         </div>
                     </div>
                 </footer>
@@ -175,9 +174,9 @@
     </div>
 {% endblock body %}
 {% block scripts %}
-    {{ super()}}
-<script type="text/javascript">
- // Init DatetimePicker
-            demo.initFormExtendedDatetimepickers();
-</script>
+    {{ super() }}
+    <script type="text/javascript">
+        // Init DatetimePicker
+        demo.initFormExtendedDatetimepickers();
+    </script>
 {% endblock scripts %}

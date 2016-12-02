@@ -71,6 +71,16 @@ def refresh_db():
     for configuring admin user and random users"""
     reset_db_command_line()
 
+@manager.command
+def deploy():
+    """Run deployment tasks."""
+    from flask_migrate import upgrade
+    from app.models import Role, User
+    # migrate database to latest revision
+    upgrade()
+    # create user roles
+    Role.initialize_roles()
+
 
 if __name__ == '__main__':
     manager.run()

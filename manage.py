@@ -12,7 +12,7 @@ if os.environ.get('FLASK_COVERAGE'):
 
 from app import create_app, db, mail
 from app.models import User, Role
-from flask_script import Manager, Shell
+from flask_script import Manager, Shell, Command
 from flask_migrate import Migrate, MigrateCommand
 from app.utils import reset_db_command_line
 
@@ -44,6 +44,21 @@ def make_shell_context():
 manager.add_command("shell", Shell(make_context=make_shell_context))
 manager.add_command('db', MigrateCommand)
 
+
+class CeleryWorker(Command):
+    """Starts the celery worker."""
+    name = 'celery'
+    capture_all_args = True
+
+    def run(self, argv):
+        ret = subprocess.call(
+            ['celery', 'worker', '-A', 'app.celery'] + argv)
+        sys.exit(ret)
+
+
+manager.add_command("celery", CeleryWorker())
+
+
 @manager.command
 def test():
     """Runs unit tests."""
@@ -56,6 +71,7 @@ def refresh_db():
     """Wipe db and reset with command line options
     for configuring admin user and random users"""
     reset_db_command_line()
+
 
 @manager.command
 def deploy():

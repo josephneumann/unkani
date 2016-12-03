@@ -27,7 +27,10 @@ login_manager.login_view = 'auth.login'
 login_manager.login_message = 'You must log in to view this page.'
 login_manager.login_message_category = 'info'
 sentry = Sentry()
-celery = Celery(__name__, broker=os.environ.get('CELERY_BROKER_URL'))
+celery = Celery(__name__, broker=os.environ.get('CELERY_BROKER_URL', 'redis://'),
+                backend=os.environ.get('CELERY_BROKER_URL', 'redis://'))
+
+from .flask_sendgrid import send_async_email
 
 
 # Application factory function
@@ -61,4 +64,3 @@ def create_app(config_name):
     app.register_blueprint(dashboard_blueprint, url_prefix='/app')
 
     return app
-

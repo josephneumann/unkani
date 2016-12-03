@@ -42,6 +42,7 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False
     PRESERVE_CONTEXT_ON_EXCEPTION = False
     EMAIL_OFF = True
+    CELERY_ALWAYS_EAGER = True
 
 
 class StagingConfig(Config):

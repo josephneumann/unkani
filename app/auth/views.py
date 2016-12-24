@@ -1,17 +1,19 @@
-from flask import render_template, redirect, request, url_for, flash
-from flask_login import login_user, logout_user, login_required, current_user
+from flask import render_template, redirect, request, url_for, flash, session
+from flask_login import login_user, logout_user, login_required, current_user, current_app
+from flask_principal import identity_changed, Identity, AnonymousIdentity, Permission, RoleNeed, UserNeed, \
+    identity_loaded
 
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from .. import db
-from ..models import User
+from ..models import User, Role
 from ..flask_sendgrid import send_email
 
-
 # flash('Info message, blue', 'info')
-# flash('Success messag, green.', 'success')
+# flash('Success message, green.', 'success')
 # flash('Warning message, yellow.', 'warning')
-# flash('Dange message, red/orange.', 'danger')
+# flash('Danger message, red/orange.', 'danger')
+
 
 @auth.before_app_request
 def before_request():
@@ -31,6 +33,9 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         if user is not None and user.verify_password(form.password.data):
             login_user(user, form.remember_me.data)
+            identity_changed.send(current_app._get_current_object(),
+                                  identity=Identity(user.id))
+            print(session.items())
             return redirect(request.args.get('next') or url_for('dashboard.dashboard_main'))
         else:
             flash('Invalid email or password.', 'danger')
@@ -42,6 +47,13 @@ def login():
 def logout():
     # Remove and reset the user sesssion
     logout_user()
+    # Remove session keys set by Flask-Principal
+    for key in ('identity.name', 'identity.auth_type'):
+        session.pop(key, None)
+
+    # Tell Flask-Principal the user is anonymous
+    identity_changed.send(app,
+                          identity=AnonymousIdentity())
     flash('Successfully logged out.', 'success')
     return redirect(url_for('main.landing'))
 
@@ -146,3 +158,20 @@ def reset_password(token):
             flash('There was an error resetting your password.', 'danger')
             return redirect(url_for('main.landing'))
     return render_template('auth/reset_password.html', form=form)
+
+
+@identity_loaded.connect
+def on_identity_loaded(sender, identity):
+    # Set the identity user object
+    identity.user = current_user
+
+    # Add the UserNeed to the identity
+    if hasattr(current_user, 'id'):
+        identity.provides.add(UserNeed(current_user.id))
+
+    # Assuming the User model has a list of roles, update the
+    # identity with the roles that the user provides
+    if hasattr(current_user, 'role_id'):
+        role = Role.query.filter_by(id=current_user.role_id).first()
+        role_name = role.name
+        identity.provides.add(RoleNeed(role_name))

@@ -19,3 +19,7 @@ def internal_server_error(e):
                            public_dsn=sentry.client.get_public_dsn('https'),
                            Raven=Raven
                            ), 500
+
+@main.app_errorhandler(403)
+def page_not_found(e):
+    return render_template('errors/403.html'), 403

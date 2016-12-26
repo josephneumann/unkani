@@ -52,7 +52,7 @@ def create_app(config_name):
     login_manager.init_app(app)
     sentry.init_app(app, logging=True, level=logging.ERROR)
     celery.conf.update(app.config)
-    Principal(app=app)
+    Principal(app)
 
     # Register blueprint objects with application object
     # These MUST be imported last, to avoid circular dependencies in the blueprint

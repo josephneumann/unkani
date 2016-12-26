@@ -52,9 +52,10 @@ class CeleryWorker(Command):
 
     def run(self, argv):
         ret = subprocess.call(
-            ['celery', 'worker', '-A', 'app.celery'] + argv)
+            ['celery', 'multi', 'start', '3', '-A', 'celery_worker.celery'
+                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid'
+             ,'--logfile=/var/log/celery/%n%I.log'] + argv)
         sys.exit(ret)
-
 
 manager.add_command("celery", CeleryWorker())
 

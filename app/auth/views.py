@@ -35,7 +35,6 @@ def login():
             login_user(user, form.remember_me.data)
             identity_changed.send(current_app._get_current_object(),
                                   identity=Identity(user.id))
-            print(session.items())
             return redirect(request.args.get('next') or url_for('dashboard.dashboard_main'))
         else:
             flash('Invalid email or password.', 'danger')
@@ -52,7 +51,7 @@ def logout():
         session.pop(key, None)
 
     # Tell Flask-Principal the user is anonymous
-    identity_changed.send(app,
+    identity_changed.send(current_app._get_current_object(),
                           identity=AnonymousIdentity())
     flash('Successfully logged out.', 'success')
     return redirect(url_for('main.landing'))

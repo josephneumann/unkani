@@ -45,19 +45,49 @@ manager.add_command("shell", Shell(make_context=make_shell_context))
 manager.add_command('db', MigrateCommand)
 
 
-class CeleryWorker(Command):
+class CeleryWorkerStart(Command):
     """Starts the celery worker."""
     name = 'celery'
     capture_all_args = True
 
     def run(self, argv):
         ret = subprocess.call(
-            ['celery', 'multi', 'start', '3', '-A', 'celery_worker.celery'
-                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid'
-             ,'--logfile=/var/log/celery/%n%I.log'] + argv)
+            ['celery', 'multi', 'start', 'worker1', '-A', 'celery_worker.celery'
+                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid', '--logfile=/var/log/celery/%n%I.log'] + argv)
         sys.exit(ret)
 
-manager.add_command("celery", CeleryWorker())
+
+manager.add_command("celery-start", CeleryWorkerStart())
+
+
+class CeleryWorkerStop(Command):
+    """Starts the celery worker."""
+    name = 'celery'
+    capture_all_args = True
+
+    def run(self, argv):
+        ret = subprocess.call(
+            ['celery', 'multi', 'stopwait', 'worker1', '-A', 'celery_worker.celery'
+                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid', '--logfile=/var/log/celery/%n%I.log'] + argv)
+        sys.exit(ret)
+
+
+manager.add_command("celery-stop", CeleryWorkerStop())
+
+
+class CeleryWorkerRestart(Command):
+    """Starts the celery worker."""
+    name = 'celery'
+    capture_all_args = True
+
+    def run(self, argv):
+        ret = subprocess.call(
+            ['celery', 'multi', 'restart', 'worker1', '-A', 'celery_worker.celery'
+                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid', '--logfile=/var/log/celery/%n%I.log'] + argv)
+        sys.exit(ret)
+
+
+manager.add_command("celery-restart", CeleryWorkerRestart())
 
 
 @manager.command

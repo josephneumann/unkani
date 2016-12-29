@@ -11,12 +11,22 @@ import os
 import re
 import hashlib
 
+role_app_permission = db.Table('role_app_permission',
+                               db.Column('role_id', db.Integer, db.ForeignKey('role.id')),
+                               db.Column('app_permission_id', db.Integer, db.ForeignKey('app_permission.id'))
+                               )
+
 
 class Role(db.Model):
     __tablename__ = 'role'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True)
     users = db.relationship('User', backref='role', lazy='dynamic')
+    default = db.Column(db.Boolean, default=False)
+    app_permissions = db.relationship('AppPermission',
+                                      secondary=role_app_permission,
+                                      backref=db.backref('app_permissions', lazy='dynamic'),
+                                      lazy='dynamic')
 
     def __repr__(self):
         return '<Role %r>' % self.name
@@ -24,15 +34,51 @@ class Role(db.Model):
     @staticmethod
     def initialize_roles():
         roles = {
-            'Admin': ('0'),
-            'User': ('1'),
+            'Admin': ('1'),
+            'User': ('2'),
         }
         for r in roles:
             role = Role.query.filter_by(name=r).first()
             if role is None:
                 role = Role(name=r)
                 role.id = int(roles[r][0])
+                if role.name == 'User':
+                    role.default = True
                 db.session.add(role)
+        db.session.commit()
+
+
+class AppPermission(db.Model):
+    __tablename__ = 'app_permission'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), unique=True)
+
+    def __repr__(self):
+        return str(self.id)
+
+    @staticmethod
+    def initialize_app_permissions():
+        app_permissions = {
+            'Admin': (1),
+            'User Create': (2),
+            'User Delete': (3),
+            'User Update': (4),
+            'User View': (5),
+            'Role Create': (6),
+            'Role Delete': (7),
+            'Role Update': (8),
+            'Role View': (9),
+            'App Permission Create': (10),
+            'App Permission Delete': (11),
+            'App Permission Update': (12),
+            'App Permission View': (13),
+        }
+        for p in app_permissions:
+            app_permission = AppPermission.query.filter_by(name=p).first()
+            if app_permission is None:
+                app_permission = AppPermission(name=p)
+                app_permission.id = app_permissions[p]
+                db.session.add(app_permission)
         db.session.commit()
 
 
@@ -47,7 +93,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(128), unique=True, index=True)
     email = db.Column(db.String(128), unique=True, index=True)
     last_email = db.Column(db.String(128), unique=True, index=True)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), default=1)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'))
     password_hash = db.Column(db.String(128))
     last_password_hash = db.Column(db.String(128))
     password_timestamp = db.Column(db.TIMESTAMP)
@@ -63,6 +109,19 @@ class User(UserMixin, db.Model):
 
     def __repr__(self):
         return '<User %r>' % self.username
+
+    def __init__(self, **kwargs):
+        super(User, self).__init__(**kwargs)
+        if self.role is None:
+            if self.email == current_app.config['UNKANI_ADMIN']:
+                self.role = Role.query.filter_by(name='Admin').first()
+            if self.role is None:
+                self.role = Role.query.filter_by(default=True).first()
+        if self.email is not None and self.avatar_hash is None:
+            if not re.search(r'(@example.com)+', self.email):
+                self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+        self.active = True
+        self.confirmed = False
 
     def ping(self):
         self.last_seen = datetime.utcnow()

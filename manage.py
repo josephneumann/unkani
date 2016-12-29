@@ -11,7 +11,7 @@ if os.environ.get('FLASK_COVERAGE'):
     COV.start()
 
 from app import create_app, db, mail
-from app.models import User, Role
+from app.models import User, Role, AppPermission
 from flask_script import Manager, Shell, Command
 from flask_migrate import Migrate, MigrateCommand
 from app.utils import reset_db_command_line
@@ -38,7 +38,7 @@ migrate = Migrate(app, db)
 # To run as a shell:
 # $ python manage.py shell
 def make_shell_context():
-    return dict(app=app, db=db, mail=mail, User=User, Role=Role)
+    return dict(app=app, db=db, mail=mail, User=User, Role=Role, AppPermission=AppPermission)
 
 
 manager.add_command("shell", Shell(make_context=make_shell_context))
@@ -108,11 +108,12 @@ def refresh_db():
 def deploy():
     """Run deployment tasks."""
     from flask_migrate import upgrade
-    from app.models import Role, User
+    from app.models import Role, User, AppPermission
     # migrate database to latest revision
     upgrade()
     # create user roles
     Role.initialize_roles()
+    AppPermission.initialize_app_permissions()
 
 
 if __name__ == '__main__':

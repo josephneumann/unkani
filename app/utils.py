@@ -1,5 +1,5 @@
 from app import db
-from .models import User, Role
+from .models import User, Role, AppPermission
 
 
 #######################################################################################
@@ -60,6 +60,9 @@ def reset_db_command_line():
 
         print("Initializing user roles...")
         Role.initialize_roles()
+
+        print("Initializing app permissions...")
+        AppPermission.initialize_app_permissions()
 
         # # initialize user
         # if input_yes("Would you like to configure an admin user?"):

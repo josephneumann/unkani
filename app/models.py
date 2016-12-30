@@ -54,7 +54,7 @@ class AppPermission(db.Model):
     name = db.Column(db.String(64), unique=True)
 
     def __repr__(self):
-        return str(self.id)
+        return str(self.name)
 
     @staticmethod
     def initialize_app_permissions():

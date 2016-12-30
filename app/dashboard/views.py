@@ -6,10 +6,7 @@ from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
 from .. import db
 from ..models import User
 from ..flask_sendgrid import send_email
-from flask_principal import Permission, RoleNeed
-
-admin_permission = Permission(RoleNeed('Admin'))
-user_permission = Permission(RoleNeed('User'))
+from ..auth.security import app_permission_admin
 
 
 @dashboard.route('/change_password', methods=['GET', 'POST'])
@@ -103,7 +100,7 @@ def user_profile(userid):
 
 @dashboard.route('/admin/user_list', methods=['GET', 'POST'])
 @login_required
-@admin_permission.require(http_exception=403)
+@app_permission_admin.require(http_exception=403)
 def admin_user_list():
     userlist = User.query.order_by(User.id).all()
     return render_template('dashboard/admin_user_list.html', userlist=userlist)

@@ -1,9 +1,9 @@
-from flask import current_app, request
+from flask import current_app, request, url_for
 
 from . import db, login_manager
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import UserMixin
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+from flask_login import UserMixin, AnonymousUserMixin
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
 from datetime import datetime, date
 from random import randint, choice
 from names import get_first_name, get_last_name
@@ -11,11 +11,19 @@ import os
 import re
 import hashlib
 
+#######################################################################################################################
+#                                     ROLE -> APP PERMISSION ASSOCIATION TABLE                                        #
+#######################################################################################################################
+
 role_app_permission = db.Table('role_app_permission',
                                db.Column('role_id', db.Integer, db.ForeignKey('role.id')),
                                db.Column('app_permission_id', db.Integer, db.ForeignKey('app_permission.id'))
                                )
 
+
+#######################################################################################################################
+#                                               ROLE MODEL DEFINITION                                                 #
+#######################################################################################################################
 
 class Role(db.Model):
     __tablename__ = 'role'
@@ -29,7 +37,7 @@ class Role(db.Model):
                                       lazy='dynamic')
 
     def __repr__(self):
-        return '<Role %r>' % self.name
+        return '%r' % self.name
 
     @staticmethod
     def initialize_roles():
@@ -37,16 +45,49 @@ class Role(db.Model):
             'Admin': ('1'),
             'User': ('2'),
         }
-        for r in roles:
+        role_dict = {
+            'Admin': {'id': 1, 'permissions': ['Admin']},
+            'User': {'id': 2, 'permissions': ['User View', 'Role View', 'App Permission View']}
+        }
+
+        for r in role_dict:
             role = Role.query.filter_by(name=r).first()
             if role is None:
-                role = Role(name=r)
-                role.id = int(roles[r][0])
+                role = Role(name=r, id=role_dict[r]['id'])
                 if role.name == 'User':
                     role.default = True
                 db.session.add(role)
+                db.session.commit()
+            role = Role.query.filter_by(name=r).first()
+            for p in role_dict[r]['permissions']:
+                ap = AppPermission.query.filter_by(name=p).first()
+                if ap:
+                    role_ap_list = role.app_permissions.all()
+                    if ap not in role_ap_list:
+                        role.app_permissions.append(ap)
+            db.session.add(role)
+            db.session.commit()
+
+        # for r in roles:
+        #     role = Role.query.filter_by(name=r).first()
+        #     if role is None:
+        #         role = Role(name=r)
+        #         role.id = int(roles[r][0])
+        #         if role.name == 'User':
+        #             role.default = True
+        #         db.session.add(role)
+
+        # admin_permission_list = [1]
+        # role =
+        # for permission in admin_permission_list:
+
+
         db.session.commit()
 
+
+#######################################################################################################################
+#                                     APP PERMISSION MODEL DEFINITION                                                 #
+#######################################################################################################################
 
 class AppPermission(db.Model):
     __tablename__ = 'app_permission'
@@ -81,6 +122,10 @@ class AppPermission(db.Model):
                 db.session.add(app_permission)
         db.session.commit()
 
+
+#######################################################################################################################
+#                                               USER MODEL DEFINITION                                                 #
+#######################################################################################################################
 
 # UserMixin from flask_login
 # is_authenticated() - Returns True if user has login credentials, else False
@@ -123,6 +168,27 @@ class User(UserMixin, db.Model):
         self.active = True
         self.confirmed = False
 
+    def to_json(self):
+        json_user = {"user": {
+            'id': self.id,
+            'url': url_for('api.get_user', id=self.id, _external=True),
+            'username': self.username,
+            'email': self.email,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'dob': self.dob.strftime('%Y-%m-%d'),
+            'phone': self.phone,
+            'role_id': self.role_id,
+            'role_name': self.role.name,
+            'gravatar_url': self.gravatar(),
+            'confirmed': self.confirmed,
+            'active': self.active,
+            'password_timestamp': str(self.password_timestamp),
+            'create_timestamp': str(self.create_timestamp),
+            'last_seen': str(self.last_seen)
+        }}
+        return json_user
+
     def ping(self):
         self.last_seen = datetime.utcnow()
         db.session.add(self)
@@ -158,6 +224,13 @@ class User(UserMixin, db.Model):
         p[9] = str(choice(n))
         p = ''.join(p)
         return str(p[:3] + '-' + p[3:6] + '-' + p[6:])
+
+    @staticmethod
+    def random_password():
+        import forgery_py
+        random_number = str(randint(0, 1000))
+        password = forgery_py.lorem_ipsum.word() + random_number + forgery_py.lorem_ipsum.word()
+        return password
 
     @password.setter
     def password(self, password):
@@ -238,38 +311,91 @@ class User(UserMixin, db.Model):
         else:
             return False
 
-    def create_random_user(self, gender=None, **kwargs):
-        allowed_genders = ['male', 'female']
-        if gender:
-            if gender not in allowed_genders:
-                gender = None
+    @staticmethod
+    def initialize_admin_user():
+        admin_user_email = os.environ.get('UNKANI_ADMIN_EMAIL')
+        user = User.query.filter_by(email=admin_user_email).first()
+        if user is None:
+            user = User(email=admin_user_email)
+            user.username = os.environ.get('UNKANI_ADMIN_USERNAME')
+            user.password = os.environ.get('UNKANI_ADMIN_PASSWORD')
+            user.first_name = os.environ.get('UNKANI_ADMIN_FIRST_NAME')
+            user.last_name = os.environ.get('UNKANI_ADMIN_LAST_NAME')
+            user.phone = os.environ.get('UNKANI_ADMIN_PHONE')
+            user.confirmed = True
+            db.session.add(user)
+            db.session.commit()
+
+    def randomize_user(self, **kwargs):
+        import forgery_py
+        gender = kwargs.get('gender')
+        allowed_genders = ['Male', 'Female']
+        if not gender or gender not in allowed_genders:
+            gender = forgery_py.personal.gender()
 
         email_domains = ['@gmail.com', '@icloud.com', '@yahoo.com', '@microsoft.com'
             , '@aol.com', '@comcast.com', '@mail.com', '@inbox.com', '@outlook.com']
         email_domains_number = len(email_domains)
         random_number = str(randint(0, 1000))
         rand_email_index = randint(0, (email_domains_number - 1))
-        self.first_name = get_first_name(gender)
-        self.last_name = get_last_name()
+        if gender == 'Male':
+            self.first_name = forgery_py.name.male_first_name()
+        if gender == 'Female':
+            self.first_name = forgery_py.name.female_first_name()
+        self.last_name = forgery_py.name.last_name()
         self.username = self.first_name + '.' + self.last_name + random_number
         rand_domain = email_domains[rand_email_index]
         self.email = self.username + rand_domain
         self.dob = self.random_dob()
         self.phone = self.random_phone()
+
         password = kwargs.get('password')
         if not password:
             password = os.environ.get('TEST_USER_PASSWORD')
+            if not password:
+                password = self.random_password()
         self.password = password
-        self.avatar_hash = self.gravatar()
+        self.gravatar()
 
     def gravatar(self, size=100, default='identicon', rating='g'):
         if request.is_secure:
             url = 'https://secure.gravatar.com/avatar'
         else:
             url = 'http://www.gravatar.com/avatar'
-        hash = self.avatar_hash or hashlib.md5(self.email.encode('utf-8')).hexdigest()
+        if not self.avatar_hash:
+            self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+            db.session.add(self)
+            db.session.commit()
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
-            url=url, hash=hash, size=size, default=default, rating=rating)
+            url=url, hash=self.avatar_hash, size=size, default=default, rating=rating)
+
+    def generate_api_auth_token(self, expiration=600):
+        s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)
+        token = s.dumps({'id': self.id}).decode('ascii')
+        return token
+
+    @staticmethod
+    def verify_api_auth_token(token):
+        __doc__ = """
+        User Method:  verify_api_auth_token takes a token and,
+         if found valid, returns the user stored in it.
+         """
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token)
+        except SignatureExpired:
+            raise
+            return None
+        except BadSignature:
+            return None
+        return User.query.get(data['id'])
+
+
+class AnonymousUser(AnonymousUserMixin):
+    pass
+
+
+login_manager.anonymous_user = AnonymousUser
 
 
 # Callback function, receives a user identifier and returns either user object or None

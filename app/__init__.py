@@ -44,6 +44,10 @@ def create_app(config_name):
     app.config.from_object(config[config_name])
     config[config_name].init_app(app)
 
+    if not app.config['SSL_DISABLE']:
+        from flask_sslify import SSLify
+        sslify = SSLify(app)
+
     # Complete initialization of extension objects with the app object
     bootstrap.init_app(app)
     mail.init_app(app)
@@ -64,5 +68,8 @@ def create_app(config_name):
 
     from .dashboard import dashboard as dashboard_blueprint
     app.register_blueprint(dashboard_blueprint, url_prefix='/app')
+
+    from .api_1_0 import api as api_1_0_blueprint
+    app.register_blueprint(api_1_0_blueprint, url_prefix='/api/v1.0')
 
     return app

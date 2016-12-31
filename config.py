@@ -5,7 +5,7 @@ import os
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hfwznel2805lkd43o98udnj'
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
-    UNKANI_ADMIN = os.environ.get('UNKANI_ADMIN') or 'admin@unkani.com'
+    UNKANI_ADMIN = os.environ.get('UNKANI_ADMIN_EMAIL') or 'app.unkani@gmail.com'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SENTRY_DSN = os.environ.get('SENTRY_DSN')
     SENTRY_USER_ATTRS = ['username', 'first_name', 'last_name', 'email']
@@ -34,6 +34,7 @@ class DevelopmentConfig(Config):
     TESTING = False
     EMAIL_OFF = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    SSL_DISABLE = True
 
 class TestingConfig(Config):
     DEBUG = True
@@ -43,6 +44,7 @@ class TestingConfig(Config):
     PRESERVE_CONTEXT_ON_EXCEPTION = False
     EMAIL_OFF = True
     CELERY_ALWAYS_EAGER = True
+    SSL_DISABLE = True
 
 
 class StagingConfig(Config):
@@ -50,6 +52,7 @@ class StagingConfig(Config):
     TESTING = False
     EMAIL_OFF = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    SSL_DISABLE = False
 
 
 class ProductionConfig(Config):
@@ -57,6 +60,16 @@ class ProductionConfig(Config):
     TESTING = False
     EMAIL_OFF = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    SSL_DISABLE = False
+
+
+    @classmethod
+    def init_app(cls, app):
+        Config.init_app(app)
+
+        # handle proxy server headers
+        from werkzeug.contrib.fixers import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app)
 
 
 # Configuration objects are assigned to a dict for access in intitialization script from objects

@@ -51,3 +51,4 @@ def on_identity_loaded(sender, identity):
 def current_privileges():
     return (('{method} : {value}').format(method=n.method, value=n.value)
             for n in g.identity.provides)
+

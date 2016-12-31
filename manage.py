@@ -12,9 +12,8 @@ if os.environ.get('FLASK_COVERAGE'):
 
 from app import create_app, db, mail
 from app.models import User, Role, AppPermission
-from flask_script import Manager, Shell, Command
+from flask_script import Manager, Shell, Command, prompt, prompt_bool
 from flask_migrate import Migrate, MigrateCommand
-from app.utils import reset_db_command_line
 
 # Create app with create_app class defined in __init__.py  test
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')
@@ -98,13 +97,6 @@ def test():
 
 
 @manager.command
-def refresh_db():
-    """Wipe db and reset with command line options
-    for configuring admin user and random users"""
-    reset_db_command_line()
-
-
-@manager.command
 def deploy():
     """Run deployment tasks."""
     from flask_migrate import upgrade
@@ -112,8 +104,74 @@ def deploy():
     # migrate database to latest revision
     upgrade()
     # create user roles
-    Role.initialize_roles()
     AppPermission.initialize_app_permissions()
+    Role.initialize_roles()
+    User.initialize_admin_user()
+
+
+@manager.command
+def dbcreate():
+    """Command line utility to drop / create database, initialize user, roles
+    and permission models.  Create admin and random users """
+    print(""""
+    __________________________________________________________________________
+    |                        !!!-----WARNING-----!!!                          |
+    |This command drops all tables, re-creates them and initializes some data |
+    |As a result ALL data will be lost from the target environment            |
+    --------------------------------------------------------------------------
+
+    """)
+    if prompt_bool("Are you sure you want to proceed?", default=False):
+        print('Database is refreshing...')
+        if prompt_bool("Drop all tables first?", default=False):
+            print('Dropping and recreating tables...')
+            db.drop_all()
+            print('Tables have been dropped...')
+        print("Creating tables if needed...")
+        db.create_all()
+        print("Database tables created...")
+        print()
+        print("Initializing app permissions...")
+        AppPermission.initialize_app_permissions()
+        print("App permissions created...")
+        print()
+        print("Initializing user roles...")
+        Role.initialize_roles()
+        print("User roles created...")
+        print()
+        print("Creating admin user...")
+        User.initialize_admin_user()
+        print("Admin user created or updated...")
+        print()
+
+        if prompt_bool("Create randomly generated users?", default=True):
+            user_create_number = prompt("How many random users do you want to create?: ", default=10)
+            if not user_create_number:
+                user_create_number = 10
+            print("Creating " + str(user_create_number) + " random user(s)...")
+            user_list = []
+            while len(user_list) < int(user_create_number):
+                user = User()
+                user.randomize_user()
+                user_list.append(user)
+            db.session.add_all(user_list)
+            db.session.commit()
+            print()
+            print("Created the following users:")
+            for user in user_list:
+                print(user.username)
+            total_users = str(len(user_list))
+            print()
+            print("Total random users created: " + total_users)
+
+        print("""
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        !Process completed without errors!
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        """)
+    else:
+        print("Oh thank god............")
+        print("That was a close call!")
 
 
 if __name__ == '__main__':

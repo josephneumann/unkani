@@ -14,9 +14,9 @@
                                 <div class="author">
                                     <img class="avatar border-white"
                                          src="{{ url_for("static", filename="img/team/shadow.jpg") }}" alt="..."/>
-                                    <h4 class="title">{{ current_user.first_name }} {{ current_user.last_name }}<br/>
+                                    <h4 class="title">{{ user.first_name }} {{ user.last_name }}<br/>
                                         <a href="#">
-                                            <small>@{{ current_user.username }}</small>
+                                            <small>@{{ user.username }}</small>
                                         </a>
                                     </h4>
                                 </div>
@@ -70,7 +70,7 @@
                                                 <label>Email address</label>
                                                 <input type="email" class="form-control border-input"
                                                        placeholder="Email"
-                                                       value="{{ current_user.email }}" disabled="">
+                                                       value="{{ user.email }}" disabled="">
                                             </div>
                                         </div>
                                     </div>
@@ -119,7 +119,7 @@
                                             Save Changes
                                         </button>
                                         <div class="form-group pull-left">
-                                            <a href="{{ url_for('dashboard.change_password') }}"
+                                            <a href="{{ url_for('dashboard.change_password', userid=user.id) }}"
                                                class="btn btn-wd btn-info btn-rotate">
                                             <span class="btn-label">
 	                                                <i class="ti ti-lock"></i>
@@ -127,7 +127,7 @@
                                                 Change Password
                                             </a>
                                         </div>
-                                        <a href="{{ url_for('dashboard.change_email_request') }}"
+                                        <a href="{{ url_for('dashboard.change_email_request', userid=user.id) }}"
                                            class="btn btn-wd btn-info btn-move-left">
                                             <span class="btn-label">
 	                                                <i class="ti ti-email"></i>

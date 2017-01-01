@@ -10,11 +10,21 @@ from ..flask_sendgrid import send_email
 from ..auth.security import app_permission_admin
 
 
-@dashboard.route('/user/<userid>/change_password', methods=['GET', 'POST'])
+@dashboard.before_request
 @login_required
+def before_dashboard_request():
+    pass
+
+
+@dashboard.route('/user/<userid>/change_password', methods=['GET', 'POST'])
 def change_password(userid):
     form = ChangePasswordForm()
     user = User.query.filter_by(id=userid).first_or_404()
+    user_permission = Permission(UserNeed(user.id))
+    if not (user_permission.can() or app_permission_admin.can()):
+        flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
+              'danger')
+        return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if form.validate_on_submit():
         if user.verify_password(form.old_password.data):
             user.password = form.password.data
@@ -28,10 +38,14 @@ def change_password(userid):
 
 
 @dashboard.route('/user/<userid>/change_email', methods=['GET', 'POST'])
-@login_required
 def change_email_request(userid):
     form = ChangeEmailForm()
     user = User.query.filter_by(id=userid).first_or_404()
+    user_permission = Permission(UserNeed(user.id))
+    if not (user_permission.can() or app_permission_admin.can()):
+        flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
+              'danger')
+        return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if form.validate_on_submit():
         if user.verify_password(form.password.data):
             new_email = form.new_email.data
@@ -50,7 +64,6 @@ def change_email_request(userid):
 
 
 @dashboard.route('/change_email/<token>')
-@login_required
 def change_email(token):
     if current_user.change_email(token):
         flash('Your email has been updated.', 'success')
@@ -60,19 +73,22 @@ def change_email(token):
 
 
 @dashboard.route('/dashboard')
-@login_required
 def dashboard_main():
     return render_template('dashboard/dashboard.html')
 
 
 @dashboard.route('/user/<userid>', methods=['GET', 'POST'])
-@login_required
 def user_profile(userid):
     form = UpdateUserProfileForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    if not current_user.id == user.id:
-        flash('You do not have access to this user profile.', 'danger')
+    user_permission = Permission(UserNeed(user.id))
+    if not (user_permission.can() or app_permission_admin.can()):
+        flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
+              'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
+    # if not current_user.id == user.id:
+    #     flash('You do not have access to this user profile.', 'danger')
+    #     return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if form.validate_on_submit():
         username = None
         if form.username.data != user.username:
@@ -104,7 +120,6 @@ def user_profile(userid):
 
 
 @dashboard.route('/admin/user_list', methods=['GET', 'POST'])
-@login_required
 @app_permission_admin.require(http_exception=403)
 def admin_user_list():
     userlist = User.query.order_by(User.id).all()

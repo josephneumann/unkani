@@ -6,7 +6,8 @@ from flask_login import UserMixin, AnonymousUserMixin
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
 from datetime import datetime, date
 from random import randint, choice
-from names import get_first_name, get_last_name
+from flask_principal import identity_changed, Identity
+from app import app_permission_admin
 import os
 import re
 import hashlib
@@ -67,20 +68,6 @@ class Role(db.Model):
                         role.app_permissions.append(ap)
             db.session.add(role)
             db.session.commit()
-
-        # for r in roles:
-        #     role = Role.query.filter_by(name=r).first()
-        #     if role is None:
-        #         role = Role(name=r)
-        #         role.id = int(roles[r][0])
-        #         if role.name == 'User':
-        #             role.default = True
-        #         db.session.add(role)
-
-        # admin_permission_list = [1]
-        # role =
-        # for permission in admin_permission_list:
-
 
         db.session.commit()
 
@@ -168,6 +155,14 @@ class User(UserMixin, db.Model):
         self.active = True
         self.confirmed = False
 
+    def has_admin_permission(self):
+        identity_changed.send(current_app._get_current_object(),
+                              identity=Identity(self.id))
+        if app_permission_admin.can():
+            return True
+        else:
+            return False
+
     def to_json(self):
         json_user = {"user": {
             'id': self.id,
@@ -176,16 +171,15 @@ class User(UserMixin, db.Model):
             'email': self.email,
             'first_name': self.first_name,
             'last_name': self.last_name,
-            'dob': self.dob.strftime('%Y-%m-%d'),
+            'dob': self.dob_string,
             'phone': self.phone,
             'role_id': self.role_id,
             'role_name': self.role.name,
             'gravatar_url': self.gravatar(),
             'confirmed': self.confirmed,
             'active': self.active,
-            'password_timestamp': str(self.password_timestamp),
             'create_timestamp': str(self.create_timestamp),
-            'last_seen': str(self.last_seen)
+            'last_seen': str(self.last_seen_string)
         }}
         return json_user
 
@@ -196,6 +190,13 @@ class User(UserMixin, db.Model):
     @property
     def password(self):
         raise AttributeError('Password is not a readable attribute')
+
+    @property
+    def dob_string(self):
+        if self.dob:
+            return self.dob.strftime('%Y-%m-%d')
+        else:
+            return None
 
     @staticmethod
     def random_dob():

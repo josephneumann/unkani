@@ -1,11 +1,13 @@
 # Application factory and primary Flask initialization
+from functools import partial
+
 from flask import Flask
 from flask_bootstrap import Bootstrap
 from flask_mail import Mail
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from flask_principal import Principal
+from flask_principal import Principal, Permission, Need
 from raven.contrib.flask import Sentry
 import logging
 from celery import Celery
@@ -73,3 +75,10 @@ def create_app(config_name):
     app.register_blueprint(api_1_0_blueprint, url_prefix='/api/v1.0')
 
     return app
+
+# Define Custom Need Types
+AppPermissionNeed = partial(Need, 'AppPermission')
+AppPermissionNeed.__doc__ = """A need with the method preset to `"action"`."""
+
+# AppPermission Permission Definition
+app_permission_admin = Permission(AppPermissionNeed('Admin'))

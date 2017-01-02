@@ -1,9 +1,5 @@
-from flask import current_app, session, g
-from flask_login import current_user
-from flask_principal import Permission, identity_loaded, Need, UserNeed, RoleNeed
-
+from flask_principal import Permission, Need, UserNeed, RoleNeed
 from functools import partial
-from ..models import User, Role, AppPermission
 
 # Define Custom Need Types
 AppPermissionNeed = partial(Need, 'AppPermission')
@@ -28,27 +24,4 @@ app_permission_apppermissiondelete = Permission(AppPermissionNeed('App Permissio
 app_permission_apppermissionupdate = Permission(AppPermissionNeed('App Permission Update'))
 app_permission_apppermissionview = Permission(AppPermissionNeed('App Permission View'))
 
-
-@identity_loaded.connect
-def on_identity_loaded(sender, identity):
-    # Set the identity user object
-    identity.user = current_user
-
-    # Add the UserNeed to the identity
-    if hasattr(current_user, 'id'):
-        identity.provides.add(UserNeed(current_user.id))
-
-    # Update the identity with the roles that the user provides
-    if hasattr(current_user, 'role_id'):
-        role = Role.query.filter_by(id=current_user.role_id).first()
-        identity.provides.add(RoleNeed(role.name))
-
-        app_permissions = role.app_permissions.all()
-        for app_permission_name in app_permissions:
-            identity.provides.add(AppPermissionNeed(str(app_permission_name)))
-
-
-def current_privileges():
-    return (('{method} : {value}').format(method=n.method, value=n.value)
-            for n in g.identity.provides)
 

@@ -1,16 +1,16 @@
-from flask import current_app, request, url_for
-
-from . import db, login_manager
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import UserMixin, AnonymousUserMixin
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
-from datetime import datetime, date
-from random import randint, choice
-from flask_principal import identity_changed, Identity
-from app import app_permission_admin
+import hashlib
 import os
 import re
-import hashlib
+from datetime import datetime, date
+from random import randint, choice
+
+from flask import current_app, request, url_for, g, abort
+from flask_login import UserMixin, AnonymousUserMixin
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from app.security import app_permission_admin
+from . import db, login_manager
 
 #######################################################################################################################
 #                                     ROLE -> APP PERMISSION ASSOCIATION TABLE                                        #
@@ -156,15 +156,18 @@ class User(UserMixin, db.Model):
         self.confirmed = False
 
     def has_admin_permission(self):
-        identity_changed.send(current_app._get_current_object(),
-                              identity=Identity(self.id))
         if app_permission_admin.can():
             return True
         else:
             return False
 
-    def to_json(self):
-        json_user = {"user": {
+    @staticmethod
+    def current_privileges():
+        return (('{method} : {value}').format(method=n.method, value=n.value)
+                for n in g.identity.provides)
+
+    def to_dict(self):
+        dict_user = {"user": {
             'id': self.id,
             'url': url_for('api.get_user', id=self.id, _external=True),
             'username': self.username,
@@ -179,9 +182,31 @@ class User(UserMixin, db.Model):
             'confirmed': self.confirmed,
             'active': self.active,
             'create_timestamp': str(self.create_timestamp),
-            'last_seen': str(self.last_seen_string)
+            'last_seen': str(self.last_seen)
         }}
-        return json_user
+        return dict_user
+
+    @staticmethod
+    def create(data):
+        """Create a new user object from dict / json."""
+        user = User()
+        user.from_dict(data, update=False)
+        return user
+
+    @staticmethod
+    def update(user, data):
+        """Create a new user object from dict / json."""
+        user.from_dict(data, update=True)
+        return user
+
+    def from_dict(self, data, update=False):
+        """Import user data from a dict / json."""
+        for field in ['username', 'password', 'email', 'first_name', 'last_name']:
+            try:
+                setattr(self, field, data[field])
+            except KeyError:
+                if not update:
+                    abort(400)
 
     def ping(self):
         self.last_seen = datetime.utcnow()
@@ -384,10 +409,7 @@ class User(UserMixin, db.Model):
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
-        except SignatureExpired:
-            raise
-            return None
-        except BadSignature:
+        except:
             return None
         return User.query.get(data['id'])
 

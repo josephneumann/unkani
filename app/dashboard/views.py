@@ -1,13 +1,13 @@
-from flask import render_template, redirect, url_for, flash, abort
+from flask import render_template, redirect, url_for, flash
 from flask_login import login_required, current_user
 from flask_principal import Permission, UserNeed
 
+from app.security import app_permission_admin
 from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
 from .. import db
-from ..models import User
 from ..flask_sendgrid import send_email
-from ..auth.security import app_permission_admin
+from ..models import User
 
 
 @dashboard.before_request

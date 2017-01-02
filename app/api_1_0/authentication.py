@@ -1,19 +1,19 @@
-from flask import g, jsonify
+from flask import g, jsonify, current_app
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
 from ..models import User, AnonymousUser
 from . import api
-from .errors import unauthorized, forbidden
+from .errors import unauthorized, ValidationError as APIValidationError, forbidden
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
+
 
 basic_auth = HTTPBasicAuth()
 token_auth = HTTPTokenAuth()
 multi_auth = MultiAuth(basic_auth, token_auth)
 
 
-# @api.before_request
-# def before_request():
-#     print("before request executed")
-#     if not g.current_user.confirmed:
-#         return forbidden('Unconfirmed account')
+@api.before_request
+def before_request():
+    pass
 
 
 @basic_auth.verify_password
@@ -23,6 +23,8 @@ def verify_password(email, password):
     user = User.query.filter_by(email=email).first()
     if user is None:
         return False
+    if not user.confirmed:
+        raise APIValidationError("User account is unconfirmed.")
     if user.verify_password(password):
         g.current_user = user
         return True
@@ -38,9 +40,18 @@ def verify_token(token):
     """Token verification callback."""
     if not token:
         return False
+    s = Serializer(current_app.config['SECRET_KEY'])
+    try:
+        data = s.loads(token)
+    except SignatureExpired:
+        raise APIValidationError("Token is expired.")
+    except BadSignature:
+        raise APIValidationError("Token is invalid.")
     user = User.verify_api_auth_token(token)
+    if not user.confirmed:
+        raise APIValidationError("User account is unconfirmed.")
     if user is None:
-        return False
+        raise APIValidationError("Token is invalid.")
     g.current_user = user
     return True
 

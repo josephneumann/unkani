@@ -7,8 +7,8 @@ from . import api
 from app import db
 
 
-@api.route('/users/', methods=['GET'])
-@multi_auth.login_required
+@api.route('/users', methods=['GET'])
+@token_auth.login_required
 def get_user_list():
     """
     Returns list of user ids and usernames.
@@ -19,12 +19,12 @@ def get_user_list():
     #         User.last_seen > int(request.args.get('last_seen')))
     user_list = {}
     for user in user_results:
-        user_list[user.id] = user.username
+        user_list[user.id] = url_for('api.get_user', id=user.id)
     return jsonify(user_list)
 
 
 @api.route('/users/<int:id>', methods=['GET'])
-@multi_auth.login_required
+@token_auth.login_required
 def get_user(id):
     """
     Return a user.
@@ -34,7 +34,7 @@ def get_user(id):
     return jsonify(user.to_dict())
 
 
-@api.route('/users/', methods=['POST'])
+@api.route('/users', methods=['POST'])
 def new_user():
     """
     Register a new user.
@@ -64,7 +64,7 @@ def new_user():
 
 
 @api.route('/users/<id>', methods=['PUT'])
-@multi_auth.login_required
+@token_auth.login_required
 def edit_user(id):
     """
     Modify an existing user.

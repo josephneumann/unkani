@@ -1,4 +1,4 @@
-from flask import g, jsonify, current_app
+from flask import g, jsonify, current_app, url_for
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
 from ..models import User, AnonymousUser
 from . import api
@@ -59,5 +59,8 @@ def verify_token(token):
 @token_auth.error_handler
 def token_error():
     """Return a 401 error to the client."""
-    return (jsonify({'error': 'authentication required'}), 401,
-            {'WWW-Authenticate': 'Bearer realm="Authentication Required"'})
+    r = jsonify({'error': 'authentication required'})
+    r.headers['Location'] = url_for('api.new_token')
+    r.headers['WWW-Authenticate'] = 'Bearer realm="Authentication Required"'
+    r.status_code = 401
+    return r

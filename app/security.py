@@ -1,5 +1,5 @@
 from flask_principal import Permission, Need, UserNeed, RoleNeed
-from functools import partial
+from functools import partial, wraps
 
 # Define Custom Need Types
 AppPermissionNeed = partial(Need, 'AppPermission')
@@ -25,3 +25,7 @@ app_permission_apppermissionupdate = Permission(AppPermissionNeed('App Permissio
 app_permission_apppermissionview = Permission(AppPermissionNeed('App Permission View'))
 
 
+# Generate user permission object from userid
+def create_user_permission(userid):
+    user_permission = Permission(UserNeed(int(userid)))
+    return user_permission

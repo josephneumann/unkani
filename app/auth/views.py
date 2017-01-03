@@ -1,4 +1,4 @@
-from flask import render_template, redirect, request, url_for, flash, session
+from flask import render_template, redirect, request, url_for, flash, session, g
 from flask_login import login_user, logout_user, login_required, current_user, current_app
 from flask_principal import identity_changed, Identity, AnonymousIdentity, identity_loaded, UserNeed, RoleNeed
 
@@ -103,7 +103,7 @@ def resend_confirmation():
     token = current_user.generate_confirmation_token()
     send_email(to=[current_user.email], subject='Confirm Your Account', template='auth/email/confirm'
                , user=current_user, token=token)
-    flash('A new confirmation email has been sent to your email address.', 'info')
+    flash('A new confirmation email has been sent to the email address "{}".'.format(current_user.email), 'info')
     return redirect(url_for('main.landing'))
 
 
@@ -163,7 +163,6 @@ def reset_password(token):
 def on_identity_loaded(sender, identity):
     # Set the identity user object
     identity.user = current_user
-
     # Add the UserNeed to the identity
     if hasattr(current_user, 'id'):
         identity.provides.add(UserNeed(current_user.id))
@@ -172,7 +171,6 @@ def on_identity_loaded(sender, identity):
     if hasattr(current_user, 'role_id'):
         role = Role.query.filter_by(id=current_user.role_id).first()
         identity.provides.add(RoleNeed(role.name))
-
         app_permissions = role.app_permissions.all()
         for app_permission_name in app_permissions:
             identity.provides.add(AppPermissionNeed(str(app_permission_name)))

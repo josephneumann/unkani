@@ -1,6 +1,6 @@
 from flask import request, abort, jsonify, g, url_for
 
-from ..models import User
+from ..models import User, user_schema, users_schema
 from .authentication import token_auth, basic_auth, multi_auth
 from .errors import ValidationError
 from . import api
@@ -31,36 +31,81 @@ def get_user(id):
     This endpoint requires basic auth and will return a JSON user object requested by ID.
     """
     user = User.query.get_or_404(id)
-    return jsonify(user.to_dict())
+    user_data = user_schema.dump(user)
+    result = jsonify(user_data.data)
+    result.headers['Location'] = url_for('api.get_user', id=user.id)
+    return result
 
 
 @api.route('/users', methods=['POST'])
+@token_auth.login_required
 def new_user():
     """
-    Register a new user.
+    Register a new user
     """
-    try:
-        request_dict = dict(request.get_json())
-    except:
-        raise ValidationError("Invalid json payload")
-    error_list = []
-    if User.query.filter_by(email=request_dict['email']).first() is not None:
-        error_list.append("Email is already in use.")
-    if User.query.filter_by(username=request_dict['username']).first() is not None:
-        error_list.append("Username is already in use.")
-    if error_list:
+    post_fields = ["username", "email", "password", "dob", "first_name", "last_name", "phone"]
+    if g.current_user.has_admin_permission():
+        admin_post_fields = ["role_id", "active", "confirmed"]
+        for field in admin_post_fields:
+            post_fields.append(field)
+    json_data = request.get_json()
+    if not json_data:
+        raise ValidationError("Invalid JSON payload")
+    data, errors = user_schema.load(json_data)
+    if errors:
+        return jsonify(errors), 422
+    user_with_email = User.query.filter_by(email=data['email']).first()
+    user_errors = []
+    if user_with_email:
+        user_errors.append("A user with the email {} already exists".format(user_with_email.email))
+    user_with_username = User.query.filter_by(email=data['username']).first()
+    if user_with_username:
+        user_errors.append("A user with the username {} already exists".format(user_with_username.username))
+    if user_errors:
         message = "Validation error(s) raised during user account creation: "
-        for error in error_list:
+        for error in user_errors:
             message += error + " "
         raise ValidationError(message)
-    else:
-        user = User.create(dict(request.get_json() or {}))
-        db.session.add(user)
-        db.session.commit()
-        r = jsonify(user.to_dict())
-        r.status_code = 201
-        r.headers['Location'] = url_for('api.get_user', id=user.id)
-        return r
+    user = User()
+    for field in post_fields:
+        if field in data:
+            setattr(user, field, data.get(field))
+    db.session.add(user)
+    db.session.commit()
+    result = user_schema.dump(User.query.get(user.id))
+    json_result = jsonify({"message": "Created new user.",
+                           "user": result.data})
+    json_result.headers['Location'] = url_for('api.get_user', id=user.id)
+    return json_result, 201
+
+
+# @api.route('/users', methods=['POST'])
+# def new_user():
+#     """
+#     Register a new user.
+#     """
+#     try:
+#         request_dict = dict(request.get_json())
+#     except:
+#         raise ValidationError("Invalid json payload")
+#     error_list = []
+#     if User.query.filter_by(email=request_dict['email']).first() is not None:
+#         error_list.append("Email is already in use.")
+#     if User.query.filter_by(username=request_dict['username']).first() is not None:
+#         error_list.append("Username is already in use.")
+#     if error_list:
+#         message = "Validation error(s) raised during user account creation: "
+#         for error in error_list:
+#             message += error + " "
+#         raise ValidationError(message)
+#     else:
+#         user = User.create(dict(request.get_json() or {}))
+#         db.session.add(user)
+#         db.session.commit()
+#         r = jsonify(user.to_dict())
+#         r.status_code = 201
+#         r.headers['Location'] = url_for('api.get_user', id=user.id)
+#         return r
 
 
 @api.route('/users/<id>', methods=['PUT'])
@@ -92,10 +137,10 @@ def edit_user(id):
             message += error + " "
         raise ValidationError(message)
     for field in ['username', 'password', 'email', 'first_name', 'last_name']:
-            try:
-                setattr(user, field, request_dict[field])
-            except:
-                raise ValidationError("Error updating field: {}".format(field))
+        try:
+            setattr(user, field, request_dict[field])
+        except:
+            raise ValidationError("Error updating field: {}".format(field))
     db.session.add(user)
     db.session.commit()
     return '', 204

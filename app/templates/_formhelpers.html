@@ -3,7 +3,7 @@
 {% endmacro %}
 
 {% macro render_form_field_w_border(field) %}
-    {{ field(class="form-control border-input") }}
+    {{ field(class="form-control border-input", **kwargs) }}
 {% endmacro %}
 
 {% macro render_form_datepicker_field_w_border(field, arguments) %}

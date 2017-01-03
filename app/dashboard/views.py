@@ -1,8 +1,8 @@
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from flask_principal import Permission, UserNeed
 
-from app.security import app_permission_admin
+from app.security import app_permission_admin, create_user_permission
 from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
 from .. import db
@@ -20,7 +20,7 @@ def before_dashboard_request():
 def change_password(userid):
     form = ChangePasswordForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    user_permission = Permission(UserNeed(user.id))
+    user_permission = create_user_permission(user.id)
     if not (user_permission.can() or app_permission_admin.can()):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
               'danger')
@@ -41,7 +41,7 @@ def change_password(userid):
 def change_email_request(userid):
     form = ChangeEmailForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    user_permission = Permission(UserNeed(user.id))
+    user_permission = create_user_permission(user.id)
     if not (user_permission.can() or app_permission_admin.can()):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
               'danger')
@@ -77,11 +77,11 @@ def dashboard_main():
     return render_template('dashboard/dashboard.html')
 
 
-@dashboard.route('/user/<userid>', methods=['GET', 'POST'])
+@dashboard.route('/user/<int:userid>', methods=['GET', 'POST'])
 def user_profile(userid):
     form = UpdateUserProfileForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    user_permission = Permission(UserNeed(user.id))
+    user_permission = create_user_permission(user.id)
     if not (user_permission.can() or app_permission_admin.can()):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
               'danger')
@@ -108,6 +108,7 @@ def user_profile(userid):
         user.last_name = form.last_name.data
         user.phone = form.phone.data
         user.dob = form.dob.data
+        user.description = form.about_me.data
         db.session.add(user)
         flash('Your profile has been updated.', 'success')
 
@@ -116,6 +117,7 @@ def user_profile(userid):
     form.last_name.data = user.last_name
     form.dob.data = user.dob
     form.phone.data = user.phone
+    form.about_me.data = user.description
     return render_template('dashboard/user_profile.html', form=form, user=user)
 
 
@@ -124,3 +126,22 @@ def user_profile(userid):
 def admin_user_list():
     userlist = User.query.order_by(User.id).all()
     return render_template('dashboard/admin_user_list.html', userlist=userlist)
+
+
+@dashboard.route('/admin/user_list/user/resend_confirmation/<int:userid>')
+@app_permission_admin.require(http_exception=403)
+def admin_resend_confirmation(userid):
+    user = User.query.get_or_404(userid)
+    if not user.confirmed:
+        token = user.generate_confirmation_token()
+        send_email(to=[user.email], subject='Confirm Your Account', template='auth/email/confirm'
+                   , user=user, token=token)
+        flash('A new confirmation email has been sent to the email address "{}".'.format(user.email), 'info')
+        return redirect(url_for('dashboard.user_profile', userid=user.id))
+    else:
+        flash('The user account {} is already confirmed'.format(user.username), 'info')
+        if request.referrer:
+            return redirect(request.referrer)
+        else:
+            return redirect(url_for('dashboard.dashboard_main'))
+

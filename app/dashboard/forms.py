@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, DateField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, DateField, TextAreaField
 
 
 class ChangePasswordForm(FlaskForm):
@@ -33,4 +33,5 @@ class UpdateUserProfileForm(FlaskForm):
     phone = StringField('phone', render_kw={"placeholder": "Phone", "required": "true"})
     username = StringField('Username', render_kw={"placeholder": "Username", "required": "true", "minLength": "5",
                                                   "maxLength": "128"})
+    about_me = TextAreaField('About Me', render_kw={"placeholder": "About Me", "required": "false", "maxLength": "256"})
     submit = SubmitField('Register')

@@ -4,13 +4,14 @@ import re
 from datetime import datetime, date
 from random import randint, choice
 
-from flask import current_app, request, url_for, g, abort
+from flask import current_app, request, url_for, g, abort, jsonify
 from flask_login import UserMixin, AnonymousUserMixin
+from marshmallow import Schema, fields, ValidationError
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.security import app_permission_admin
-from . import db, login_manager
+from . import db, login_manager, ma
 
 #######################################################################################################################
 #                                     ROLE -> APP PERMISSION ASSOCIATION TABLE                                        #
@@ -114,6 +115,26 @@ class AppPermission(db.Model):
 #                                               USER MODEL DEFINITION                                                 #
 #######################################################################################################################
 
+class UserSchema(Schema):
+    id = fields.Int(dump_only=True)
+    email = fields.Email(required=True, allow_none=False)
+    username = fields.String(required=True, allow_none=False)
+    password = fields.String(required=True, load_only=True)
+    first_name = fields.String(required=False, allow_none=False)
+    last_name = fields.String(required=False, allow_none=False)
+    dob = fields.Date(required=False, allow_none=False)
+    phone = fields.String(required=False, allow_none=True)
+    confirmed = fields.Boolean(dump_only=True)
+    active = fields.Boolean(dump_only=True)
+    gravatar_url = fields.Method("generate_gravatar_url", dump_only=True)
+    create_timestamp = fields.DateTime(required=False, dump_only=True)
+    last_seen = fields.DateTime(required=False, dump_only=True)
+    #role with link
+
+    def generate_gravatar_url(self, user):
+        return user.gravatar()
+
+
 # UserMixin from flask_login
 # is_authenticated() - Returns True if user has login credentials, else False
 # is_active() - Returns True if useris allowed to login, else False.
@@ -133,11 +154,13 @@ class User(UserMixin, db.Model):
     last_name = db.Column(db.String(128))
     dob = db.Column(db.Date)
     phone = db.Column(db.String(16))
+    description = db.Column(db.Text)
     confirmed = db.Column(db.Boolean, default=False)
     active = db.Column(db.BOOLEAN, default=True)
     create_timestamp = db.Column(db.TIMESTAMP, default=datetime.utcnow())
     last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
     avatar_hash = db.Column(db.String(128))
+
 
     def __repr__(self):
         return '<User %r>' % self.username
@@ -220,6 +243,12 @@ class User(UserMixin, db.Model):
     def dob_string(self):
         if self.dob:
             return self.dob.strftime('%Y-%m-%d')
+        else:
+            return None
+    @property
+    def joined_year(self):
+        if self.create_timestamp:
+            return self.create_timestamp.strftime('%Y')
         else:
             return None
 
@@ -411,7 +440,7 @@ class User(UserMixin, db.Model):
             data = s.loads(token)
         except:
             return None
-        return User.query.get(data['id'])
+        return User.query.get(int(data['id']))
 
 
 class AnonymousUser(AnonymousUserMixin):
@@ -426,3 +455,6 @@ login_manager.anonymous_user = AnonymousUser
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+user_schema = UserSchema()
+users_schema = UserSchema(many=True)

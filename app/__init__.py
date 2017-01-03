@@ -6,6 +6,7 @@ from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_principal import Principal
+from flask_marshmallow import Marshmallow
 from raven.contrib.flask import Sentry
 import logging
 from celery import Celery
@@ -30,6 +31,8 @@ login_manager.login_message_category = 'info'
 sentry = Sentry()
 celery = Celery(__name__, broker=os.environ.get('CELERY_BROKER_URL', 'redis://'),
                 backend=os.environ.get('CELERY_BROKER_URL', 'redis://'))
+ma = Marshmallow()
+
 
 from .flask_sendgrid import send_async_email
 
@@ -57,6 +60,7 @@ def create_app(config_name):
     sentry.init_app(app, logging=True, level=logging.ERROR)
     celery.conf.update(app.config)
     Principal(app)
+    ma.init_app(app)
 
     # Register blueprint objects with application object
     # These MUST be imported last, to avoid circular dependencies in the blueprint

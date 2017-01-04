@@ -1,11 +1,10 @@
 from flask import request, abort, jsonify, g, url_for
-
 from ..models import User, user_schema, users_schema
 from .authentication import token_auth, basic_auth, multi_auth
-from .errors import ValidationError
+from .errors import ValidationError, forbidden
 from . import api
 from app import db
-
+from app.security import app_permission_admin, create_user_permission
 
 @api.route('/users', methods=['GET'])
 @token_auth.login_required
@@ -79,36 +78,7 @@ def new_user():
     return json_result, 201
 
 
-# @api.route('/users', methods=['POST'])
-# def new_user():
-#     """
-#     Register a new user.
-#     """
-#     try:
-#         request_dict = dict(request.get_json())
-#     except:
-#         raise ValidationError("Invalid json payload")
-#     error_list = []
-#     if User.query.filter_by(email=request_dict['email']).first() is not None:
-#         error_list.append("Email is already in use.")
-#     if User.query.filter_by(username=request_dict['username']).first() is not None:
-#         error_list.append("Username is already in use.")
-#     if error_list:
-#         message = "Validation error(s) raised during user account creation: "
-#         for error in error_list:
-#             message += error + " "
-#         raise ValidationError(message)
-#     else:
-#         user = User.create(dict(request.get_json() or {}))
-#         db.session.add(user)
-#         db.session.commit()
-#         r = jsonify(user.to_dict())
-#         r.status_code = 201
-#         r.headers['Location'] = url_for('api.get_user', id=user.id)
-#         return r
-
-
-@api.route('/users/<id>', methods=['PUT'])
+@api.route('/users/<int:id>', methods=['PUT'])
 @token_auth.login_required
 def edit_user(id):
     """
@@ -144,3 +114,21 @@ def edit_user(id):
     db.session.add(user)
     db.session.commit()
     return '', 204
+
+@api.route('/users/<int:id>', methods=['DELETE'])
+@token_auth.login_required
+def delete_user(id):
+    """
+    Delete an existing user
+    """
+    user = User.query.get_or_404(int(id))
+    user_permission = create_user_permission(user.id)
+    if not (app_permission_admin.can() or user_permission.can()):
+        forbidden("You do not have permssion to delete user with id {}".format(user.id))
+    db.session.delete(user)
+    db.session.commit()
+    json_response = jsonify({"message": "User {} deleted".format(user.email)})
+    return json_response, 204
+
+
+#PATCH

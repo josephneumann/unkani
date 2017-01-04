@@ -38,7 +38,7 @@
                                                     {% if user.confirmed %}
                                                         Confirmed
                                                     {% elif current_user.has_admin_permission() %}
-                                                        <a href="{{ url_for('dashboard.admin_resend_confirmation', userid=user.id)}}">Unconfirmed</a>
+                                                        <a href="{{ url_for('auth.resend_confirmation', userid=user.id)}}">Unconfirmed</a>
                                                     {% else %}
                                                         Unconfirmed
                                                     {% endif %}

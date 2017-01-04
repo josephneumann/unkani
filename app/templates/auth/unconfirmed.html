@@ -44,7 +44,7 @@
                                 </p>
                                 <br/>
                                 <p class="btn-center">
-                                    <a class="btn btn-wd btn-info" href="{{ url_for('auth.resend_confirmation') }}">
+                                    <a class="btn btn-wd btn-info" href="{{ url_for('auth.resend_confirmation', userid=current_user.id) }}">
                                         Resend Confirmation
                                     </a>
                                 </p>

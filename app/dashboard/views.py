@@ -94,10 +94,8 @@ def user_profile(userid):
         if form.username.data != user.username:
             if User.query.filter_by(username=form.username.data).first():
                 flash(
-                    'The username '
-                    + form.username.data
-                    + ''' is already taken. We kept your username the same.'''
-                    , 'danger')
+                    'The username {} is already taken. We kept your username the same.'.format(form.username.data),
+                    'danger')
                 username = user.username
             else:
                 username = form.username.data
@@ -126,22 +124,4 @@ def user_profile(userid):
 def admin_user_list():
     userlist = User.query.order_by(User.id).all()
     return render_template('dashboard/admin_user_list.html', userlist=userlist)
-
-
-@dashboard.route('/admin/user_list/user/resend_confirmation/<int:userid>')
-@app_permission_admin.require(http_exception=403)
-def admin_resend_confirmation(userid):
-    user = User.query.get_or_404(userid)
-    if not user.confirmed:
-        token = user.generate_confirmation_token()
-        send_email(to=[user.email], subject='Confirm Your Account', template='auth/email/confirm'
-                   , user=user, token=token)
-        flash('A new confirmation email has been sent to the email address "{}".'.format(user.email), 'info')
-        return redirect(url_for('dashboard.user_profile', userid=user.id))
-    else:
-        flash('The user account {} is already confirmed'.format(user.username), 'info')
-        if request.referrer:
-            return redirect(request.referrer)
-        else:
-            return redirect(url_for('dashboard.dashboard_main'))
 

@@ -29,3 +29,25 @@ app_permission_apppermissionview = Permission(AppPermissionNeed('App Permission 
 def create_user_permission(userid):
     user_permission = Permission(UserNeed(int(userid)))
     return user_permission
+
+# Dict of app_permission records used for initialization
+app_permissions_dict = {
+    'Admin': (1),
+    'User Create': (2),
+    'User Delete': (3),
+    'User Update': (4),
+    'User View': (5),
+    'Role Create': (6),
+    'Role Delete': (7),
+    'Role Update': (8),
+    'Role View': (9),
+    'App Permission Create': (10),
+    'App Permission Delete': (11),
+    'App Permission Update': (12),
+    'App Permission View': (13),
+}
+
+role_dict = {
+    'Admin': {'id': 1, 'permissions': ['Admin']},
+    'User': {'id': 2, 'permissions': ['User View', 'Role View', 'App Permission View']}
+}

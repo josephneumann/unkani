@@ -1,4 +1,4 @@
-from flask import render_template, g, request, jsonify
+from flask import render_template, g, request, jsonify, current_app
 from raven.base import Raven
 
 from . import main
@@ -30,11 +30,15 @@ def internal_server_error(e):
         response = jsonify({'error': 'internal server error'})
         response.status_code = 500
         return response
-    return render_template('errors/500.html',
-                           event_id=g.sentry_event_id,
-                           public_dsn=sentry.client.get_public_dsn('https'),
-                           Raven=Raven
-                           ), 500
+
+    if not current_app.config['SENTRY_DISABLE']:
+        return render_template('errors/500.html',
+                               event_id=g.sentry_event_id,
+                               public_dsn=sentry.client.get_public_dsn('https'),
+                               Raven=Raven
+                               ), 500
+    else:
+        return render_template('errors/500.html'), 500
 
 
 class ValidationError(ValueError):

@@ -35,6 +35,7 @@ class DevelopmentConfig(Config):
     EMAIL_OFF = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SSL_DISABLE = True
+    SENTRY_DISABLE = True
 
 class TestingConfig(Config):
     DEBUG = True
@@ -45,7 +46,7 @@ class TestingConfig(Config):
     EMAIL_OFF = True
     CELERY_ALWAYS_EAGER = True
     SSL_DISABLE = True
-
+    SENTRY_DISABLE = True
 
 class StagingConfig(Config):
     DEBUG = False
@@ -53,6 +54,7 @@ class StagingConfig(Config):
     EMAIL_OFF = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SSL_DISABLE = False
+    SENTRY_DISABLE = False
 
 
 class ProductionConfig(Config):
@@ -61,6 +63,7 @@ class ProductionConfig(Config):
     EMAIL_OFF = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SSL_DISABLE = False
+    SENTRY_DISABLE = False
 
 
     @classmethod

@@ -6,12 +6,13 @@ from random import randint, choice
 
 from flask import current_app, request, url_for, g, abort, jsonify
 from flask_login import UserMixin, AnonymousUserMixin
-from marshmallow import Schema, fields, ValidationError
+from marshmallow import fields, ValidationError
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.security import app_permission_admin
 from . import db, login_manager, ma
+
 
 #######################################################################################################################
 #                                     ROLE -> APP PERMISSION ASSOCIATION TABLE                                        #
@@ -43,15 +44,7 @@ class Role(db.Model):
 
     @staticmethod
     def initialize_roles():
-        roles = {
-            'Admin': ('1'),
-            'User': ('2'),
-        }
-        role_dict = {
-            'Admin': {'id': 1, 'permissions': ['Admin']},
-            'User': {'id': 2, 'permissions': ['User View', 'Role View', 'App Permission View']}
-        }
-
+        from app.security import role_dict
         for r in role_dict:
             role = Role.query.filter_by(name=r).first()
             if role is None:
@@ -82,31 +75,18 @@ class AppPermission(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True)
 
+    #TODO refactor and don't rely on this for other fucntionality
     def __repr__(self):
         return str(self.name)
 
     @staticmethod
     def initialize_app_permissions():
-        app_permissions = {
-            'Admin': (1),
-            'User Create': (2),
-            'User Delete': (3),
-            'User Update': (4),
-            'User View': (5),
-            'Role Create': (6),
-            'Role Delete': (7),
-            'Role Update': (8),
-            'Role View': (9),
-            'App Permission Create': (10),
-            'App Permission Delete': (11),
-            'App Permission Update': (12),
-            'App Permission View': (13),
-        }
-        for p in app_permissions:
+        from app.security import app_permissions_dict
+        for p in app_permissions_dict:
             app_permission = AppPermission.query.filter_by(name=p).first()
             if app_permission is None:
                 app_permission = AppPermission(name=p)
-                app_permission.id = app_permissions[p]
+                app_permission.id = app_permissions_dict[p]
                 db.session.add(app_permission)
         db.session.commit()
 
@@ -115,7 +95,7 @@ class AppPermission(db.Model):
 #                                               USER MODEL DEFINITION                                                 #
 #######################################################################################################################
 
-class UserSchema(Schema):
+class UserSchema(ma.Schema):
     id = fields.Int(dump_only=True)
     email = fields.Email(required=True, allow_none=False)
     username = fields.String(required=True, allow_none=False)
@@ -162,6 +142,7 @@ class User(UserMixin, db.Model):
     avatar_hash = db.Column(db.String(128))
 
 
+
     def __repr__(self):
         return '<User %r>' % self.username
 
@@ -172,9 +153,7 @@ class User(UserMixin, db.Model):
                 self.role = Role.query.filter_by(name='Admin').first()
             if self.role is None:
                 self.role = Role.query.filter_by(default=True).first()
-        if self.email is not None and self.avatar_hash is None:
-            if not re.search(r'(@example.com)+', self.email):
-                self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+        self.generate_avatar_hash()
         self.active = True
         self.confirmed = False
 
@@ -349,8 +328,7 @@ class User(UserMixin, db.Model):
             return False
         self.last_email = self.email
         self.email = new_email
-        if not re.search(r'(@example.com)+', new_email):
-            self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+        self.generate_avatar_hash()
         db.session.add(self)
         return True
 
@@ -412,17 +390,23 @@ class User(UserMixin, db.Model):
         self.password = password
         self.gravatar()
 
+    def generate_avatar_hash(self):
+        if self.email and not re.search(r'(@example.com)+', self.email):
+            self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+
     def gravatar(self, size=100, default='identicon', rating='g'):
         if request.is_secure:
             url = 'https://secure.gravatar.com/avatar'
         else:
             url = 'http://www.gravatar.com/avatar'
         if not self.avatar_hash:
-            self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+            self.generate_avatar_hash()
             db.session.add(self)
             db.session.commit()
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
             url=url, hash=self.avatar_hash, size=size, default=default, rating=rating)
+
+
 
     def generate_api_auth_token(self, expiration=600):
         s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)

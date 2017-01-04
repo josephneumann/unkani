@@ -2,7 +2,7 @@ from flask import render_template, redirect, request, url_for, flash, session, g
 from flask_login import login_user, logout_user, login_required, current_user, current_app
 from flask_principal import identity_changed, Identity, AnonymousIdentity, identity_loaded, UserNeed, RoleNeed
 
-from app.security import AppPermissionNeed
+from app.security import AppPermissionNeed, app_permission_admin, create_user_permission
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from .. import db
@@ -32,13 +32,15 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
-        if user is not None and user.verify_password(form.password.data):
+        if user is None:
+            flash('A user account with the email address {} was not found.'.format(form.email.data), 'danger')
+        elif user.verify_password(form.password.data):
             login_user(user, form.remember_me.data)
             identity_changed.send(current_app._get_current_object(),
                                   identity=Identity(user.id))
             return redirect(request.args.get('next') or url_for('dashboard.dashboard_main'))
         else:
-            flash('Invalid email or password.', 'danger')
+            flash('Invalid password provided for user {}.'.format(user.email), 'danger')
     return render_template('auth/login.html', form=form)
 
 
@@ -50,7 +52,6 @@ def logout():
     # Remove session keys set by Flask-Principal
     for key in ('identity.name', 'identity.auth_type'):
         session.pop(key, None)
-
     # Tell Flask-Principal the user is anonymous
     identity_changed.send(current_app._get_current_object(),
                           identity=AnonymousIdentity())
@@ -63,24 +64,23 @@ def register():
     form = RegistrationForm()
     if form.validate_on_submit():
         if User.query.filter_by(email=form.email.data).first():
-            flash('Email is already registered. Please enter a different email address '
-                  'or recover your password for your existing account to proceed.', 'danger')
+            flash('The email {} is already registered. Please enter a different email address.'.format(form.email.data),
+                  'danger')
 
         if User.query.filter_by(username=form.username.data).first():
-            flash('Username already taken.  Please enter a different username or '
-                  'recover your password for your existing account to proceed.', 'danger')
+            flash('The username {} is already registered.  Please enter a different username.'.format(form.username.data),
+                  'danger')
 
         else:
             user = User(email=form.email.data, first_name=form.first_name.data, last_name=form.last_name.data,
                         username=form.username.data, password=form.password.data)
-            user.avatar_hash = user.gravatar()
             db.session.add(user)
             db.session.commit()
             token = user.generate_confirmation_token()
             send_email(to=[user.email], user=user, token=token,
                        subject='Confirm Your Account', template='auth/email/confirm')
-            flash('A confirmation message has been sent to your email.', 'info')
-            return (redirect(url_for('auth.login')))
+            flash('A confirmation message has been sent to {}.'.format(user.email), 'info')
+            return redirect(url_for('auth.login'))
     return render_template('auth/register.html', form=form)
 
 
@@ -91,21 +91,44 @@ def confirm(token):
         flash('Your account has already been confirmed.', 'success')
         return redirect(url_for('main.landing'))
     if current_user.confirm(token):
-        flash('You have confirmed your account.', 'success')
+        flash('You have confirmed your account {}.'.format(current_user.email), 'success')
     else:
         flash('The confirmation link is invalid or has expired.', 'danger')
     return redirect(url_for('main.landing'))
 
 
-@auth.route('/confirm')
+@auth.route('/resend_confirmation/<int:userid>')
 @login_required
-def resend_confirmation():
-    token = current_user.generate_confirmation_token()
-    send_email(to=[current_user.email], subject='Confirm Your Account', template='auth/email/confirm'
-               , user=current_user, token=token)
-    flash('A new confirmation email has been sent to the email address "{}".'.format(current_user.email), 'info')
-    return redirect(url_for('main.landing'))
-
+def resend_confirmation(userid):
+    user = User.query.get(userid)
+    if not user:
+        flash("User with id {} does not exist.".format(userid), "danger")
+        if request.referrer:
+            return redirect(request.referrer)
+        else:
+            redirect(url_for('main.landing'))
+    if user.confirmed:
+        flash("The user {} is already confirmed".format(user.email))
+        if request.referrer:
+            return redirect(request.referrer)
+        else:
+            redirect(url_for('main.landing'))
+    user_permission = create_user_permission(user.id)
+    if not (user_permission.can() or app_permission_admin.can()):
+        flash('You do not have permission to resend the confirmation for {}'.format(user.email), 'danger')
+        if request.referrer != url_for('auth.unconfirmed'):
+            return redirect(request.referrer)
+        else:
+            return redirect(url_for('main.landing'))
+    else:
+        token = user.generate_confirmation_token()
+        send_email(to=[user.email], subject='Confirm Your Account', template='auth/email/confirm'
+                   , user=user, token=token)
+        flash('A new confirmation email has been sent to the email address "{}".'.format(current_user.email), 'info')
+        if request.referrer != url_for('auth.unconfirmed'):
+            return redirect(request.referrer)
+        else:
+            return redirect(url_for('main.landing'))
 
 @auth.route('/unconfirmed')
 def unconfirmed():
@@ -159,6 +182,7 @@ def reset_password(token):
             return redirect(url_for('main.landing'))
     return render_template('auth/reset_password.html', form=form)
 
+
 @identity_loaded.connect
 def on_identity_loaded(sender, identity):
     # Set the identity user object
@@ -166,7 +190,6 @@ def on_identity_loaded(sender, identity):
     # Add the UserNeed to the identity
     if hasattr(current_user, 'id'):
         identity.provides.add(UserNeed(current_user.id))
-
     # Update the identity with the roles that the user provides
     if hasattr(current_user, 'role_id'):
         role = Role.query.filter_by(id=current_user.role_id).first()

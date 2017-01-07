@@ -6,13 +6,12 @@ from random import randint, choice
 
 from flask import current_app, request, url_for, g, abort, jsonify
 from flask_login import UserMixin, AnonymousUserMixin
-from marshmallow import fields, ValidationError
+from marshmallow import fields, ValidationError, post_load, validates
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app.security import app_permission_admin
 from . import db, login_manager, ma
-
 
 #######################################################################################################################
 #                                     ROLE -> APP PERMISSION ASSOCIATION TABLE                                        #
@@ -40,7 +39,7 @@ class Role(db.Model):
                                       lazy='dynamic')
 
     def __repr__(self):
-        return '%r' % self.name
+        return '<Role %r>' % self.name
 
     @staticmethod
     def initialize_roles():
@@ -75,7 +74,7 @@ class AppPermission(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True)
 
-    #TODO refactor and don't rely on this for other fucntionality
+    # TODO refactor and don't rely on this for other fucntionality
     def __repr__(self):
         return str(self.name)
 
@@ -97,22 +96,77 @@ class AppPermission(db.Model):
 
 class UserSchema(ma.Schema):
     id = fields.Int(dump_only=True)
-    email = fields.Email(required=True, allow_none=False)
-    username = fields.String(required=True, allow_none=False)
-    password = fields.String(required=True, load_only=True)
-    first_name = fields.String(required=False, allow_none=False)
-    last_name = fields.String(required=False, allow_none=False)
-    dob = fields.Date(required=False, allow_none=False)
-    phone = fields.String(required=False, allow_none=True)
+    email = fields.Email(dump_only=True)
+    username = fields.String(dump_only=True)
+    password = fields.String(load_only=True)
+    first_name = fields.String()
+    last_name = fields.String()
+    dob = fields.Date()
+    phone = fields.String()
+    description = fields.String()
     confirmed = fields.Boolean(dump_only=True)
     active = fields.Boolean(dump_only=True)
     gravatar_url = fields.Method("generate_gravatar_url", dump_only=True)
-    create_timestamp = fields.DateTime(required=False, dump_only=True)
-    last_seen = fields.DateTime(required=False, dump_only=True)
-    #role with link
+    role_id = fields.Int(dump_only=True)
+    role_name = fields.Method("get_role_name", dump_only=True)
+    create_timestamp = fields.DateTime(dump_only=True)
+    last_seen = fields.DateTime(dump_only=True)
 
     def generate_gravatar_url(self, user):
         return user.gravatar()
+
+    def get_role_name(self, user):
+        return user.role.name
+
+
+class UserSchemaCreate(UserSchema):
+    email = fields.Email(required=True)
+    username = fields.String(required=True)
+    password = fields.String(required=True, load_only=True)
+    first_name = fields.String(required=True)
+    last_name = fields.String(required=True)
+
+    @post_load
+    def make_user(self, data):
+        return User(**data)
+
+    @validates('email')
+    def validate_email(self, value):
+        if User.query.filter_by(email=value).first():
+            raise ValidationError('An account with the email {} already exists.'.format(value))
+
+    @validates('username')
+    def validate_username(self, value):
+        if User.query.filter_by(username=value).first():
+            raise ValidationError('An account with the username {} already exists.'.format(value))
+
+
+class UserSchemaUpdate(UserSchema):
+    id = fields.Int(required=True)
+    email = fields.Email(dump_only=False)
+    username = fields.String(dump_only=False)
+
+    # @validates('email')
+    # def validate_email(self, data):
+    #     userid = data.get('id')
+    #     email = data.get('email')
+    #     user_with_email = User.query.get(userid).first()
+    #     if email and user_with_email:
+    #         if user_with_email.id != userid:
+    #             raise ValidationError('An account with the email {} already exists.'.format(email))
+    #
+    # @validates('username')
+    # def validate_username(self, data):
+    #     userid = int(data['id'])
+    #     username = data.get('username')
+    #     user_with_username = User.query.get(userid).first()
+    #     if username and user_with_username:
+    #         if user_with_username.id != userid:
+    #             raise ValidationError('An account with the username {} already exists.'.format(username))
+
+    @post_load
+    def update_user(self, data):
+        return User(**data)
 
 
 # UserMixin from flask_login
@@ -141,8 +195,6 @@ class User(UserMixin, db.Model):
     last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
     avatar_hash = db.Column(db.String(128))
 
-
-
     def __repr__(self):
         return '<User %r>' % self.username
 
@@ -162,11 +214,6 @@ class User(UserMixin, db.Model):
             return True
         else:
             return False
-
-    @staticmethod
-    def current_privileges():
-        return (('{method} : {value}').format(method=n.method, value=n.value)
-                for n in g.identity.provides)
 
     def to_dict(self):
         dict_user = {"user": {
@@ -224,10 +271,11 @@ class User(UserMixin, db.Model):
             return self.dob.strftime('%Y-%m-%d')
         else:
             return None
+
     @property
     def joined_year(self):
         if self.create_timestamp:
-            return self.create_timestamp.strftime('%Y')
+            return self.create_timestamp.strftime('%b-%Y')
         else:
             return None
 
@@ -406,8 +454,6 @@ class User(UserMixin, db.Model):
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
             url=url, hash=self.avatar_hash, size=size, default=default, rating=rating)
 
-
-
     def generate_api_auth_token(self, expiration=600):
         s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)
         token = s.dumps({'id': self.id}).decode('ascii')
@@ -440,5 +486,10 @@ login_manager.anonymous_user = AnonymousUser
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+
 user_schema = UserSchema()
 users_schema = UserSchema(many=True)
+user_schema_create = UserSchemaCreate()
+users_schema_create = UserSchemaCreate(many=True)
+user_schema_update = UserSchemaUpdate()
+users_schema_update = UserSchemaUpdate(many=True)

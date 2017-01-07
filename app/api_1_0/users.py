@@ -1,10 +1,12 @@
 from flask import request, abort, jsonify, g, url_for
-from ..models import User, user_schema, users_schema
+from ..models import User, user_schema, users_schema, user_schema_create, users_schema_create, user_schema_update, \
+    users_schema_update
 from .authentication import token_auth, basic_auth, multi_auth
 from .errors import ValidationError, forbidden
 from . import api
 from app import db
 from app.security import app_permission_admin, create_user_permission
+
 
 @api.route('/users', methods=['GET'])
 @token_auth.login_required
@@ -18,21 +20,22 @@ def get_user_list():
     #         User.last_seen > int(request.args.get('last_seen')))
     user_list = {}
     for user in user_results:
-        user_list[user.id] = url_for('api.get_user', id=user.id)
+        # user_list[user.id] = user.username
+        user_list[user.id] = url_for('api.get_user', userid=user.id, _external=True)
     return jsonify(user_list)
 
 
-@api.route('/users/<int:id>', methods=['GET'])
+@api.route('/users/<int:userid>', methods=['GET'])
 @token_auth.login_required
-def get_user(id):
+def get_user(userid):
     """
     Return a user.
     This endpoint requires basic auth and will return a JSON user object requested by ID.
     """
-    user = User.query.get_or_404(id)
+    user = User.query.get_or_404(userid)
     user_data = user_schema.dump(user)
     result = jsonify(user_data.data)
-    result.headers['Location'] = url_for('api.get_user', id=user.id)
+    result.headers['Location'] = url_for('api.get_user', userid=user.id)
     return result
 
 
@@ -42,78 +45,78 @@ def new_user():
     """
     Register a new user
     """
-    post_fields = ["username", "email", "password", "dob", "first_name", "last_name", "phone"]
-    if g.current_user.has_admin_permission():
-        admin_post_fields = ["role_id", "active", "confirmed"]
-        for field in admin_post_fields:
-            post_fields.append(field)
     json_data = request.get_json()
     if not json_data:
-        raise ValidationError("Invalid JSON payload")
-    data, errors = user_schema.load(json_data)
+        return jsonify({"error": "User could not be created",
+                        "message": "Request JSON was improperly formatted."}), 422
+    user, errors = user_schema_create.load(json_data)
     if errors:
-        return jsonify(errors), 422
-    user_with_email = User.query.filter_by(email=data['email']).first()
-    user_errors = []
-    if user_with_email:
-        user_errors.append("A user with the email {} already exists".format(user_with_email.email))
-    user_with_username = User.query.filter_by(email=data['username']).first()
-    if user_with_username:
-        user_errors.append("A user with the username {} already exists".format(user_with_username.username))
-    if user_errors:
-        message = "Validation error(s) raised during user account creation: "
-        for error in user_errors:
-            message += error + " "
-        raise ValidationError(message)
-    user = User()
-    for field in post_fields:
-        if field in data:
-            setattr(user, field, data.get(field))
+        return jsonify({"error": "User could not be created",
+                        "message": errors}), 422
     db.session.add(user)
     db.session.commit()
-    result = user_schema.dump(User.query.get(user.id))
+    result = user_schema.dump(user)
     json_result = jsonify({"message": "Created new user.",
                            "user": result.data})
-    json_result.headers['Location'] = url_for('api.get_user', id=user.id)
+    json_result.headers['Location'] = url_for('api.get_user', userid=user.id)
     return json_result, 201
 
 
-@api.route('/users/<int:id>', methods=['PUT'])
+@api.route('/users/<int:userid>', methods=['PUT', 'PATCH'])
 @token_auth.login_required
-def edit_user(id):
+def edit_user(userid):
     """
-    Modify an existing user.
+    Update or ovewrite an existing user
     This endpoint is requires a valid user token.
-    Note: users are only allowed to modify themselves.
+    Users are only allowed to modify themselves unless given admin permissions
+    Returns a JSON reponse with user data, errors if they exist and a list of ignored fields
+    Location header on the response indicates location of user record
     """
-    user = User.query.get_or_404(int(id))
-    try:
-        request_dict = dict(request.get_json())
-    except:
-        raise ValidationError("Invalid json payload")
-    error_list = []
-    email = request_dict.get("email")
-    username = request_dict.get("username")
-    error_list = []
-    if email and email != user.email:
-        if User.query.filter_by(email=request_dict['email']).first() is not None:
-            error_list.append("Email is already in use.")
-    if username and username != user.username:
-        if User.query.filter_by(username=request_dict['username']).first() is not None:
-            error_list.append("Username is already in use.")
-    if error_list:
-        message = "Validation error(s) raised during user account creation: "
-        for error in error_list:
-            message += error + " "
-        raise ValidationError(message)
-    for field in ['username', 'password', 'email', 'first_name', 'last_name']:
-        try:
-            setattr(user, field, request_dict[field])
-        except:
-            raise ValidationError("Error updating field: {}".format(field))
+    additional_message = None
+    allowed_fields = ['email', 'username', 'first_name', 'last_name', 'password', 'dob', 'phone', 'description']
+    user_permission = create_user_permission(userid)
+    if app_permission_admin.can() or user_permission.can():
+        allowed_fields += ['confirmed', 'active', 'role_id']
+    user = User.query.get_or_404(userid)
+    original_email = user.email
+    data = request.get_json()
+    data['id'] = userid
+    errors = user_schema_update.validate(data)
+    if errors:
+        return jsonify({"error": "User could not be updated",
+                        "message": errors}), 422
+    if 'email' in data and User.query.filter(User.email == data['email'], User.id != data['id']).first():
+        return jsonify({"error": "User could not be updated",
+                        "message": "A user with email {} already exists".format(data['email'])}), 422
+    if 'username' in data and User.query.filter(User.username == data['username'], User.id != data['id']).first():
+        return jsonify({"error": "User could not be updated",
+                        "message": "A user with username {} already exists".format(data['username'])}), 422
+    unallowed_fields = [{}]
+    for key in data:
+        if key != 'id' and key in allowed_fields:
+            setattr(user, key, data[key])
+        elif key != 'id':
+            unallowed_fields[0][key] = data[key]
+    if user.email.lower() != original_email.lower():
+        user.confirmed = False
+        additional_message = {
+            "email changed": "The user's email has been changed to {} and requires confirmation via email".format(
+                user.email)}
     db.session.add(user)
     db.session.commit()
-    return '', 204
+    updated_user = user_schema.dump(User.query.get(userid))
+
+    response = {"message": "User successfully updated",
+                "user": updated_user.data}
+    if additional_message:
+        response.update(additional_message)
+    if unallowed_fields[0]:
+        ignored_message = {"ignored fields": unallowed_fields}
+        response.update(ignored_message)
+    json_response = jsonify(response)
+    json_response.headers['Location'] = url_for('api.get_user', userid=user.id)
+    return json_response, 200
+
 
 @api.route('/users/<int:id>', methods=['DELETE'])
 @token_auth.login_required
@@ -128,7 +131,4 @@ def delete_user(id):
     db.session.delete(user)
     db.session.commit()
     json_response = jsonify({"message": "User {} deleted".format(user.email)})
-    return json_response, 204
-
-
-#PATCH
+    return json_response, 200

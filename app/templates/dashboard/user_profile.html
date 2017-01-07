@@ -38,7 +38,7 @@
                                                     {% if user.confirmed %}
                                                         Confirmed
                                                     {% elif current_user.has_admin_permission() %}
-                                                        <a href="{{ url_for('auth.resend_confirmation', userid=user.id)}}">Unconfirmed</a>
+                                                        <a href="{{ url_for('auth.resend_confirmation', userid=user.id) }}">Unconfirmed</a>
                                                     {% else %}
                                                         Unconfirmed
                                                     {% endif %}
@@ -126,15 +126,21 @@
                                     </div>
                                     <div class="card-footer">
                                         <div class="form-group pull-left">
-                                            <a href="{{ url_for('dashboard.change_password', userid=user.id) }}"
+                                           <a href="#" class="btn btn-wd btn-danger btn-move-left">
+                                               <span class="btn-label">
+                                                   <i class="ti ti-trash"></i>
+                                                   Delete Account
+                                               </span>
+                                           </a>
+                                        </div>
+                                        <div class="form-group pull-right">
+                                             <a href="{{ url_for('dashboard.change_password', userid=user.id) }}"
                                                class="btn btn-wd btn-info btn-rotate">
                                             <span class="btn-label">
 	                                                <i class="ti ti-lock"></i>
                                             </span>
                                                 Change Password
                                             </a>
-                                        </div>
-                                        <div class="form-group pull-left">
                                             <a href="{{ url_for('dashboard.change_email_request', userid=user.id) }}"
                                                class="btn btn-wd btn-info btn-move-left">
                                             <span class="btn-label">
@@ -142,24 +148,22 @@
                                             </span>
                                                 Update Email
                                             </a>
-                                        </div>
-                                        <div class="form-group pull-right">
-                                        <button type="submit" class="btn btn-wd btn-success btn-magnify">
+                                            <button type="submit" class="btn btn-wd btn-success btn-magnify">
 	                                            <span class="btn-label">
 	                                                <i class="ti ti-check"></i>
 	                                            </span>
-                                            Save Changes
-                                        </button>
+                                                Save Changes
+                                            </button>
                                         </div>
-                                    <div class="clearfix"></div>
+                                        <div class="clearfix"></div>
+                                    </div>
+                                </form>
                             </div>
-                            </form>
                         </div>
                     </div>
-                    </div>
                 {% endblock user_profile_form %}
+            </div>
         </div>
-    </div>
     </div>
 {% endblock content %}
 

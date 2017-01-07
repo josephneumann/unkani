@@ -76,6 +76,19 @@ def token_error():
     return r
 
 
+@api.route('/tokens', methods=['POST'])
+@basic_auth.login_required
+def new_token():
+    """
+    Request a user token.
+    This endpoint requires basic auth with email and password
+    for a confirmed account
+    This endpoint returns a Timed JSON Web Signature token
+    """
+    token = g.current_user.generate_api_auth_token()
+    return jsonify({'token': token})
+
+
 def set_identity_permissions(user):
     # Set the identity user object
     identity = Identity(user.id)

@@ -42,6 +42,11 @@ class Role(db.Model):
 
     @staticmethod
     def initialize_roles():
+        __doc__="""
+        Role Staticmethod:  Creates and stores a default set of Roles as defined
+        by the application security module.  Populates Role attributes including: 'id', 'name',
+        'level'.  Also populates app_permissions in the role_app_permission association table
+        to initialize the permissions for the given role."""
         from app.security import role_dict
         for r in role_dict:
             role = Role.query.filter_by(name=r).first()
@@ -73,12 +78,16 @@ class AppPermission(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True)
 
-    # TODO refactor and don't rely on this for other fucntionality
     def __repr__(self):
         return str(self.name)
 
     @staticmethod
     def initialize_app_permissions():
+        __doc__="""
+        AppPermission Staticmethod:  Initializes the set of AppPermission records as
+        defined in the app security module.  Reads from a dict to assign names to permission.
+        If app_permission already exists, it is ignored.  This method is used during deployment
+        and on database creation / upgrades."""
         from app.security import app_permissions_dict
         for p in app_permissions_dict:
             app_permission = AppPermission.query.filter_by(name=p).first()
@@ -94,6 +103,10 @@ class AppPermission(db.Model):
 ##################################################################################################
 
 class UserSchema(ma.Schema):
+    __doc__="""
+    Marshmallow schema, associated with SQLAlchemy User model.  Used as a base object for
+    serialization and de-serialization.  Defines read-only and write only attributes for basic
+    object use.  Defines validation criteria for input."""
     id = fields.Int(dump_only=True)
     email = fields.Email(dump_only=True)
     username = fields.String(dump_only=True)
@@ -112,13 +125,20 @@ class UserSchema(ma.Schema):
     last_seen = fields.DateTime(dump_only=True)
 
     def generate_gravatar_url(self, user):
+        __doc__ = """
+        Calls gravatar method for user, and outputs a fully qualified gravatar URL."""
         return user.gravatar()
 
     def get_role_name(self, user):
+        __doc__ = """
+        Returns the name of the user's role as a string."""
         return user.role.name
 
 
 class UserSchemaCreate(UserSchema):
+    __doc__ = """
+    Marshmallow schema, associated with SQLAlchemy User model.  Extends base User model schema.
+    Defines updated read-only and write only attributes for User object creation (POST)."""
     email = fields.Email(required=True)
     username = fields.String(required=True)
     password = fields.String(required=True, load_only=True)
@@ -141,6 +161,9 @@ class UserSchemaCreate(UserSchema):
 
 
 class UserSchemaUpdate(UserSchema):
+    __doc__ = """
+    Marshmallow schema, associated with SQLAlchemy User model.  Extends base User model schema.
+    Defines updated read-only and write only attributes for User object updates (PATCH and PUT)."""
     id = fields.Int(required=True)
     email = fields.Email(dump_only=False)
     username = fields.String(dump_only=False)
@@ -150,6 +173,8 @@ class UserSchemaUpdate(UserSchema):
         return User(**data)
 
 
+# Assign Schema functions to variables, with handling of multiple instances pre-configured
+# Schema variables are imported into API module for use with serializing / de-serializing
 user_schema = UserSchema()
 users_schema = UserSchema(many=True)
 user_schema_create = UserSchemaCreate()
@@ -192,12 +217,14 @@ class User(UserMixin, db.Model):
     avatar_hash = db.Column(db.String(128))
 
     def __repr__(self):
-        __doc__ = """Represents user model instance as a username string"""
+        __doc__ = """
+        Represents user model instance as a username string"""
         return '<User %r>' % self.username
 
     @property
     def dob_string(self):
-        __doc__ = """Represent User's DOB as a string with format 'YYYY-MM-DD'"""
+        __doc__ = """
+        Represent User's DOB as a string with format 'YYYY-MM-DD'"""
         if self.dob:
             return self.dob.strftime('%Y-%m-%d')
         else:
@@ -205,7 +232,8 @@ class User(UserMixin, db.Model):
 
     @property
     def joined_year(self):
-        __doc__ = """Represents the year the user record was created with format 'YYYY'"""
+        __doc__ = """
+        Represents the year the user record was created with format 'YYYY'"""
         if self.create_timestamp:
             return self.create_timestamp.strftime('%Y')
         else:
@@ -226,7 +254,8 @@ class User(UserMixin, db.Model):
         self.confirmed = False
 
     def ping(self):
-        __doc__ = """Ping function called before each request initiated by authenticated user.
+        __doc__ = """
+        Ping function called before each request initiated by authenticated user.
         Stores timestamp of last request for the user in the 'last_seen' attribute."""
         self.last_seen = datetime.utcnow()
         db.session.add(self)
@@ -236,13 +265,15 @@ class User(UserMixin, db.Model):
     ####################################
     @property
     def password(self):
-        __doc__ = """Defines a property 'password'
+        __doc__ = """
+        Defines a property 'password'
         Raises an AttributeError if password property read is attempted"""
         raise AttributeError('Password is not a readable attribute')
 
     @password.setter
     def password(self, password):
-        __doc__ = """Defines setter method for property 'password'.  The sring passed as the password
+        __doc__ = """
+        Defines setter method for property 'password'.  The sring passed as the password
         parameter is converted to salted hash and stored in database.  The former password hash
         is archived in the 'last_password_hash' attribute."""
         if self.password_hash:
@@ -251,21 +282,25 @@ class User(UserMixin, db.Model):
         self.password_timestamp = datetime.utcnow()
 
     def verify_password(self, password):
-        __doc__ = """Compare inputted password hash with user's hashed password."""
+        __doc__ = """
+        Compare inputted password hash with user's hashed password."""
         return check_password_hash(self.password_hash, password)
 
     def verify_last_password(self, password):
-        __doc__ = """Compare inputted password hash with user's last hashed password."""
+        __doc__ = """
+        Compare inputted password hash with user's last hashed password."""
         return check_password_hash(self.last_password_hash, password)
 
     def generate_confirmation_token(self, expiration=3600):
-        __doc__ = """Generates a Timed JSON Web Signature encoding the user's id using the application
+        __doc__ = """
+        Generates a Timed JSON Web Signature encoding the user's id using the application
         SECRET KEY.  Also encodes a key-value pair for account confirmation."""
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'confirm': self.id})
 
     def confirm(self, token):
-        __doc__ = """Loads Timed JSON web signature. Decodes using application Secret Key.  If user
+        __doc__ = """
+        Loads Timed JSON web signature. Decodes using application Secret Key.  If user
         that is encrypted in the token is un-confirmed, sets user.confirmed boolean to True"""
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
@@ -279,12 +314,17 @@ class User(UserMixin, db.Model):
         return True
 
     def generate_reset_token(self, expiration=3600):
-        __doc__ = """Generates a Timed JSON Web Signature encoding the user's id using the application
+        __doc__ = """
+        Generates a Timed JSON Web Signature encoding the user's id using the application
         SECRET KEY.  Also encodes a key-value pair for account password reset."""
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'reset': self.id})
 
     def reset_password(self, token, new_password):
+        __doc__ = """
+        Decode and validate a Time JSON Web Signature supplied as the 'Token' variable. Ensure
+        that the id encoded in the token matches the expected user.  Update the user password attribute
+        with the password supplied in the parameter 'new_password'."""
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
@@ -297,10 +337,18 @@ class User(UserMixin, db.Model):
         return True
 
     def generate_email_change_token(self, new_email, expiration=3600):
+        __doc__ = """
+        Generates a Timed JSON Web Signature encoding the user's id using the application
+        SECRET KEY.  Also encodes a key-value pair for email change and validation."""
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'change_password': self.id, 'new_email': new_email})
 
     def change_email(self, token):
+        __doc__ = """
+        Decode and validate a Time JSON Web Signature supplied as the 'Token' variable. Ensure
+        that the id encoded in the token matches the expected user.  Check for a 'change_password'
+        key in the token with a value matching the current user id.  If match exists for specified
+        user, update the user email with the email supplied in the token as 'new_email'."""
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
@@ -318,13 +366,19 @@ class User(UserMixin, db.Model):
         return True
 
     def verify_email(self, email):
-        if self.email == email:
+        __doc__ = """
+        Helper method to compare a supplied email with the user's email.  Returns True
+        if email matches, False if not."""
+        if self.email.lower() == email.lower():
             return True
         else:
             return False
 
     def verify_last_email(self, email):
-        if self.last_email == email:
+        __doc__ = """
+        Helper method to compare a supplied email with the user's last email.  Returns True
+        if email matches, False if not."""
+        if self.last_email.lower() == email.lower():
             return True
         else:
             return False
@@ -333,10 +387,17 @@ class User(UserMixin, db.Model):
     # AVATAR HASHING AND GRAVATAR SUPPORT
     #####################################
     def generate_avatar_hash(self):
+        __doc__ = """
+        Generate an MD5 hash of the user's email.  Stores the result in the user
+        'avatar_hash' attribute.  This value is used when constructing the gravatar URL."""
         if self.email and not re.search(r'(@example.com)+', self.email):
             self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
 
     def gravatar(self, size=100, default='identicon', rating='g'):
+        __doc__ = """
+        Generate a Gravatar url based on an MD5 hash of the user's email. URL output
+        conforms to standards for Gravatar 3rd party service.  Default's established for size (100px)
+        as well as rating filter ('g')."""
         if request.is_secure:
             url = 'https://secure.gravatar.com/avatar'
         else:
@@ -353,6 +414,11 @@ class User(UserMixin, db.Model):
     ##############################################################################################
 
     def generate_api_auth_token(self, expiration=600):
+        __doc__ = """
+        Generates a Time JSON Web Signature token, with an expiration of 600 seconds
+        by default.  Uses the application SECRET KEY to encrypt the token.  Token encrypts the
+        user.id attribute with a key of 'id' for future identification use.  The token is supplied
+        in an ascii format, for use with API requests."""
         s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)
         token = s.dumps({'id': self.id}).decode('ascii')
         return token
@@ -360,9 +426,9 @@ class User(UserMixin, db.Model):
     @staticmethod
     def verify_api_auth_token(token):
         __doc__ = """
-           User Method:  verify_api_auth_token takes a token and,
-            if found valid, returns the user stored in it.
-            """
+        User Method:  verify_api_auth_token takes a token and,
+        if found valid, returns the user object stored in it.
+        """
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
@@ -376,7 +442,8 @@ class User(UserMixin, db.Model):
 
     @staticmethod
     def random_dob():
-        __doc__ = """Returns a random DOB as a datetime.date object."""
+        __doc__ = """
+        Returns a random DOB as a datetime.date object."""
         current_datetime = datetime.now()
         year = choice(range(current_datetime.year - 100, current_datetime.year - 1))
         month = choice(range(1, 13))
@@ -386,7 +453,8 @@ class User(UserMixin, db.Model):
 
     @staticmethod
     def random_phone():
-        __doc__ = """Returns a random phone number as a string."""
+        __doc__ = """
+        Returns a random phone number as a string."""
         p = list('0000000000')
         p[0] = str(randint(1, 9))
         for i in [1, 2, 6, 7, 8]:
@@ -406,13 +474,27 @@ class User(UserMixin, db.Model):
 
     @staticmethod
     def random_password():
-        __doc__ = """Returns a random password as a string."""
+        __doc__ = """
+        Returns a random password as a string."""
         import forgery_py
         random_number = str(randint(0, 1000))
         password = forgery_py.lorem_ipsum.word() + random_number + forgery_py.lorem_ipsum.word()
         return password
 
     def randomize_user(self, **kwargs):
+        __doc__ = """
+        User Method: acts upon an initialized user object and randomizes key attributes
+        of the user.
+
+        Always Randomized: email, username, first_name, last_name, phone, dob
+
+        Gender:  May be provided with a keyword argument for 'gender' with value of 'Male'
+        or 'Female' provided exactly.  If gender is provided, a gender-specific first name
+        is created.  If kwarg is not present, a name is generated that disregards gender.
+
+        Password:  If a password is supplied in the environment variable 'TEST_USER_PASSWORD'
+        that password is assigned to the user.  If not present, the password is randomized.
+        """
         import forgery_py
         gender = kwargs.get('gender')
         allowed_genders = ['Male', 'Female']
@@ -445,8 +527,11 @@ class User(UserMixin, db.Model):
 
     @staticmethod
     def initialize_admin_user():
-        __doc__ = """A staticmethod that generates and commits a super_admin user.  Loads user
-        attributes stored as environment variables.  Executed on deployment and db creation."""
+        __doc__ = """
+        User staticmethod: Generates and commits a super_admin user.  Loads user
+        attributes stored as environment variables specified as 'UNKANI_ADMIN_*.
+        Executed on deployment and db creation.  Checks for existing user with admin's
+        email before attempting to create a new one."""
         admin_user_email = os.environ.get('UNKANI_ADMIN_EMAIL')
         user = User.query.filter_by(email=admin_user_email).first()
         if user is None:
@@ -464,10 +549,11 @@ class User(UserMixin, db.Model):
 ###################################################
 # AnonymousUser custom class definition
 ###################################################
-
+# Created for future use.  May need to be augmented from Flask-Login standard
+# to accommodate custom attributes in the user model, not handled by default
+# anonymous user object.
 class AnonymousUser(AnonymousUserMixin):
     pass
-
 
 login_manager.anonymous_user = AnonymousUser
 
@@ -477,7 +563,12 @@ login_manager.anonymous_user = AnonymousUser
 ###################################################
 # Callback function, receives a user identifier and
 # returns either user object or None
-# used by Flask-Login to set current_user()
+# Used by Flask-Login to set current_user()
 @login_manager.user_loader
 def load_user(user_id):
+    __doc__="""
+    Callback function for User model.  Receives a user id and
+    returns either an associated userid for a valid user record, or
+    None if no record exists.  Used by Flask-Login to set the
+    current_user attribute."""
     return User.query.get(int(user_id))

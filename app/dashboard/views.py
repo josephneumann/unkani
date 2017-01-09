@@ -1,8 +1,7 @@
 from flask import render_template, redirect, url_for, flash, abort, request
 from flask_login import login_required, current_user
 from app.auth.views import complete_logout
-from app.security import create_user_permission, app_permission_userpasswordchange, app_permission_userprofileupdate, \
-    role_permission_superadmin, role_permission_admin, app_permission_userdelete, return_template_context_permissions
+from app.security import *
 from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
 from .. import db
@@ -26,8 +25,7 @@ def dashboard_context_processor():
 def change_password(userid):
     form = ChangePasswordForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    user_permission = create_user_permission(user.id)
-    if not (user_permission.can() or app_permission_userpasswordchange.can()):
+    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userpasswordchange]):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
               'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
@@ -47,8 +45,7 @@ def change_password(userid):
 def change_email_request(userid):
     form = ChangeEmailForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    user_permission = create_user_permission(user.id)
-    if not (user_permission.can() or app_permission_userprofileupdate.can()):
+    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userprofileupdate]):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
               'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
@@ -87,8 +84,7 @@ def dashboard_main():
 def user_profile(userid):
     form = UpdateUserProfileForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    user_permission = create_user_permission(user.id)
-    if not (user_permission.can() or app_permission_userprofileupdate.can()):
+    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userprofileupdate]):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
               'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
@@ -125,8 +121,7 @@ def user_profile(userid):
 @dashboard.route('/user/<int:userid>/delete', methods=['GET'])
 def delete_user(userid):
     user = User.query.get_or_404(userid)
-    user_permission = create_user_permission(user.id)
-    if not (user_permission.can() or app_permission_userdelete):
+    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userdelete]):
         flash("You do not have permission to delete user with id {}".format(userid))
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if user.id == current_user.id:

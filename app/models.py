@@ -3,7 +3,7 @@ import os
 import re
 from datetime import datetime, date
 from random import randint, choice
-
+from app.security import *
 from flask import current_app, request, url_for, g, abort, jsonify
 from flask_login import UserMixin, AnonymousUserMixin
 from marshmallow import fields, ValidationError, post_load, validates
@@ -42,7 +42,7 @@ class Role(db.Model):
 
     @staticmethod
     def initialize_roles():
-        __doc__="""
+        __doc__ = """
         Role Staticmethod:  Creates and stores a default set of Roles as defined
         by the application security module.  Populates Role attributes including: 'id', 'name',
         'level'.  Also populates app_permissions in the role_app_permission association table
@@ -83,7 +83,7 @@ class AppPermission(db.Model):
 
     @staticmethod
     def initialize_app_permissions():
-        __doc__="""
+        __doc__ = """
         AppPermission Staticmethod:  Initializes the set of AppPermission records as
         defined in the app security module.  Reads from a dict to assign names to permission.
         If app_permission already exists, it is ignored.  This method is used during deployment
@@ -103,7 +103,7 @@ class AppPermission(db.Model):
 ##################################################################################################
 
 class UserSchema(ma.Schema):
-    __doc__="""
+    __doc__ = """
     Marshmallow schema, associated with SQLAlchemy User model.  Used as a base object for
     serialization and de-serialization.  Defines read-only and write only attributes for basic
     object use.  Defines validation criteria for input."""
@@ -384,6 +384,167 @@ class User(UserMixin, db.Model):
             return False
 
     #####################################
+    # USER PERMISSION LEVEL COMPARISON
+    #####################################
+    def has_higher_permission(self, user, lookup_user=False):
+        __doc__ = """
+        User Method:  Helper method that accepts either the userid integer
+        of another user, or the user object of another user.
+        The method looks up compares the permission level of the other user's role with
+        the permission level of the base user object's role.  Returns True of the
+        base user object's permission level is higher than the other user's
+        permission level.  Else, the method returns False.
+
+        Used to protect access to actions performed on other users.
+
+
+        param lookup_user:
+            If set to True, the function expects an integer userid to be
+            supplied as the 'user' parameter.  The method then looks up
+            the corresponding user record to perform the comparison.
+
+            If set to False, the function expects a complete user object to
+            be supplied as the 'user' parameter.  The method then compares
+            the base user object to the user object supplied as a parameter.
+            This configuration helps to avoid un-necessary object lookup.
+
+             Default = False
+
+        """
+        other_user = user
+        if lookup_user:
+            other_user = User.query.get(user)
+        if not other_user:
+            return True
+        if self.role.level > other_user.role.level:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def compare_permission_level(user1, user2, lookup_user1=False, lookup_user2=False):
+        __doc__ = """
+        User Method:  Helper method that accepts either the userid integers
+        of two users to be compared, or the user objects of the two users.
+        The method looks up compares the permission level of first users role with
+        the permission level of the second users role.  Returns True if the user
+        specified with the parameter user2. has a higher permission level than the
+        user specified with parameter user2.  Else, the method returns False.
+
+        Used to protect access to actions performed on other users by permission
+        level as appropriate.
+
+        param lookup_user(1/2):
+            If set to True, the function expects an integer userid to be
+            supplied as the 'user1' or 'user2' parameter.  The method then looks up
+            the corresponding user record to perform the comparison.
+
+            If set to False, the function expects a complete user object to
+            be supplied as the 'user' parameter.  This configuration helps to
+            avoid un-necessary object lookup.
+
+             Default = False
+
+        """
+        user1 = user1
+        user2 = user2
+        if lookup_user1:
+            user1 = User.query.get(user1)
+        if lookup_user2:
+            user2 = User.query.get(user2)
+        if not user1:
+            raise ValidationError('User1 does not exist.')
+        if not user2:
+            raise ValidationError('User2 does not exist.')
+        if user1.role.level > user2.role.level:
+            return True
+        else:
+            return False
+
+    def has_access_to_user_operation(self, user, lookup_user=False, other_permissions=[None], self_permissions=[None]):
+        __doc__ = """
+        User Method:
+        Helper function that checks whether the base user object should have
+        access to perform operations on their own user record, or another user record.
+
+        The method first checks whether the identity of the user passed in the 'user' parameter matches the current
+        supplied identity in the session and request via Flask-Principal's Permission object.  If the identities match,
+        the method then checks the param <self_permissions> for a list of Flask-Principal permission objects that are
+        required to be supplied by the base user to perform operations on their own user record. If
+        the base user object has all of the permissions listed in the param <self_permissions>, as tested by
+        performing <self_permission>.can(), the base user is determined to have access to perform the given operation
+        on their own user object and the method returns True.  If the param <self_permissions> is None, the method
+        will also return True.
+
+        If the base user object does not match the current identity, the list of permissions supplied in the param
+        <other_permissions> is checked against the current user identity.  If the base user object has all of the
+        permissions listed in the param <other_permissions>, as tested by performing <other_permission>.can(),
+        the base user is determined to have access to perform the given operation on the user object specified in the
+        param <user> and the method returns True.  If the param <other_permissions> is None, the method
+        will also return True.
+
+        param <user>:
+            If <lookup_user> = False, then must be a user object to be compared to the base
+            user object.
+
+            If <lookup_user> = True, then must be a userid integer used to look up the user.
+
+        param <lookup_user>:
+            If set to False, the method expects a fully qualified User object to be
+            provided in the <user> parameter.
+
+            If set to True, the method expects a user id integer to be
+            supplied, and then corresponding user object is looked up in the database before the comparison
+
+            default is: False
+
+        param <self_permissions>:
+            A list of Flask-Principal permission objects that must be provided by the current identity in order
+            to perform the protected user operation on the self-same user object.  If the list is set to None, no
+            additional permissions are required.
+
+            Default is: None
+
+        param <other_permissions>:
+            A list of Flask-Principal permission objects that must be provided by the current identity in order
+            to perform the protected user operation on the user specified in the param <user>.
+            If the list is set to None, no additional permissions are required.
+
+            Default is: None
+
+        """
+        #TODO:  Detect input type of user, and set lookup_user automatically
+        user = user
+        if lookup_user:
+            user = User.query.get(user)
+        if not user:
+            raise ValidationError("User could not be found.")
+        has_access = False
+        if test_user_permission(user.id):
+            has_access = True
+            if self_permissions[0] is not None:
+                for permission in self_permissions:
+                    if not permission.can():
+                        has_access = False
+                        break
+        elif self.has_higher_permission(user=user, lookup_user=False):
+            has_access = True
+            print("Before other permission check")
+            print(other_permissions)
+            if other_permissions[0] is not None:
+                print("Other permissions detected")
+                for permission in other_permissions:
+                    print(permission)
+                    print(permission.can())
+                    print(has_access)
+                    if not permission.can():
+                        has_access = False
+                        break
+        if has_access:
+            return True
+        return False
+
+    #####################################
     # AVATAR HASHING AND GRAVATAR SUPPORT
     #####################################
     def generate_avatar_hash(self):
@@ -555,6 +716,7 @@ class User(UserMixin, db.Model):
 class AnonymousUser(AnonymousUserMixin):
     pass
 
+
 login_manager.anonymous_user = AnonymousUser
 
 
@@ -566,7 +728,7 @@ login_manager.anonymous_user = AnonymousUser
 # Used by Flask-Login to set current_user()
 @login_manager.user_loader
 def load_user(user_id):
-    __doc__="""
+    __doc__ = """
     Callback function for User model.  Receives a user id and
     returns either an associated userid for a valid user record, or
     None if no record exists.  Used by Flask-Login to set the

@@ -10,12 +10,11 @@ from marshmallow import fields, ValidationError, post_load, validates
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app.security import app_permission_admin
 from . import db, login_manager, ma
 
-#######################################################################################################################
-#                                     ROLE -> APP PERMISSION ASSOCIATION TABLE                                        #
-#######################################################################################################################
+##################################################################################################
+# ROLE -> APP PERMISSION ASSOCIATION TABLE
+##################################################################################################
 
 role_app_permission = db.Table('role_app_permission',
                                db.Column('role_id', db.Integer, db.ForeignKey('role.id')),
@@ -23,16 +22,16 @@ role_app_permission = db.Table('role_app_permission',
                                )
 
 
-#######################################################################################################################
-#                                               ROLE MODEL DEFINITION                                                 #
-#######################################################################################################################
-
+###################################################################################################
+# USER ROLE SQL ALCHEMY MODEL DEFINITION
+###################################################################################################
 class Role(db.Model):
     __tablename__ = 'role'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True)
     users = db.relationship('User', backref='role', lazy='dynamic')
     default = db.Column(db.Boolean, default=False)
+    level = db.Column(db.Integer)
     app_permissions = db.relationship('AppPermission',
                                       secondary=role_app_permission,
                                       backref=db.backref('app_permissions', lazy='dynamic'),
@@ -47,7 +46,7 @@ class Role(db.Model):
         for r in role_dict:
             role = Role.query.filter_by(name=r).first()
             if role is None:
-                role = Role(name=r, id=role_dict[r]['id'])
+                role = Role(name=r, id=role_dict[r]['id'], level=role_dict[r]['level'])
                 if role.name == 'User':
                     role.default = True
                 db.session.add(role)
@@ -65,9 +64,9 @@ class Role(db.Model):
         db.session.commit()
 
 
-#######################################################################################################################
-#                                     APP PERMISSION MODEL DEFINITION                                                 #
-#######################################################################################################################
+###################################################################################################
+# APP PERMISSION SQL ALCHEMY MODEL DEFINITION
+###################################################################################################
 
 class AppPermission(db.Model):
     __tablename__ = 'app_permission'
@@ -90,9 +89,9 @@ class AppPermission(db.Model):
         db.session.commit()
 
 
-#######################################################################################################################
-#                                               USER MODEL DEFINITION                                                 #
-#######################################################################################################################
+##################################################################################################
+# MARSHMALLOW USER SCHEMA DEFINITION FOR OBJECT SERIALIZATION AND INPUT VALIDATION
+##################################################################################################
 
 class UserSchema(ma.Schema):
     id = fields.Int(dump_only=True)
@@ -146,28 +145,22 @@ class UserSchemaUpdate(UserSchema):
     email = fields.Email(dump_only=False)
     username = fields.String(dump_only=False)
 
-    # @validates('email')
-    # def validate_email(self, data):
-    #     userid = data.get('id')
-    #     email = data.get('email')
-    #     user_with_email = User.query.get(userid).first()
-    #     if email and user_with_email:
-    #         if user_with_email.id != userid:
-    #             raise ValidationError('An account with the email {} already exists.'.format(email))
-    #
-    # @validates('username')
-    # def validate_username(self, data):
-    #     userid = int(data['id'])
-    #     username = data.get('username')
-    #     user_with_username = User.query.get(userid).first()
-    #     if username and user_with_username:
-    #         if user_with_username.id != userid:
-    #             raise ValidationError('An account with the username {} already exists.'.format(username))
-
     @post_load
     def update_user(self, data):
         return User(**data)
 
+
+user_schema = UserSchema()
+users_schema = UserSchema(many=True)
+user_schema_create = UserSchemaCreate()
+users_schema_create = UserSchemaCreate(many=True)
+user_schema_update = UserSchemaUpdate()
+users_schema_update = UserSchemaUpdate(many=True)
+
+
+##################################################################################################
+# SQL ALCHEMY USER MODEL DEFINITION
+##################################################################################################
 
 # UserMixin from flask_login
 # is_authenticated() - Returns True if user has login credentials, else False
@@ -175,6 +168,9 @@ class UserSchemaUpdate(UserSchema):
 # is_anonymous() - Returns False for logged in users
 # get_id() - Returns unique identifier for user, as Unicode string
 class User(UserMixin, db.Model):
+    ##################################
+    # MODEL ATTRIBUTES AND PROPERTIES
+    ##################################
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(128), unique=True, index=True)
@@ -196,77 +192,12 @@ class User(UserMixin, db.Model):
     avatar_hash = db.Column(db.String(128))
 
     def __repr__(self):
+        __doc__ = """Represents user model instance as a username string"""
         return '<User %r>' % self.username
-
-    def __init__(self, **kwargs):
-        super(User, self).__init__(**kwargs)
-        if self.role is None:
-            if self.email == current_app.config['UNKANI_ADMIN']:
-                self.role = Role.query.filter_by(name='Admin').first()
-            if self.role is None:
-                self.role = Role.query.filter_by(default=True).first()
-        self.generate_avatar_hash()
-        self.active = True
-        self.confirmed = False
-
-    def has_admin_permission(self):
-        if app_permission_admin.can():
-            return True
-        else:
-            return False
-
-    def to_dict(self):
-        dict_user = {"user": {
-            'id': self.id,
-            'url': url_for('api.get_user', id=self.id, _external=True),
-            'username': self.username,
-            'email': self.email,
-            'first_name': self.first_name,
-            'last_name': self.last_name,
-            'dob': self.dob_string,
-            'phone': self.phone,
-            'role_id': self.role_id,
-            'role_name': self.role.name,
-            'gravatar_url': self.gravatar(),
-            'confirmed': self.confirmed,
-            'active': self.active,
-            'create_timestamp': str(self.create_timestamp),
-            'last_seen': str(self.last_seen)
-        }}
-        return dict_user
-
-    @staticmethod
-    def create(data):
-        """Create a new user object from dict / json."""
-        user = User()
-        user.from_dict(data, update=False)
-        return user
-
-    @staticmethod
-    def update(user, data):
-        """Create a new user object from dict / json."""
-        user.from_dict(data, update=True)
-        return user
-
-    def from_dict(self, data, update=False):
-        """Import user data from a dict / json."""
-        for field in ['username', 'password', 'email', 'first_name', 'last_name']:
-            try:
-                setattr(self, field, data[field])
-            except KeyError:
-                if not update:
-                    abort(400)
-
-    def ping(self):
-        self.last_seen = datetime.utcnow()
-        db.session.add(self)
-
-    @property
-    def password(self):
-        raise AttributeError('Password is not a readable attribute')
 
     @property
     def dob_string(self):
+        __doc__ = """Represent User's DOB as a string with format 'YYYY-MM-DD'"""
         if self.dob:
             return self.dob.strftime('%Y-%m-%d')
         else:
@@ -274,64 +205,68 @@ class User(UserMixin, db.Model):
 
     @property
     def joined_year(self):
+        __doc__ = """Represents the year the user record was created with format 'YYYY'"""
         if self.create_timestamp:
-            return self.create_timestamp.strftime('%b-%Y')
+            return self.create_timestamp.strftime('%Y')
         else:
             return None
 
-    @staticmethod
-    def random_dob():
-        current_datetime = datetime.now()
-        year = choice(range(current_datetime.year - 100, current_datetime.year - 10))
-        month = choice(range(1, 13))
-        day = choice(range(1, 29))
-        dob = date(year, month, day)
-        return dob
+    #############################
+    # USER OBJECT INITIALIZATION
+    #############################
+    def __init__(self, **kwargs):
+        super(User, self).__init__(**kwargs)
+        if self.role is None:
+            if self.email == current_app.config['UNKANI_ADMIN']:
+                self.role = Role.query.filter_by(name='Super Admin').first()
+            if self.role is None:
+                self.role = Role.query.filter_by(default=True).first()
+        self.generate_avatar_hash()
+        self.active = True
+        self.confirmed = False
 
-    @staticmethod
-    def random_phone():
-        p = list('0000000000')
-        p[0] = str(randint(1, 9))
-        for i in [1, 2, 6, 7, 8]:
-            p[i] = str(randint(0, 9))
-        for i in [3, 4]:
-            p[i] = str(randint(0, 8))
-        if p[3] == p[4] == 0:
-            p[5] = str(randint(1, 8))
-        else:
-            p[5] = str(randint(0, 8))
-        n = range(10)
-        if p[6] == p[7] == p[8]:
-            n = [i for i in n if i != p[6]]
-        p[9] = str(choice(n))
-        p = ''.join(p)
-        return str(p[:3] + '-' + p[3:6] + '-' + p[6:])
+    def ping(self):
+        __doc__ = """Ping function called before each request initiated by authenticated user.
+        Stores timestamp of last request for the user in the 'last_seen' attribute."""
+        self.last_seen = datetime.utcnow()
+        db.session.add(self)
 
-    @staticmethod
-    def random_password():
-        import forgery_py
-        random_number = str(randint(0, 1000))
-        password = forgery_py.lorem_ipsum.word() + random_number + forgery_py.lorem_ipsum.word()
-        return password
+    ####################################
+    # PASSWORD HASHING AND VERIFICATION
+    ####################################
+    @property
+    def password(self):
+        __doc__ = """Defines a property 'password'
+        Raises an AttributeError if password property read is attempted"""
+        raise AttributeError('Password is not a readable attribute')
 
     @password.setter
     def password(self, password):
+        __doc__ = """Defines setter method for property 'password'.  The sring passed as the password
+        parameter is converted to salted hash and stored in database.  The former password hash
+        is archived in the 'last_password_hash' attribute."""
         if self.password_hash:
             self.last_password_hash = self.password_hash
         self.password_hash = generate_password_hash(password, method='pbkdf2:sha1', salt_length=8)
         self.password_timestamp = datetime.utcnow()
 
     def verify_password(self, password):
+        __doc__ = """Compare inputted password hash with user's hashed password."""
         return check_password_hash(self.password_hash, password)
 
     def verify_last_password(self, password):
+        __doc__ = """Compare inputted password hash with user's last hashed password."""
         return check_password_hash(self.last_password_hash, password)
 
     def generate_confirmation_token(self, expiration=3600):
+        __doc__ = """Generates a Timed JSON Web Signature encoding the user's id using the application
+        SECRET KEY.  Also encodes a key-value pair for account confirmation."""
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'confirm': self.id})
 
     def confirm(self, token):
+        __doc__ = """Loads Timed JSON web signature. Decodes using application Secret Key.  If user
+        that is encrypted in the token is un-confirmed, sets user.confirmed boolean to True"""
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
@@ -344,6 +279,8 @@ class User(UserMixin, db.Model):
         return True
 
     def generate_reset_token(self, expiration=3600):
+        __doc__ = """Generates a Timed JSON Web Signature encoding the user's id using the application
+        SECRET KEY.  Also encodes a key-value pair for account password reset."""
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'reset': self.id})
 
@@ -392,20 +329,88 @@ class User(UserMixin, db.Model):
         else:
             return False
 
-    @staticmethod
-    def initialize_admin_user():
-        admin_user_email = os.environ.get('UNKANI_ADMIN_EMAIL')
-        user = User.query.filter_by(email=admin_user_email).first()
-        if user is None:
-            user = User(email=admin_user_email)
-            user.username = os.environ.get('UNKANI_ADMIN_USERNAME')
-            user.password = os.environ.get('UNKANI_ADMIN_PASSWORD')
-            user.first_name = os.environ.get('UNKANI_ADMIN_FIRST_NAME')
-            user.last_name = os.environ.get('UNKANI_ADMIN_LAST_NAME')
-            user.phone = os.environ.get('UNKANI_ADMIN_PHONE')
-            user.confirmed = True
-            db.session.add(user)
+    #####################################
+    # AVATAR HASHING AND GRAVATAR SUPPORT
+    #####################################
+    def generate_avatar_hash(self):
+        if self.email and not re.search(r'(@example.com)+', self.email):
+            self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+
+    def gravatar(self, size=100, default='identicon', rating='g'):
+        if request.is_secure:
+            url = 'https://secure.gravatar.com/avatar'
+        else:
+            url = 'http://www.gravatar.com/avatar'
+        if not self.avatar_hash:
+            self.generate_avatar_hash()
+            db.session.add(self)
             db.session.commit()
+        return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
+            url=url, hash=self.avatar_hash, size=size, default=default, rating=rating)
+
+    ##############################################################################################
+    # USER API SUPPORT
+    ##############################################################################################
+
+    def generate_api_auth_token(self, expiration=600):
+        s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)
+        token = s.dumps({'id': self.id}).decode('ascii')
+        return token
+
+    @staticmethod
+    def verify_api_auth_token(token):
+        __doc__ = """
+           User Method:  verify_api_auth_token takes a token and,
+            if found valid, returns the user stored in it.
+            """
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token)
+        except:
+            return None
+        return User.query.get(int(data['id']))
+
+    ##############################################################################################
+    # USER RANDOMIZATION UTILITIES
+    ##############################################################################################
+
+    @staticmethod
+    def random_dob():
+        __doc__ = """Returns a random DOB as a datetime.date object."""
+        current_datetime = datetime.now()
+        year = choice(range(current_datetime.year - 100, current_datetime.year - 1))
+        month = choice(range(1, 13))
+        day = choice(range(1, 29))
+        dob = date(year, month, day)
+        return dob
+
+    @staticmethod
+    def random_phone():
+        __doc__ = """Returns a random phone number as a string."""
+        p = list('0000000000')
+        p[0] = str(randint(1, 9))
+        for i in [1, 2, 6, 7, 8]:
+            p[i] = str(randint(0, 9))
+        for i in [3, 4]:
+            p[i] = str(randint(0, 8))
+        if p[3] == p[4] == 0:
+            p[5] = str(randint(1, 8))
+        else:
+            p[5] = str(randint(0, 8))
+        n = range(10)
+        if p[6] == p[7] == p[8]:
+            n = [i for i in n if i != p[6]]
+        p[9] = str(choice(n))
+        p = ''.join(p)
+        return str(p[:3] + '-' + p[3:6] + '-' + p[6:])
+
+    @staticmethod
+    def random_password():
+        __doc__ = """Returns a random password as a string."""
+        import forgery_py
+        random_number = str(randint(0, 1000))
+        password = forgery_py.lorem_ipsum.word() + random_number + forgery_py.lorem_ipsum.word()
+        return password
 
     def randomize_user(self, **kwargs):
         import forgery_py
@@ -438,40 +443,27 @@ class User(UserMixin, db.Model):
         self.password = password
         self.gravatar()
 
-    def generate_avatar_hash(self):
-        if self.email and not re.search(r'(@example.com)+', self.email):
-            self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
-
-    def gravatar(self, size=100, default='identicon', rating='g'):
-        if request.is_secure:
-            url = 'https://secure.gravatar.com/avatar'
-        else:
-            url = 'http://www.gravatar.com/avatar'
-        if not self.avatar_hash:
-            self.generate_avatar_hash()
-            db.session.add(self)
-            db.session.commit()
-        return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
-            url=url, hash=self.avatar_hash, size=size, default=default, rating=rating)
-
-    def generate_api_auth_token(self, expiration=600):
-        s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)
-        token = s.dumps({'id': self.id}).decode('ascii')
-        return token
-
     @staticmethod
-    def verify_api_auth_token(token):
-        __doc__ = """
-        User Method:  verify_api_auth_token takes a token and,
-         if found valid, returns the user stored in it.
-         """
-        s = Serializer(current_app.config['SECRET_KEY'])
-        try:
-            data = s.loads(token)
-        except:
-            return None
-        return User.query.get(int(data['id']))
+    def initialize_admin_user():
+        __doc__ = """A staticmethod that generates and commits a super_admin user.  Loads user
+        attributes stored as environment variables.  Executed on deployment and db creation."""
+        admin_user_email = os.environ.get('UNKANI_ADMIN_EMAIL')
+        user = User.query.filter_by(email=admin_user_email).first()
+        if user is None:
+            user = User(email=admin_user_email)
+            user.username = os.environ.get('UNKANI_ADMIN_USERNAME')
+            user.password = os.environ.get('UNKANI_ADMIN_PASSWORD')
+            user.first_name = os.environ.get('UNKANI_ADMIN_FIRST_NAME')
+            user.last_name = os.environ.get('UNKANI_ADMIN_LAST_NAME')
+            user.phone = os.environ.get('UNKANI_ADMIN_PHONE')
+            user.confirmed = True
+            db.session.add(user)
+            db.session.commit()
 
+
+###################################################
+# AnonymousUser custom class definition
+###################################################
 
 class AnonymousUser(AnonymousUserMixin):
     pass
@@ -480,16 +472,12 @@ class AnonymousUser(AnonymousUserMixin):
 login_manager.anonymous_user = AnonymousUser
 
 
-# Callback function, receives a user identifier and returns either user object or None
+###################################################
+# Flask Login - User Loader Function
+###################################################
+# Callback function, receives a user identifier and
+# returns either user object or None
 # used by Flask-Login to set current_user()
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-
-
-user_schema = UserSchema()
-users_schema = UserSchema(many=True)
-user_schema_create = UserSchemaCreate()
-users_schema_create = UserSchemaCreate(many=True)
-user_schema_update = UserSchemaUpdate()
-users_schema_update = UserSchemaUpdate(many=True)

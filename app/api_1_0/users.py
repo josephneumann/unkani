@@ -5,11 +5,13 @@ from .authentication import token_auth, basic_auth, multi_auth
 from .errors import ValidationError, forbidden
 from . import api
 from app import db
-from app.security import app_permission_admin, create_user_permission
+from app.security import create_user_permission, app_permission_userprofileupdate, app_permission_userdeactivate, \
+    app_permission_userforceconfirmation, app_permission_userrolechange, app_permission_userdelete
 
 
 @api.route('/users', methods=['GET'])
 @token_auth.login_required
+@app_permission_userprofileupdate.require(http_exception=403)
 def get_user_list():
     """
     Returns list of user ids and usernames.
@@ -68,15 +70,21 @@ def edit_user(userid):
     """
     Update or ovewrite an existing user
     This endpoint is requires a valid user token.
-    Users are only allowed to modify themselves unless given admin permissions
+    Users are only allowed to modify themselves unless given the appropriate permission
     Returns a JSON reponse with user data, errors if they exist and a list of ignored fields
     Location header on the response indicates location of user record
     """
+    user_permission = create_user_permission(userid)
+    if not (user_permission.can() or app_permission_userprofileupdate.can()):
+        forbidden("You do not have permission to update the user profile for user with id {}".format(userid))
     additional_message = None
     allowed_fields = ['email', 'username', 'first_name', 'last_name', 'password', 'dob', 'phone', 'description']
-    user_permission = create_user_permission(userid)
-    if app_permission_admin.can() or user_permission.can():
-        allowed_fields += ['confirmed', 'active', 'role_id']
+    if app_permission_userforceconfirmation.can():
+        allowed_fields += ['confirmed']
+    if app_permission_userdeactivate.can():
+        allowed_fields += ['active']
+    if app_permission_userrolechange.can():
+        allowed_fields += ['role_id']
     user = User.query.get_or_404(userid)
     original_email = user.email
     data = request.get_json()
@@ -126,8 +134,8 @@ def delete_user(id):
     """
     user = User.query.get_or_404(int(id))
     user_permission = create_user_permission(user.id)
-    if not (app_permission_admin.can() or user_permission.can()):
-        forbidden("You do not have permssion to delete user with id {}".format(user.id))
+    if not (user_permission.can() or app_permission_userdelete):
+        forbidden("You do not have permission to delete user with id {}".format(user.id))
     db.session.delete(user)
     db.session.commit()
     json_response = jsonify({"message": "User {} deleted".format(user.email)})

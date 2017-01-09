@@ -6,23 +6,39 @@ AppPermissionNeed = partial(Need, 'AppPermission')
 AppPermissionNeed.__doc__ = """A need with the method preset to `"action"`."""
 
 # Role Permission Definition
+role_permission_superadmin = Permission(RoleNeed('Super Admin'))
 role_permission_admin = Permission(RoleNeed('Admin'))
 role_permission_user = Permission(RoleNeed('User'))
 
 # AppPermission Permission Definition
-app_permission_admin = Permission(AppPermissionNeed('Admin'))
 app_permission_usercreate = Permission(AppPermissionNeed('User Create'))
+app_permission_userprofileupdate = Permission(AppPermissionNeed('User Profile Update'))
 app_permission_userdelete = Permission(AppPermissionNeed('User Delete'))
-app_permission_userupdate = Permission(AppPermissionNeed('User Update'))
-app_permission_userview = Permission(AppPermissionNeed('User View'))
-app_permission_rolecreate = Permission(AppPermissionNeed('Role Create'))
-app_permission_roledelete = Permission(AppPermissionNeed('Role Delete'))
-app_permission_roleupdate = Permission(AppPermissionNeed('Role Update'))
-app_permission_roleview = Permission(AppPermissionNeed('Role View'))
-app_permission_apppermissioncreate = Permission(AppPermissionNeed('App Permission Create'))
-app_permission_apppermissiondelete = Permission(AppPermissionNeed('App Permission Delete'))
-app_permission_apppermissionupdate = Permission(AppPermissionNeed('App Permission Update'))
-app_permission_apppermissionview = Permission(AppPermissionNeed('App Permission View'))
+app_permission_userdeactivate = Permission(AppPermissionNeed('User Deactivate'))
+app_permission_userpasswordreset = Permission(AppPermissionNeed('User Reset Password'))
+app_permission_userpasswordchange = Permission(AppPermissionNeed('User Change Password'))
+app_permission_userresendconfirmation = Permission(AppPermissionNeed('User Resend Confirmation'))
+app_permission_userforceconfirmation = Permission(AppPermissionNeed('User Force Confirmation'))
+app_permission_userrolechange = Permission(AppPermissionNeed('User Role Change'))
+
+
+def return_template_context_permissions():
+    template_context_permissions = {
+        "role_permission_superadmin": role_permission_superadmin,
+        "role_permission_admin": role_permission_admin,
+        "role_permission_user": role_permission_user,
+        "app_permission_usercreate": app_permission_usercreate,
+        "app_permission_userdelete": app_permission_userdelete,
+        "app_permission_userdeactivate": app_permission_userdeactivate,
+        "app_permission_userpasswordreset": app_permission_userpasswordreset,
+        "app_permission_userpasswordchange": app_permission_userpasswordchange,
+        "app_permission_userresendconfirmation": app_permission_userresendconfirmation,
+        "app_permission_userforceconfirmation": app_permission_userforceconfirmation,
+        "app_permission_userrolechange": app_permission_userrolechange,
+        "app_permission_userprofileupdate": app_permission_userprofileupdate,
+        "test_user_permission": test_user_permission
+    }
+    return template_context_permissions
 
 
 # Generate user permission object from userid
@@ -30,24 +46,53 @@ def create_user_permission(userid):
     user_permission = Permission(UserNeed(int(userid)))
     return user_permission
 
+
+def test_user_permission(userid):
+    user_permission = create_user_permission(userid)
+    if user_permission.can():
+        return True
+    else:
+        return False
+
+
 # Dict of app_permission records used for initialization
 app_permissions_dict = {
-    'Admin': (1),
-    'User Create': (2),
+    'User Create': (1),
+    'User Profile Update': (2),
     'User Delete': (3),
-    'User Update': (4),
-    'User View': (5),
-    'Role Create': (6),
-    'Role Delete': (7),
-    'Role Update': (8),
-    'Role View': (9),
-    'App Permission Create': (10),
-    'App Permission Delete': (11),
-    'App Permission Update': (12),
-    'App Permission View': (13),
+    'User Deactivate': (4),
+    'User Reset Password': (5),
+    'User Change Password': (6),
+    'User Resend Confirmation': (7),
+    'User Force Confirmation': (8),
+    'User Role Change': (9),
 }
 
 role_dict = {
-    'Admin': {'id': 1, 'permissions': ['Admin']},
-    'User': {'id': 2, 'permissions': ['User View', 'Role View', 'App Permission View']}
+    'Super Admin': {'id': 1,
+                    'permissions':
+                        ['User Create',
+                         'User Profile Update',
+                         'User Deactivate',
+                         'User Reset Password',
+                         'User Resend Confirmation',
+                         'User Role Change',
+                         'User Delete',
+                         'User Change Password',
+                         'User Force Confirmation'],
+                    'level': 1000},
+    'User': {'id': 2,
+             'permissions':
+                 ['User View', 'Role View', 'App Permission View'],
+             'level': 100},
+    'Admin': {'id': 3,
+              'permissions':
+                  ['User Create',
+                   'User Profile Update',
+                   'User Deactivate',
+                   'User Reset Password',
+                   'User Resend Confirmation',
+                   'User Role Change'],
+              'level': 500
+              }
 }

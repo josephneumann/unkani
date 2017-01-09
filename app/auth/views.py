@@ -2,7 +2,8 @@ from flask import render_template, redirect, request, url_for, flash, session, g
 from flask_login import login_user, logout_user, login_required, current_user, current_app
 from flask_principal import identity_changed, Identity, AnonymousIdentity, identity_loaded, UserNeed, RoleNeed
 
-from app.security import AppPermissionNeed, app_permission_admin, create_user_permission
+from app.security import AppPermissionNeed, create_user_permission, app_permission_usercreate, \
+    return_template_context_permissions
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from .. import db
@@ -27,6 +28,12 @@ def before_request():
             return redirect(url_for('auth.unconfirmed'))
 
 
+@auth.context_processor
+def auth_context_processor():
+    app_permission_dict = return_template_context_permissions()
+    return app_permission_dict
+
+
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -44,10 +51,7 @@ def login():
     return render_template('auth/login.html', form=form)
 
 
-@auth.route('/logout')
-@login_required
-def logout():
-    # Remove and reset the user sesssion
+def complete_logout():
     logout_user()
     # Remove session keys set by Flask-Principal
     for key in ('identity.name', 'identity.auth_type'):
@@ -55,6 +59,12 @@ def logout():
     # Tell Flask-Principal the user is anonymous
     identity_changed.send(current_app._get_current_object(),
                           identity=AnonymousIdentity())
+
+
+@auth.route('/logout')
+@login_required
+def logout():
+    complete_logout()
     flash('Successfully logged out.', 'success')
     return redirect(url_for('main.landing'))
 
@@ -68,8 +78,9 @@ def register():
                   'danger')
 
         if User.query.filter_by(username=form.username.data).first():
-            flash('The username {} is already registered.  Please enter a different username.'.format(form.username.data),
-                  'danger')
+            flash(
+                'The username {} is already registered.  Please enter a different username.'.format(form.username.data),
+                'danger')
 
         else:
             user = User(email=form.email.data, first_name=form.first_name.data, last_name=form.last_name.data,
@@ -114,7 +125,7 @@ def resend_confirmation(userid):
         else:
             redirect(url_for('main.landing'))
     user_permission = create_user_permission(user.id)
-    if not (user_permission.can() or app_permission_admin.can()):
+    if not (user_permission.can() or app_permission_usercreate.can()):
         flash('You do not have permission to resend the confirmation for {}'.format(user.email), 'danger')
         if request.referrer != url_for('auth.unconfirmed'):
             return redirect(request.referrer)
@@ -129,6 +140,7 @@ def resend_confirmation(userid):
             return redirect(request.referrer)
         else:
             return redirect(url_for('main.landing'))
+
 
 @auth.route('/unconfirmed')
 def unconfirmed():

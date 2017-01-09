@@ -37,7 +37,7 @@
                                                 {% if user.active %}
                                                     {% if user.confirmed %}
                                                         Confirmed
-                                                    {% elif current_user.has_admin_permission() %}
+                                                    {% elif app_permission_userresendconfirmation.can() %}
                                                         <a href="{{ url_for('auth.resend_confirmation', userid=user.id) }}">Unconfirmed</a>
                                                     {% else %}
                                                         Unconfirmed
@@ -125,14 +125,16 @@
                                         </div>
                                     </div>
                                     <div class="card-footer">
+                                        {% if (app_permission_userdelete.can()or test_user_permission(user.id)) %}
                                         <div class="form-group pull-left">
-                                           <a href="#" class="btn btn-wd btn-danger btn-move-left">
+                                           <a href="{{ url_for('dashboard.delete_user', userid=user.id)}}" class="btn btn-wd btn-danger btn-move-left">
                                                <span class="btn-label">
                                                    <i class="ti ti-trash"></i>
                                                    Delete Account
                                                </span>
                                            </a>
                                         </div>
+                                        {% endif %}
                                         <div class="form-group pull-right">
                                              <a href="{{ url_for('dashboard.change_password', userid=user.id) }}"
                                                class="btn btn-wd btn-info btn-rotate">

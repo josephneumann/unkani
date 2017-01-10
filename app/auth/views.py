@@ -119,7 +119,7 @@ def resend_confirmation(userid):
         else:
             redirect(url_for('main.landing'))
     if user.confirmed:
-        flash("The user {} is already confirmed".format(user.email))
+        flash("The user {} is already confirmed".format(user.email), "danger")
         if request.referrer:
             return redirect(request.referrer)
         else:

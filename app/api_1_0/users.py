@@ -3,11 +3,10 @@ from ..models import User, user_schema, users_schema, user_schema_create, users_
     users_schema_update
 from .authentication import token_auth, basic_auth, multi_auth
 from .errors import ValidationError, forbidden
+from app.flask_sendgrid import send_email
 from . import api
 from app import db
-from app.security import create_user_permission, app_permission_userprofileupdate, app_permission_userdeactivate, \
-    app_permission_userforceconfirmation, app_permission_userrolechange, app_permission_userdelete
-
+from app.security import *
 
 @api.route('/users', methods=['GET'])
 @token_auth.login_required
@@ -22,8 +21,10 @@ def get_user_list():
     #         User.last_seen > int(request.args.get('last_seen')))
     user_list = {}
     for user in user_results:
-        # user_list[user.id] = user.username
-        user_list[user.id] = url_for('api.get_user', userid=user.id, _external=True)
+        if not g.current_user.has_access_to_user_operation(user=user):
+            pass
+        else:
+            user_list[user.id] = url_for('api.get_user', userid=user.id, _external=True)
     return jsonify(user_list)
 
 
@@ -74,8 +75,8 @@ def edit_user(userid):
     Returns a JSON reponse with user data, errors if they exist and a list of ignored fields
     Location header on the response indicates location of user record
     """
-    user_permission = create_user_permission(userid)
-    if not (user_permission.can() or app_permission_userprofileupdate.can()):
+    user = User.query.get_or_404(userid)
+    if not g.current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userdelete]):
         forbidden("You do not have permission to update the user profile for user with id {}".format(userid))
     additional_message = None
     allowed_fields = ['email', 'username', 'first_name', 'last_name', 'password', 'dob', 'phone', 'description']
@@ -85,7 +86,6 @@ def edit_user(userid):
         allowed_fields += ['active']
     if app_permission_userrolechange.can():
         allowed_fields += ['role_id']
-    user = User.query.get_or_404(userid)
     original_email = user.email
     data = request.get_json()
     data['id'] = userid
@@ -107,6 +107,9 @@ def edit_user(userid):
             unallowed_fields[0][key] = data[key]
     if user.email.lower() != original_email.lower():
         user.confirmed = False
+        token = user.generate_email_change_token(user.email.lower())
+        send_email(subject='Unkani - Email Change', to=[user.email.lower()], template='auth/email/change_email',
+                   token=token, user=user)
         additional_message = {
             "email changed": "The user's email has been changed to {} and requires confirmation via email".format(
                 user.email)}
@@ -133,8 +136,7 @@ def delete_user(id):
     Delete an existing user
     """
     user = User.query.get_or_404(int(id))
-    user_permission = create_user_permission(user.id)
-    if not (user_permission.can() or app_permission_userdelete):
+    if not g.current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userdelete]):
         forbidden("You do not have permission to delete user with id {}".format(user.id))
     db.session.delete(user)
     db.session.commit()

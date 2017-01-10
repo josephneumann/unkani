@@ -141,4 +141,55 @@ def admin_user_list():
     if not (role_permission_admin.can() or role_permission_superadmin.can()):
         abort(403)
     userlist = User.query.order_by(User.id).all()
+    for user in userlist:
+        if not current_user.has_access_to_user_operation(user=user):
+            userlist.pop(userlist.index(user))
     return render_template('dashboard/admin_user_list.html', userlist=userlist)
+
+
+@dashboard.route('/admin/user/<int:userid>/confirm', methods=['GET'])
+def force_confirm_user(userid):
+    user = User.query.get_or_404(userid)
+    if not current_user.has_access_to_user_operation(user=user,
+                                                     other_permissions=[app_permission_userforceconfirmation]):
+        flash("You do not have permission to confirm user with id {}".format(user.id), 'danger')
+        return redirect(url_for('dashboard.user_profile', userid=current_user.id))
+    if user.confirmed:
+        flash("The user {} is already confirmed.".format(user.email), 'danger')
+        return redirect(url_for('dashboard.user_profile', userid=current_user.id))
+    user.confirmed = True
+    db.session.add(user)
+    db.session.commit()
+    flash("User account {} has been confirmed manually.".format(user.email), 'success')
+    return redirect(url_for('dashboard.user_profile', userid=userid))
+
+
+@dashboard.route('/admin/user/<int:userid>/unconfirm', methods=['GET'])
+def revoke_user_confirmation(userid):
+    user = User.query.get_or_404(userid)
+    if not current_user.has_access_to_user_operation(user=user,
+                                                     other_permissions=[app_permission_userforceconfirmation]):
+        flash("You do not have permission to un-confirm user with id {}".format(user.id), 'danger')
+        return redirect(url_for('dashboard.user_profile', userid=current_user.id))
+    if not user.confirmed:
+        flash("The user {} is already un-confirmed.".format(user.email), 'danger')
+        return redirect(url_for('dashboard.user_profile', userid=current_user.id))
+    user.confirmed = False
+    db.session.add(user)
+    db.session.commit()
+    flash("User account {} has had their confirmed status revoked manually.".format(user.email), 'success')
+    return redirect(url_for('dashboard.user_profile', userid=userid))
+
+
+@dashboard.route('/admin/user/<int:userid>/reset_password', methods=['GET'])
+def reset_user_password(userid):
+    user = User.query.get_or_404(userid)
+    if not current_user.has_access_to_user_operation(user=user,
+                                                     other_permissions=[app_permission_userpasswordreset]):
+        flash("You do not have permission to confirm user with id {}".format(user.id), 'danger')
+        return redirect(url_for('dashboard.user_profile', userid=current_user.id))
+    token = user.generate_reset_token()
+    send_email(to=[user.email], subject='Reset Your Password', template='auth/email/reset_password'
+               , user=user, token=token, next=request.args.get('next'))
+    flash('An email with instructions for resetting the user password has been sent to {}.'.format(user.email), 'info')
+    return redirect(url_for('dashboard.user_profile', userid=userid))

@@ -386,7 +386,7 @@ class User(UserMixin, db.Model):
     #####################################
     # USER PERMISSION LEVEL COMPARISON
     #####################################
-    def has_higher_permission(self, user, lookup_user=False):
+    def has_higher_permission(self, user):
         __doc__ = """
         User Method:  Helper method that accepts either the userid integer
         of another user, or the user object of another user.
@@ -398,21 +398,19 @@ class User(UserMixin, db.Model):
         Used to protect access to actions performed on other users.
 
 
-        param lookup_user:
-            If set to True, the function expects an integer userid to be
+        param <user>:
+            If an integer is pased, the function expects an integer userid to be
             supplied as the 'user' parameter.  The method then looks up
             the corresponding user record to perform the comparison.
 
-            If set to False, the function expects a complete user object to
-            be supplied as the 'user' parameter.  The method then compares
-            the base user object to the user object supplied as a parameter.
+            Non integer value passed, the function expects a complete user object
+            to be supplied.  The method then compares the base user object to the
+            user object supplied as a parameter.
             This configuration helps to avoid un-necessary object lookup.
-
-             Default = False
 
         """
         other_user = user
-        if lookup_user:
+        if isinstance(other_user, int):
             other_user = User.query.get(user)
         if not other_user:
             return True
@@ -422,7 +420,7 @@ class User(UserMixin, db.Model):
             return False
 
     @staticmethod
-    def compare_permission_level(user1, user2, lookup_user1=False, lookup_user2=False):
+    def compare_permission_level(user1, user2):
         __doc__ = """
         User Method:  Helper method that accepts either the userid integers
         of two users to be compared, or the user objects of the two users.
@@ -434,23 +432,15 @@ class User(UserMixin, db.Model):
         Used to protect access to actions performed on other users by permission
         level as appropriate.
 
-        param lookup_user(1/2):
-            If set to True, the function expects an integer userid to be
-            supplied as the 'user1' or 'user2' parameter.  The method then looks up
-            the corresponding user record to perform the comparison.
-
-            If set to False, the function expects a complete user object to
-            be supplied as the 'user' parameter.  This configuration helps to
-            avoid un-necessary object lookup.
-
-             Default = False
+        If an integer value is passed as either <user1> or <user2>, the corresponding
+        user with that id looked up in the database.  If the user does not exist, a validation
+        error is raised.  If <user1> or <user2> are not integers, a user object is assumed
+        to be passed to the function.
 
         """
-        user1 = user1
-        user2 = user2
-        if lookup_user1:
+        if isinstance(user1, int):
             user1 = User.query.get(user1)
-        if lookup_user2:
+        if isinstance(user2, int):
             user2 = User.query.get(user2)
         if not user1:
             raise ValidationError('User1 does not exist.')
@@ -461,7 +451,7 @@ class User(UserMixin, db.Model):
         else:
             return False
 
-    def has_access_to_user_operation(self, user, lookup_user=False, other_permissions=[None], self_permissions=[None]):
+    def has_access_to_user_operation(self, user, other_permissions=[None], self_permissions=[None]):
         __doc__ = """
         User Method:
         Helper function that checks whether the base user object should have
@@ -484,19 +474,11 @@ class User(UserMixin, db.Model):
         will also return True.
 
         param <user>:
-            If <lookup_user> = False, then must be a user object to be compared to the base
-            user object.
+            Either the integer user id of the user to be compared to the base user object, or the fully
+            qualified user object to be compared with the base user.  If an integer input is detected, the
+            user with that corresponding id is looked up in the database.  Otherwise, a fully qualified user
+            object is assumed.
 
-            If <lookup_user> = True, then must be a userid integer used to look up the user.
-
-        param <lookup_user>:
-            If set to False, the method expects a fully qualified User object to be
-            provided in the <user> parameter.
-
-            If set to True, the method expects a user id integer to be
-            supplied, and then corresponding user object is looked up in the database before the comparison
-
-            default is: False
 
         param <self_permissions>:
             A list of Flask-Principal permission objects that must be provided by the current identity in order
@@ -513,9 +495,7 @@ class User(UserMixin, db.Model):
             Default is: None
 
         """
-        #TODO:  Detect input type of user, and set lookup_user automatically
-        user = user
-        if lookup_user:
+        if isinstance(user, int):
             user = User.query.get(user)
         if not user:
             raise ValidationError("User could not be found.")
@@ -527,16 +507,10 @@ class User(UserMixin, db.Model):
                     if not permission.can():
                         has_access = False
                         break
-        elif self.has_higher_permission(user=user, lookup_user=False):
+        elif self.has_higher_permission(user=user):
             has_access = True
-            print("Before other permission check")
-            print(other_permissions)
             if other_permissions[0] is not None:
-                print("Other permissions detected")
                 for permission in other_permissions:
-                    print(permission)
-                    print(permission.can())
-                    print(has_access)
                     if not permission.can():
                         has_access = False
                         break

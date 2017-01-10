@@ -37,8 +37,6 @@
                                                 {% if user.active %}
                                                     {% if user.confirmed %}
                                                         Confirmed
-                                                    {% elif app_permission_userresendconfirmation.can() %}
-                                                        <a href="{{ url_for('auth.resend_confirmation', userid=user.id) }}">Unconfirmed</a>
                                                     {% else %}
                                                         Unconfirmed
                                                     {% endif %}
@@ -126,17 +124,18 @@
                                     </div>
                                     <div class="card-footer">
                                         {% if (app_permission_userdelete.can()or test_user_permission(user.id)) %}
-                                        <div class="form-group pull-left">
-                                           <a href="{{ url_for('dashboard.delete_user', userid=user.id)}}" class="btn btn-wd btn-danger btn-move-left">
+                                            <div class="form-group pull-left">
+                                                <a href="{{ url_for('dashboard.delete_user', userid=user.id) }}"
+                                                   class="btn btn-wd btn-danger btn-move-left">
                                                <span class="btn-label">
                                                    <i class="ti ti-trash"></i>
                                                    Delete Account
                                                </span>
-                                           </a>
-                                        </div>
+                                                </a>
+                                            </div>
                                         {% endif %}
                                         <div class="form-group pull-right">
-                                             <a href="{{ url_for('dashboard.change_password', userid=user.id) }}"
+                                            <a href="{{ url_for('dashboard.change_password', userid=user.id) }}"
                                                class="btn btn-wd btn-info btn-rotate">
                                             <span class="btn-label">
 	                                                <i class="ti ti-lock"></i>
@@ -152,7 +151,7 @@
                                             </a>
                                             <button type="submit" class="btn btn-wd btn-success btn-magnify">
 	                                            <span class="btn-label">
-	                                                <i class="ti ti-check"></i>
+	                                                <i class="ti ti-save"></i>
 	                                            </span>
                                                 Save Changes
                                             </button>
@@ -163,6 +162,59 @@
                             </div>
                         </div>
                     </div>
+                    {% if app_permission_userpasswordreset.can()
+                            or app_permission_userforceconfirmation.can()
+                            or (not user.confirmed and app_permission_userresendconfirmation.can())%}
+                    <div class="col-lg-12 col-md-12">
+                        <div class="card">
+                            <div class="header">
+                                <h4 class="title">User Admin</h4>
+                            </div>
+                            <div class="content">
+                                {% if app_permission_userpasswordreset.can() %}
+                                <a href="{{ url_for('dashboard.reset_user_password', userid=user.id) }}"
+                                   class="btn btn-wd btn-rotate">
+                                                   <span class="btn-label">
+                                                       <i class="ti ti-unlock"></i>
+                                                       Reset Password
+                                                   </span>
+                                </a>
+                                {% endif %}
+                                {% if not user.confirmed %}
+                                    {% if app_permission_userresendconfirmation.can() %}
+                                        <a href="{{ url_for('auth.resend_confirmation', userid=user.id) }}"
+                                           class="btn btn-wd btn-rotate">
+                                                   <span class="btn-label">
+                                                       <i class="ti ti-back-left"></i>
+                                                       Resend Confirmation
+                                                   </span>
+                                        </a>
+                                    {% endif %}
+                                    {% if app_permission_userforceconfirmation.can() %}
+                                        <a href="{{ url_for('dashboard.force_confirm_user', userid=user.id) }}"
+                                           class="btn btn-wd btn-magnify">
+                                                   <span class="btn-label">
+                                                       <i class="ti ti-check"></i>
+                                                       Confirm User
+                                                   </span>
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                                {% if user.confirmed %}
+                                    {% if app_permission_userforceconfirmation.can() %}
+                                        <a href="{{ url_for('dashboard.revoke_user_confirmation', userid=user.id) }}"
+                                           class="btn btn-wd btn-magnify">
+                                                   <span class="btn-label">
+                                                       <i class="ti ti-face-sad"></i>
+                                                       Revoke Confirmation
+                                                   </span>
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 {% endblock user_profile_form %}
             </div>
         </div>

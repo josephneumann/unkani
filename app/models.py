@@ -531,12 +531,13 @@ class User(UserMixin, db.Model):
     def gravatar(self, size=100, default='identicon', rating='g'):
         __doc__ = """
         Generate a Gravatar url based on an MD5 hash of the user's email. URL output
-        conforms to standards for Gravatar 3rd party service.  Default's established for size (100px)
-        as well as rating filter ('g')."""
-        if request.is_secure:
-            url = 'https://secure.gravatar.com/avatar'
-        else:
-            url = 'http://www.gravatar.com/avatar'
+        conforms to standards for Globally Recognized Avatar service.
+        Defaults established as:
+         Size: 100px
+         Default: identicon (if gravatar not found, pattern unique to MD5 hash is displayed\
+         Rating: g
+         """
+        url = 'https://secure.gravatar.com/avatar'
         if not self.avatar_hash:
             self.generate_avatar_hash()
             db.session.add(self)

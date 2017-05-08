@@ -13,12 +13,9 @@ from app.security import *
 @app_permission_userprofileupdate.require(http_exception=403)
 def get_user_list():
     """
-    Returns list of user ids and usernames.
+    Returns list of user ids and the user object's location.
     """
     user_results = User.query.order_by(User.id.asc())
-    # if request.args.get('last_seen'):
-    #     users = users.filter(
-    #         User.last_seen > int(request.args.get('last_seen')))
     user_list = {}
     for user in user_results:
         if not g.current_user.has_access_to_user_operation(user=user):

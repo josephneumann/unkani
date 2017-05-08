@@ -24,7 +24,7 @@ class MainViewsFormsTestCase(TestCase):
 
     def test_landing_page_render(self):
         response = self.client.get(url_for('main.landing'))
-        self.assert_template_used('public/landing.html')
+        self.assert_template_used('public/index.html')
 
     def test_custom_404_error(self):
         path = '/non_existent_endpoint'

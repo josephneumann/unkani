@@ -239,7 +239,7 @@ demo = {
             api.openPopup('twitter');
           },
           template: '<i class="fa fa-twitter"></i> Twitter',
-          url: 'http://demos.creative-tim.com/paper_dashbaord-kit-pro/presentation.html'
+          url: 'http://demos.creative-tim.com/paper_dashboard-kit-pro/presentation.html'
         });
 
         $('#facebook').sharrre({
@@ -254,7 +254,7 @@ demo = {
             api.openPopup('facebook');
           },
           template: '<i class="fa fa-facebook-square"></i> Facebook',
-          url: 'http://demos.creative-tim.com/paper_dashbaord-kit-pro/presentation.html'
+          url: 'http://demos.creative-tim.com/paper_dashboard-kit-pro/presentation.html'
         });
 
         $('#google').sharrre({
@@ -269,7 +269,7 @@ demo = {
             api.openPopup('googlePlus');
           },
           template: '<i class="fa fa-google-plus"></i> Google',
-          url: 'http://demos.creative-tim.com/paper_dashbaord-kit-pro/presentation.html'
+          url: 'http://demos.creative-tim.com/paper_dashboard-kit-pro/presentation.html'
         });
     }
 }

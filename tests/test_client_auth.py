@@ -83,7 +83,7 @@ class AuthViewsFormsTestCase(TestCase):
                                    follow_redirects=True)
         self.assert_message_flashed(message='The confirmation link is invalid or has expired.'
                                     , category='danger')
-        self.assert_template_used('public/landing.html')
+        self.assert_template_used('public/index.html')
 
         # Test valid confirmation token confirms user
         response = self.client.get(url_for('auth.confirm', token=token1),
@@ -93,7 +93,7 @@ class AuthViewsFormsTestCase(TestCase):
 
         # Test unconfirmed page no longer catches user
         response = self.client.get(url_for('auth.unconfirmed'), follow_redirects=True)
-        self.assert_template_used('public/landing.html')
+        self.assert_template_used('public/index.html')
 
     def test_account_already_confirmed(self):
         u = User(username='john.doe', email='john.doe@example.com', password='testpw', confirmed=True)
@@ -121,7 +121,7 @@ class AuthViewsFormsTestCase(TestCase):
         }, follow_redirects=True)
         response = self.client.get(url_for('auth.resend_confirmation'), follow_redirects=True)
         self.assertMessageFlashed('A new confirmation email has been sent to your email address.', 'info')
-        self.assert_template_used('public/landing.html')
+        self.assert_template_used('public/index.html')
 
     def test_resgister_existing_email(self):
         u = User(email='johndoe@example.com', username='john.doe')
@@ -175,7 +175,7 @@ class AuthViewsFormsTestCase(TestCase):
             'password': 'testpw'
         }, follow_redirects=True)
         response = self.client.get(url_for('auth.reset_password_request'), follow_redirects=True)
-        self.assert_template_used('public/landing.html')
+        self.assert_template_used('public/index.html')
 
     def test_reset_password_request_successful(self):
         # Reset password template gets rendered on get
@@ -220,7 +220,7 @@ class AuthViewsFormsTestCase(TestCase):
         }, follow_redirects=True)
         response = self.client.get(url_for('auth.reset_password', token='sampletoken'),
                                    follow_redirects=True)
-        self.assertTemplateUsed('public/landing.html')
+        self.assertTemplateUsed('public/index.html')
 
     def test_successful_password_reset_form_render(self):
         u = User(username='john.doe', email='john.doe@example.com', password='testpw', confirmed=True)

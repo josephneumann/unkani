@@ -32,54 +32,54 @@
  *
  * ========================================================= */
 
-@import "paper_dashbaord/variables";
-@import "paper_dashbaord/mixins";
+@import "paper_dashboard/variables";
+@import "paper_dashboard/mixins";
 
 //plugins css
-@import "paper_dashbaord/plugins/animate";
-@import "paper_dashbaord/plugins/sweetalert2";
-@import "paper_dashbaord/plugins/bootstrap-table";
-@import "paper_dashbaord/plugins/datatables.net";
-@import "paper_dashbaord/plugins/fullcalendar";
-@import "paper_dashbaord/plugins/chartist";
-@import "paper_dashbaord/plugins/perfect-scrollbar";
-@import "paper_dashbaord/plugins/jquery.jvectormap";
-@import "paper_dashbaord/plugins/bootstrap-select";
-@import "paper_dashbaord/plugins/datetime-picker";
+@import "paper_dashboard/plugins/animate";
+@import "paper_dashboard/plugins/sweetalert2";
+@import "paper_dashboard/plugins/bootstrap-table";
+@import "paper_dashboard/plugins/datatables.net";
+@import "paper_dashboard/plugins/fullcalendar";
+@import "paper_dashboard/plugins/chartist";
+@import "paper_dashboard/plugins/perfect-scrollbar";
+@import "paper_dashboard/plugins/jquery.jvectormap";
+@import "paper_dashboard/plugins/bootstrap-select";
+@import "paper_dashboard/plugins/datetime-picker";
 
 // Core CSS
-@import "paper_dashbaord/typography";
-@import "paper_dashbaord/sidebar-and-main-panel";
-@import "paper_dashbaord/buttons";
-@import "paper_dashbaord/misc";
-@import "paper_dashbaord/inputs";
-@import "paper_dashbaord/progress-bars";
-@import "paper_dashbaord/sliders";
-@import "paper_dashbaord/forms";
-@import "paper_dashbaord/alerts";
-@import "paper_dashbaord/tables";
-@import "paper_dashbaord/tooltips-and-popovers";
-@import "paper_dashbaord/navbars";
-@import "paper_dashbaord/footers";
-@import "paper_dashbaord/cards";
-@import "paper_dashbaord/timeline";
-@import "paper_dashbaord/labels";
-@import "paper_dashbaord/chat-message";
-@import "paper_dashbaord/checkbox-radio";
+@import "paper_dashboard/typography";
+@import "paper_dashboard/sidebar-and-main-panel";
+@import "paper_dashboard/buttons";
+@import "paper_dashboard/misc";
+@import "paper_dashboard/inputs";
+@import "paper_dashboard/progress-bars";
+@import "paper_dashboard/sliders";
+@import "paper_dashboard/forms";
+@import "paper_dashboard/alerts";
+@import "paper_dashboard/tables";
+@import "paper_dashboard/tooltips-and-popovers";
+@import "paper_dashboard/navbars";
+@import "paper_dashboard/footers";
+@import "paper_dashboard/cards";
+@import "paper_dashboard/timeline";
+@import "paper_dashboard/labels";
+@import "paper_dashboard/chat-message";
+@import "paper_dashboard/checkbox-radio";
 
 // Fancy Stuff
-@import "paper_dashbaord/dropdown";
-@import "paper_dashbaord/social";
-@import "paper_dashbaord/tags";
-@import "paper_dashbaord/collapse";
-@import "paper_dashbaord/carousel";
-@import "paper_dashbaord/animated-buttons";
-@import "paper_dashbaord/switch";
+@import "paper_dashboard/dropdown";
+@import "paper_dashboard/social";
+@import "paper_dashboard/tags";
+@import "paper_dashboard/collapse";
+@import "paper_dashboard/carousel";
+@import "paper_dashboard/animated-buttons";
+@import "paper_dashboard/switch";
 
 //SCSS for Pages
-@import "paper_dashbaord/pages";
+@import "paper_dashboard/pages";
 
-@import "paper_dashbaord/tabs-navs-pagination";
-@import "paper_dashbaord/circlechart";
+@import "paper_dashboard/tabs-navs-pagination";
+@import "paper_dashboard/circlechart";
 
-@import "paper_dashbaord/responsive";
+@import "paper_dashboard/responsive";

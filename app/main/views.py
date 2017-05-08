@@ -12,4 +12,4 @@ def main_context_processor():
 
 @main.route('/', methods=['GET'])
 def landing():
-    return render_template('public/landing.html')
+    return render_template('public/index.html')

@@ -10,92 +10,8 @@ from marshmallow import fields, ValidationError, post_load, validates
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from . import db, login_manager, ma
-
-##################################################################################################
-# ROLE -> APP PERMISSION ASSOCIATION TABLE
-##################################################################################################
-
-role_app_permission = db.Table('role_app_permission',
-                               db.Column('role_id', db.Integer, db.ForeignKey('role.id')),
-                               db.Column('app_permission_id', db.Integer, db.ForeignKey('app_permission.id'))
-                               )
-
-
-###################################################################################################
-# USER ROLE SQL ALCHEMY MODEL DEFINITION
-###################################################################################################
-class Role(db.Model):
-    __tablename__ = 'role'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), unique=True)
-    users = db.relationship('User', backref='role', lazy='dynamic')
-    default = db.Column(db.Boolean, default=False)
-    level = db.Column(db.Integer)
-    app_permissions = db.relationship('AppPermission',
-                                      secondary=role_app_permission,
-                                      backref=db.backref('app_permissions', lazy='dynamic'),
-                                      lazy='dynamic')
-
-    def __repr__(self):
-        return '<Role %r>' % self.name
-
-    @staticmethod
-    def initialize_roles():
-        __doc__ = """
-        Role Staticmethod:  Creates and stores a default set of Roles as defined
-        by the application security module.  Populates Role attributes including: 'id', 'name',
-        'level'.  Also populates app_permissions in the role_app_permission association table
-        to initialize the permissions for the given role."""
-        from app.security import role_dict
-        for r in role_dict:
-            role = Role.query.filter_by(name=r).first()
-            if role is None:
-                role = Role(name=r, id=role_dict[r]['id'], level=role_dict[r]['level'])
-                if role.name == 'User':
-                    role.default = True
-                db.session.add(role)
-                db.session.commit()
-            role = Role.query.filter_by(name=r).first()
-            for p in role_dict[r]['permissions']:
-                ap = AppPermission.query.filter_by(name=p).first()
-                if ap:
-                    role_ap_list = role.app_permissions.all()
-                    if ap not in role_ap_list:
-                        role.app_permissions.append(ap)
-            db.session.add(role)
-            db.session.commit()
-
-        db.session.commit()
-
-
-###################################################################################################
-# APP PERMISSION SQL ALCHEMY MODEL DEFINITION
-###################################################################################################
-
-class AppPermission(db.Model):
-    __tablename__ = 'app_permission'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), unique=True)
-
-    def __repr__(self):
-        return str(self.name)
-
-    @staticmethod
-    def initialize_app_permissions():
-        __doc__ = """
-        AppPermission Staticmethod:  Initializes the set of AppPermission records as
-        defined in the app security module.  Reads from a dict to assign names to permission.
-        If app_permission already exists, it is ignored.  This method is used during deployment
-        and on database creation / upgrades."""
-        from app.security import app_permissions_dict
-        for p in app_permissions_dict:
-            app_permission = AppPermission.query.filter_by(name=p).first()
-            if app_permission is None:
-                app_permission = AppPermission(name=p)
-                app_permission.id = app_permissions_dict[p]
-                db.session.add(app_permission)
-        db.session.commit()
+from app import db, login_manager, ma
+from .role import Role
 
 
 ##################################################################################################
@@ -709,4 +625,3 @@ def load_user(user_id):
     None if no record exists.  Used by Flask-Login to set the
     current_user attribute."""
     return User.query.get(int(user_id))
-

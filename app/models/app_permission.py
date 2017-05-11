@@ -7,7 +7,7 @@ from app import db
 class AppPermission(db.Model):
     __tablename__ = 'app_permission'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), unique=True)
+    name = db.Column(db.Text, unique=True)
 
     def __repr__(self):
         return str(self.name)

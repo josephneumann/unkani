@@ -114,23 +114,23 @@ class User(UserMixin, db.Model):
     ##################################
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(128), unique=True, index=True)
-    email = db.Column(db.String(128), unique=True, index=True)
-    last_email = db.Column(db.String(128), unique=True, index=True)
+    username = db.Column(db.Text, unique=True, index=True)
+    email = db.Column(db.Text, unique=True, index=True)
+    last_email = db.Column(db.Text, index=True)
     role_id = db.Column(db.Integer, db.ForeignKey('role.id'))
-    password_hash = db.Column(db.String(128))
-    last_password_hash = db.Column(db.String(128))
+    password_hash = db.Column(db.Text)
+    last_password_hash = db.Column(db.Text)
     password_timestamp = db.Column(db.TIMESTAMP)
-    first_name = db.Column(db.String(128))
-    last_name = db.Column(db.String(128))
+    first_name = db.Column(db.Text)
+    last_name = db.Column(db.Text)
     dob = db.Column(db.Date)
-    phone = db.Column(db.String(16))
+    phone = db.Column(db.Text)
     description = db.Column(db.Text)
     confirmed = db.Column(db.Boolean, default=False)
     active = db.Column(db.BOOLEAN, default=True)
     create_timestamp = db.Column(db.TIMESTAMP, default=datetime.utcnow())
-    last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
-    avatar_hash = db.Column(db.String(128))
+    last_seen = db.Column(db.TIMESTAMP, default=datetime.utcnow)
+    avatar_hash = db.Column(db.Text)
 
     def __repr__(self):
         __doc__ = """

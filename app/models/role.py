@@ -9,7 +9,7 @@ from .app_permission import AppPermission
 class Role(db.Model):
     __tablename__ = 'role'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), unique=True)
+    name = db.Column(db.Text, unique=True)
     users = db.relationship('User', backref='role', lazy='dynamic')
     default = db.Column(db.Boolean, default=False)
     level = db.Column(db.Integer)

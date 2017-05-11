@@ -44,8 +44,10 @@ def send_email(**kwargs):
         raise ValueError('No to_email configured')
 
     message = Mail()
-    message.set_from(Email(kwargs.get('from_email', None) or default_from))
-    message.set_subject(kwargs.get('subject', None))
+    # message.set_from(Email(kwargs.get('from_email', None) or default_from))
+    message.from_email = Email(kwargs.get('from_email', None) or default_from)
+    # message.set_subject(kwargs.get('subject', None))
+    message.subject = kwargs.get('subject', None)
     message.add_content(Content("text/plain", render_template(kwargs.get('template') + '.txt', **kwargs)))
     message.add_content(Content("text/html", render_template(kwargs.get('template') + '.html', **kwargs)))
 

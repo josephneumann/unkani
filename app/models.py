@@ -581,7 +581,7 @@ class User(UserMixin, db.Model):
         __doc__ = """
         Returns a random DOB as a datetime.date object."""
         current_datetime = datetime.now()
-        year = choice(range(current_datetime.year - 100, current_datetime.year - 1))
+        year = choice(range(current_datetime.year - 100, current_datetime.year - 15))
         month = choice(range(1, 13))
         day = choice(range(1, 29))
         dob = date(year, month, day)
@@ -709,3 +709,4 @@ def load_user(user_id):
     None if no record exists.  Used by Flask-Login to set the
     current_user attribute."""
     return User.query.get(int(user_id))
+

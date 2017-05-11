@@ -169,9 +169,9 @@ class UserModelTestCase(TestCase):
         self.assertEqual(u.username, u2.username)
         self.assertEqual(u.id, u2.id)
 
-    def test_create_random_user_staticmethod(self):
+    def test_randomize_user(self):
         u = User()
-        u.create_random_user()
+        u.randomize_user()
         email = u.email
         db.session.add(u)
         db.session.commit()
@@ -184,16 +184,7 @@ class UserModelTestCase(TestCase):
         self.assertTrue(user.dob is not None)
         self.assertTrue(user.active)
         self.assertFalse(user.confirmed)
-        self.assertEqual(user.role_id, 1)
-
-        # Pass through invalid gender and password
-        u = User()
-        u.create_random_user(gender='invalidgender', password='testpw')
-        email = u.email
-        db.session.add(u)
-        db.session.commit()
-        user = User.query.filter_by(email=email).first()
-        self.assertTrue(user is not None)
+        self.assertEqual(user.role_id, 2)
 
     def test_random_dob(self):
         test_length = 10
@@ -205,8 +196,8 @@ class UserModelTestCase(TestCase):
         for x in range(0, test_length):
             dob = dob_list.pop(0)
             self.assertNotIn(dob, dob_list)
-            self.assertLessEqual(dob, datetime.now().date() - timedelta(days=3 * 365))
-            self.assertGreaterEqual(dob, datetime.now().date() - timedelta(days=101 * 365))
+            self.assertLessEqual(dob, datetime.now().date() - timedelta(days=(15*365)))
+            self.assertGreaterEqual(dob, datetime.now().date() - timedelta(days=(100*365)))
 
     def test_random_phone(self):
         phone_list = []
@@ -222,8 +213,9 @@ class UserModelTestCase(TestCase):
 
     def test_initialize_roles_staticmethod(self):
         Role.initialize_roles()
-        admin_role = Role.query.filter_by(id=0).first()
-        user_role = Role.query.filter_by(id=1).first()
+        admin_role = Role.query.filter_by(name='Admin').first()
+        super_admin_role = Role.query.filter_by(name='Super Admin').first()
+        user_role = Role.query.filter_by(name='User').first()
         self.assertTrue(admin_role is not None)
-        self.assertEqual(admin_role.name, 'Admin')
-        self.assertTrue(user_role.name, 'User')
+        self.assertTrue(super_admin_role is not None)
+        self.assertTrue(user_role is not None)

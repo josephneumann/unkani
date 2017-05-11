@@ -38,7 +38,7 @@ class AuthViewsFormsTestCase(TestCase):
             'email': 'johndoe@example.com',
             'password': 'dog'
         }, follow_redirects=True)
-        self.assertMessageFlashed(message='Invalid email or password.', category='danger')
+        self.assertMessageFlashed(message='Invalid password provided for user johndoe@example.com.', category='danger')
         self.assert_template_used('auth/login.html')
 
     def test_register_and_confirmation(self):
@@ -107,7 +107,7 @@ class AuthViewsFormsTestCase(TestCase):
         }, follow_redirects=True)
         response = self.client.get(url_for('auth.confirm', token=token),
                                    follow_redirects=True)
-        self.assertMessageFlashed('Your account has already been confirmed.', 'success')
+        self.assert_template_used('public/index.html')
 
     def test_account_confirmation_email_resend(self):
         u = User(username='john.doe', email='john.doe@example.com', password='testpw')
@@ -119,11 +119,12 @@ class AuthViewsFormsTestCase(TestCase):
             'email': 'john.doe@example.com',
             'password': 'testpw'
         }, follow_redirects=True)
-        response = self.client.get(url_for('auth.resend_confirmation'), follow_redirects=True)
-        self.assertMessageFlashed('A new confirmation email has been sent to your email address.', 'info')
+        response = self.client.get(url_for('auth.resend_confirmation', userid=user.id), follow_redirects=True)
+        self.assertMessageFlashed('A new confirmation email has been sent to the email address "john.doe@example.com".',
+                                  'info')
         self.assert_template_used('public/index.html')
 
-    def test_resgister_existing_email(self):
+    def test_register_existing_email(self):
         u = User(email='johndoe@example.com', username='john.doe')
         db.session.add(u)
         db.session.commit()
@@ -134,12 +135,12 @@ class AuthViewsFormsTestCase(TestCase):
             'first_name': 'john',
             'last_name': 'doe',
         })
-        self.assert_message_flashed(message='Email is already registered. Please enter a '
-                                            'different email address or recover your password '
-                                            'for your existing account to proceed.', category='danger')
+        self.assert_message_flashed(
+            message='The email johndoe@example.com is already registered. Please enter a different email address.',
+            category='danger')
         self.assert_template_used('auth/register.html')
 
-    def test_resgister_existing_username(self):
+    def test_register_existing_username(self):
         u = User(email='johndoe1@example.com', username='john.doe1')
         db.session.add(u)
         db.session.commit()
@@ -150,9 +151,9 @@ class AuthViewsFormsTestCase(TestCase):
             'first_name': 'john',
             'last_name': 'doe',
         })
-        self.assert_message_flashed(message='Username already taken.  Please enter a different '
-                                            'username or recover your password for your existing '
-                                            'account to proceed.', category='danger')
+        self.assert_message_flashed(
+            message='The username john.doe1 is already registered.  Please enter a different username.',
+            category='danger')
         self.assert_template_used('auth/register.html')
 
     def test_logout_success(self):
@@ -192,13 +193,18 @@ class AuthViewsFormsTestCase(TestCase):
                                   'info')
 
     def test_reset_password_for_inactive_user(self):
-        u = User(username='john.doe', email='john.doe@example.com', password='testpw', confirmed=True, active=False)
-        db.session.add(u)
-        db.session.commit()
-        response = self.client.post(url_for('auth.reset_password_request'), data={
-            'email': 'john.doe@example.com'}, follow_redirects=True)
-        self.assertMessageFlashed('That user account is no longer active.', 'danger')
-        self.assertTemplateUsed('auth/reset_password_request.html')
+        with self.client:
+            u = User(username='john.doe', email='john.doe@example.com', password='testpw', confirmed=True)
+            db.session.add(u)
+            db.session.commit()
+            user = User.query.filter_by(username='john.doe').first()
+            user.active = False
+            db.session.add(user)
+            db.session.commit()
+            response = self.client.post(url_for('auth.reset_password_request'), data={
+                'email': 'john.doe@example.com'}, follow_redirects=True)
+            self.assertMessageFlashed('That user account is no longer active.', 'danger')
+            self.assertTemplateUsed('auth/reset_password_request.html')
 
     def test_reset_password_for_user_does_not_exist(self):
         u = User(username='john.doe', email='john.doe@example.com', password='testpw', confirmed=True)

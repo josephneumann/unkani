@@ -52,14 +52,14 @@ def change_email_request(userid):
     if form.validate_on_submit():
         if user.verify_password(form.password.data):
             new_email = form.new_email.data
-            user = User.query.filter_by(email=new_email).first()
-            if user is not None:
+            user2 = User.query.filter_by(email=new_email).first()
+            if user2 is not None:
                 flash('Email is already registered.', 'warning')
             else:
-                token = user.generate_email_change_token(new_email)
+                token = user.generate_email_change_token(new_email=new_email)
                 send_email(subject='Unkani - Email Change', to=[new_email], template='auth/email/change_email',
                            token=token, user=user)
-                flash('A confirmation email  has been sent to your new email.', 'info')
+                flash('A confirmation email has been sent to your new email.', 'info')
                 return redirect(url_for('dashboard.user_profile', userid=user.id))
         else:
             flash('Invalid password.', 'danger')
@@ -126,14 +126,17 @@ def delete_user(userid):
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if user.id == current_user.id:
         complete_logout()
-        db.session.delete(user)
+        user.active = False
+        db.session.add(user)
         db.session.commit()
-        flash("Your account has been deleted and you have been logged out.", "info")
+        flash("Your account has been deactivated and you have been logged out.", "info")
         return redirect(url_for('main.landing'))
-    db.session.delete(user)
-    db.session.commit()
-    flash("The account with id {} was successfully deleted".format(userid), "info")
-    return redirect(url_for('dashboard.dashboard_main'))
+    else:
+        user.active = False
+        db.session.add(user)
+        db.session.commit()
+        flash("The account with email {} was successfully deactivated".format(user.email), "info")
+        return redirect(url_for('dashboard.dashboard_main'))
 
 
 @dashboard.route('/admin/user_list', methods=['GET', 'POST'])

@@ -1,5 +1,5 @@
-from flask import render_template, redirect, request, url_for, flash, session, g
-from flask_login import login_user, logout_user, login_required, current_user, current_app
+from flask import render_template, redirect, request, url_for, flash, session, g, current_app
+from flask_login import login_user, logout_user, login_required, current_user
 from flask_principal import identity_changed, Identity, AnonymousIdentity, identity_loaded, UserNeed, RoleNeed
 
 from app.security import AppPermissionNeed, create_user_permission, app_permission_usercreate, \
@@ -42,10 +42,13 @@ def login():
         if user is None:
             flash('A user account with the email address {} was not found.'.format(form.email.data), 'danger')
         elif user.verify_password(form.password.data):
-            login_user(user, form.remember_me.data)
-            identity_changed.send(current_app._get_current_object(),
-                                  identity=Identity(user.id))
-            return redirect(request.args.get('next') or url_for('dashboard.dashboard_main'))
+            if user.active:
+                login_user(user, form.remember_me.data)
+                identity_changed.send(current_app._get_current_object(),
+                                      identity=Identity(user.id))
+                return redirect(request.args.get('next') or url_for('dashboard.dashboard_main'))
+            else:
+                flash('The user account with the email address {} been deactivated.'.format(form.email.data), 'danger')
         else:
             flash('Invalid password provided for user {}.'.format(user.email), 'danger')
     return render_template('auth/login.html', form=form)
@@ -136,10 +139,7 @@ def resend_confirmation(userid):
         send_email(to=[user.email], subject='Confirm Your Account', template='auth/email/confirm'
                    , user=user, token=token)
         flash('A new confirmation email has been sent to the email address "{}".'.format(current_user.email), 'info')
-        if request.referrer != url_for('auth.unconfirmed'):
-            return redirect(request.referrer)
-        else:
-            return redirect(url_for('main.landing'))
+        return redirect(url_for('main.landing'))
 
 
 @auth.route('/unconfirmed')

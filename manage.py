@@ -21,27 +21,17 @@ manager = Manager(app)
 migrate = Migrate(app, db)
 
 
-# Create custom context with Flask-Script and set default import objects
-# To create/upgrade the databases:
-# $ python manage.py db migrate --m "Commit comment"
-# $ python manage.py db upgrade
-# $ heroku run python manage.py db upgrade --app unkani-staging
-# $ heroku run python manage.py db upgrade --app unkani
-
-# To recreate database from scratch
-# Drop all tables in postgres db console
-# $ heroku run python manage.py db downgrade base --app unkani
-# $ heroku run python manage.py db upgrade head --app unkani
-
-
-# To run as a shell:
-# $ python manage.py shell
+# Run python shell with application context
 def make_shell_context():
     return dict(app=app, db=db, mail=mail, User=User, Role=Role, AppPermission=AppPermission)
 
 
 manager.add_command("shell", Shell(make_context=make_shell_context))
-manager.add_command('db', MigrateCommand)
+
+# To create/upgrade the databases:
+# $ python manage.py alembic migrate --m "Commit comment"
+# $ python manage.py alembic upgrade
+manager.add_command('alembic', MigrateCommand)
 
 
 class CeleryWorkerStart(Command):
@@ -89,9 +79,31 @@ class CeleryWorkerRestart(Command):
 manager.add_command("celery-restart", CeleryWorkerRestart())
 
 
+class GunicornRunserver(Command):
+    """Starts the application with the Gunicorn
+    webserver on the localhost bound to port 5000"""
+
+    name = 'gunicorn'
+    capture_all_args = True
+
+    def run(self, argv):
+        ret = subprocess.call(
+            ['gunicorn', '--bind', '0.0.0.0:5000', 'manage:app'] + argv)
+        sys.exit(ret)
+
+    print("Gunicorn webserver hosting application on localhost:5000")
+
+
+manager.add_command("gunicorn", GunicornRunserver())
+
+
 @manager.command
 def test(coverage=False):
-    """Run the unit tests."""
+    """
+    Run the unit tests.
+    Run with '--coverage' command to run coverage and
+    output results as HTML report in /tmp/coverage/*
+    """
     if coverage and not os.environ.get('FLASK_COVERAGE'):
         import sys
         os.environ['FLASK_COVERAGE'] = '1'
@@ -113,50 +125,43 @@ def test(coverage=False):
 
 @manager.command
 def deploy():
-    """Run deployment tasks."""
-    from flask_migrate import upgrade
-    from app.models import Role, User, AppPermission
-    # migrate database to latest revision
-    upgrade()
-    # create user roles
-    AppPermission.initialize_app_permissions()
-    Role.initialize_roles()
-    User.initialize_admin_user()
-
-
-@manager.command
-def dbcreate():
-    """Command line utility to drop / create database, initialize user, roles
-    and permission models.  Create admin and random users """
+    """Command line utility to complete deployment tasks:
+     1) Drop all tables (optional)
+     2) Upgrade to latest Alembic revision (optional)
+     3) Create new tables if introduced in revision
+     4) Initialize app permisions, user roles and admin user
+     5) Create random users (optional) """
     print(""""
     __________________________________________________________________________
     |                        !!!-----WARNING-----!!!                          |
-    |This command drops all tables, re-creates them and initializes some data |
-    |As a result ALL data will be lost from the target environment            |
+    |This command has the potential to drop all tables,                       |
+    |re-create them and initialize some user and role data.                   |
+    |                                                                         |
+    |As a result  data may be lost from the target environment.  Use caution! |
     --------------------------------------------------------------------------
 
     """)
     if prompt_bool("Are you sure you want to proceed?", default=False):
-        print('Database is refreshing...')
         if prompt_bool("Drop all tables first?", default=False):
-            print('Dropping and recreating tables...')
-            db.drop_all()
-            print('Tables have been dropped...')
+            if prompt_bool("Are you really sure you want to drop tables???", default=False):
+                print('Dropping and recreating tables...')
+                db.drop_all()
+                print('Tables have been dropped...')
+        if prompt_bool("Upgrade to latest Alembic revision?", default=True):
+            print()
+            print("Upgrading to Alembic head revision if needed...")
+            from flask_migrate import upgrade
+            upgrade()
+            print("Alembic revision up to date!")
+            print()
         print("Creating tables if needed...")
         db.create_all()
-        print("Database tables created...")
-        print()
         print("Initializing app permissions...")
         AppPermission.initialize_app_permissions()
-        print("App permissions created...")
-        print()
         print("Initializing user roles...")
         Role.initialize_roles()
-        print("User roles created...")
-        print()
         print("Creating admin user...")
         User.initialize_admin_user()
-        print("Admin user created or updated...")
         print()
 
         if prompt_bool("Create randomly generated users?", default=True):
@@ -179,11 +184,7 @@ def dbcreate():
             print()
             print("Total random users created: " + total_users)
 
-        print("""
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        !Process completed without errors!
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        """)
+        print("Process completed without errors.")
     else:
         print("Oh thank god............")
         print("That was a close call!")

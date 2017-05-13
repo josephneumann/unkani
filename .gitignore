@@ -93,3 +93,14 @@ ENV/
 
 /redis-stable/
 /venv/
+/tmp/
+.DS_Store
+.idea/
+app/.DS_Store
+app/static/.DS_Store
+app/static/hl7_ccda_sample.xml
+app/static/img/.DS_Store
+app/static/img/logo/.DS_Store
+app/static/sass/.sass-cache/
+app/static/sass/ct-paper/.sass-cache/
+tmp/

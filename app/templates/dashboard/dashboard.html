@@ -98,13 +98,12 @@
                             <li>
                                 <a href="#" class="dropdown-toggle btn-magnify" data-toggle="dropdown">
                                     <i class="ti-panel"></i>
-                                    <span class="notification">4</span>
+                                    <span class="notification">3</span>
                                     <ul class="dropdown-menu">
                                         <li><a href="#">request.path: {{ request.endpoint }}</a></li>
                                         <li><a href="#">request.data: {{ request.data }}</a></li>
-                                        {#                                    <li><a href="#">identity: {{ g.identity.provides }}</a></li>#}
-                                        <li><a href="#">current_user: username={{ current_user.username }}
-                                            role={{ current_user.role.name }}</a></li>
+{#                                        <li><a href="#">identity: {{ g.identity.provides }}</a></li>#}
+                                        <li><a href="#">role={{ current_user.role.name }}</a></li>
                                     </ul>
                                 </a>
                             </li>
@@ -150,8 +149,8 @@
                     <div class="col-md-12">
                         <div class="card ">
                             <div class="header">
-                                <h4 class="title">Unkani Data Transfer Top Locations</h4>
-                                <p class="category">Data transfer volumes by location in last 30 days</p>
+                                <h4 class="title">Unkani Users</h4>
+                                <p class="category">Unique logins by location in last 7 days</p>
                             </div>
                             <div class="content">
                                 <div class="row">
@@ -162,7 +161,7 @@
                                                 <tr>
                                                     <td>USA</td>
                                                     <td class="text-right">
-                                                        2.920 TB
+                                                        2.92M
                                                     </td>
                                                     <td class="text-right">
                                                         53.23%
@@ -171,7 +170,7 @@
                                                 <tr>
                                                     <td>Germany</td>
                                                     <td class="text-right">
-                                                        1.300 TB
+                                                        1.3M
                                                     </td>
                                                     <td class="text-right">
                                                         20.43%
@@ -180,7 +179,7 @@
                                                 <tr>
                                                     <td>Australia</td>
                                                     <td class="text-right">
-                                                        760 TB
+                                                        760K
                                                     </td>
                                                     <td class="text-right">
                                                         10.35%
@@ -189,7 +188,7 @@
                                                 <tr>
                                                     <td>United Kingdom</td>
                                                     <td class="text-right">
-                                                        690 TB
+                                                        690K
                                                     </td>
                                                     <td class="text-right">
                                                         7.87%
@@ -198,7 +197,7 @@
                                                 <tr>
                                                     <td>Romania</td>
                                                     <td class="text-right">
-                                                        600 TB
+                                                        600K
                                                     </td>
                                                     <td class="text-right">
                                                         5.94%
@@ -207,7 +206,7 @@
                                                 <tr>
                                                     <td>Brasil</td>
                                                     <td class="text-right">
-                                                        550 TB
+                                                        550K
                                                     </td>
                                                     <td class="text-right">
                                                         4.34%
@@ -228,8 +227,8 @@
                     <div class="col-md-6">
                         <div class="card ">
                             <div class="header">
-                                <h4 class="title">2016 Sales</h4>
-                                <p class="category">Unkani revenue ($M)</p>
+                                <h4 class="title">2016 Users</h4>
+                                <p class="category">Unkani Daily Active Users (Millions)</p>
                             </div>
                             <div class="content">
                                 <div id="chartActivity" class="ct-chart"></div>
@@ -237,7 +236,7 @@
                             <div class="card-footer">
                                 <div class="chart-legend">
                                     <i class="fa fa-circle text-info"></i> Unkani Mobile
-                                    <i class="fa fa-circle text-warning"></i> Unkani Premium Subscriptions
+                                    <i class="fa fa-circle text-warning"></i> Unkani Desktop
                                 </div>
                                 <hr>
                                 <div class="stats">
@@ -250,16 +249,16 @@
                         <div class="card">
                             <div class="header">
                                 <h4 class="title">API Access</h4>
-                                <p class="category">Requests in past hour</p>
+                                <p class="category">Requests per minute</p>
                             </div>
                             <div class="content">
                                 <div id="chartHours" class="ct-chart"></div>
                             </div>
                             <div class="card-footer">
                                 <div class="chart-legend">
-                                    <i class="fa fa-circle text-info"></i> User API
-                                    <i class="fa fa-circle text-danger"></i> Products API
-                                    <i class="fa fa-circle text-warning"></i> Unkani Analytics API
+                                    <i class="fa fa-circle text-info"></i> Unkani Data Ingestion
+                                    <i class="fa fa-circle text-warning"></i> Unkani Analytics
+                                    <i class="fa fa-circle text-danger"></i> Unkani Integration
                                 </div>
                                 <hr>
                                 <div class="stats">

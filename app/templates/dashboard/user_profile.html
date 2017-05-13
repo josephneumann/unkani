@@ -126,11 +126,11 @@
                                     <div class="card-footer">
                                         {% if (app_permission_userdelete.can()or test_user_permission(user.id)) %}
                                             <div class="form-group pull-left">
-                                                <a href="{{ url_for('dashboard.delete_user', userid=user.id) }}"
+                                                <a href="{{ url_for('dashboard.deactivate_user', userid=user.id) }}"
                                                    class="btn btn-wd btn-danger btn-move-left">
                                                <span class="btn-label">
                                                    <i class="ti ti-trash"></i>
-                                                   Delete Account
+                                                   Deactivate
                                                </span>
                                                 </a>
                                             </div>

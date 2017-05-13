@@ -118,11 +118,11 @@ def user_profile(userid):
     return render_template('dashboard/user_profile.html', form=form, user=user)
 
 
-@dashboard.route('/user/<int:userid>/delete', methods=['GET'])
-def delete_user(userid):
+@dashboard.route('/user/<int:userid>/deactivate', methods=['GET'])
+def deactivate_user(userid):
     user = User.query.get_or_404(userid)
-    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userdelete]):
-        flash("You do not have permission to delete user with id {}".format(userid))
+    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userdeactivate]):
+        flash("You do not have permission to deactivate user with id {}".format(userid))
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if user.id == current_user.id:
         complete_logout()

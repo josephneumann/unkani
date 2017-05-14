@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os
 import subprocess
 import sys
@@ -90,8 +90,6 @@ class GunicornRunserver(Command):
         ret = subprocess.call(
             ['gunicorn', '--bind', '0.0.0.0:5000', 'manage:app'] + argv)
         sys.exit(ret)
-
-    print("Gunicorn webserver hosting application on localhost:5000")
 
 
 manager.add_command("gunicorn", GunicornRunserver())

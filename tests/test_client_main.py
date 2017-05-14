@@ -1,6 +1,6 @@
 from flask import url_for
 from flask_testing import TestCase
-from app import db, create_app as create_application
+from app import sa, create_app as create_application
 from app.models import User, Role
 
 
@@ -12,15 +12,15 @@ class MainViewsFormsTestCase(TestCase):
         return app
 
     def setUp(self):
-        db.drop_all()
-        db.create_all()
+        sa.drop_all()
+        sa.create_all()
         Role.initialize_roles()
         self.client = self.app.test_client(use_cookies=True)
 
     def tearDown(self):
-        db.session.remove()
-        db.drop_all()
-        db.create_all()
+        sa.session.remove()
+        sa.drop_all()
+        sa.create_all()
 
     def test_landing_page_render(self):
         response = self.client.get(url_for('main.landing'))

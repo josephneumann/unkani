@@ -6,7 +6,7 @@ from app.security import AppPermissionNeed, create_user_permission, app_permissi
     return_template_context_permissions
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
-from .. import db
+from .. import sa
 from ..flask_sendgrid import send_email
 from ..models import User, Role
 
@@ -88,8 +88,8 @@ def register():
         else:
             user = User(email=form.email.data, first_name=form.first_name.data, last_name=form.last_name.data,
                         username=form.username.data, password=form.password.data)
-            db.session.add(user)
-            db.session.commit()
+            sa.session.add(user)
+            sa.session.commit()
             token = user.generate_confirmation_token()
             send_email(to=[user.email], user=user, token=token,
                        subject='Confirm Your Account', template='auth/email/confirm')

@@ -1,7 +1,7 @@
 from flask import url_for, g
 from flask_testing import TestCase
 from flask_login import current_user
-from app import db, create_app as create_application
+from app import sa, create_app as create_application
 from app.models import User, Role
 from datetime import datetime, date
 
@@ -14,21 +14,21 @@ class AuthViewsFormsTestCase(TestCase):
         return app
 
     def setUp(self):
-        db.drop_all()
-        db.create_all()
+        sa.drop_all()
+        sa.create_all()
         Role.initialize_roles()
         self.client = self.app.test_client(use_cookies=True)
 
     def tearDown(self):
-        db.session.remove()
-        db.drop_all()
-        db.create_all()
+        sa.session.remove()
+        sa.drop_all()
+        sa.create_all()
 
     def test_change_password_success(self):
         with self.client:
             u = User(email='johndoe@example.com', password='cat', confirmed=True)
-            db.session.add(u)
-            db.session.commit()
+            sa.session.add(u)
+            sa.session.commit()
             user = User.query.filter_by(email='johndoe@example.com').first()
             response = self.client.post(url_for('auth.login', userid=user.id), data={
                 'email': 'johndoe@example.com',
@@ -45,8 +45,8 @@ class AuthViewsFormsTestCase(TestCase):
     def test_change_password_invalid_request(self):
         with self.client:
             u = User(email='johndoe@example.com', password='cat', confirmed=True)
-            db.session.add(u)
-            db.session.commit()
+            sa.session.add(u)
+            sa.session.commit()
             user = User.query.filter_by(email='johndoe@example.com').first()
             response = self.client.post(url_for('auth.login'), data={
                 'email': 'johndoe@example.com',
@@ -64,8 +64,8 @@ class AuthViewsFormsTestCase(TestCase):
     def test_change_email_request_success(self):
         with self.client:
             u = User(email='johndoe@example.com', password='cat', confirmed=True)
-            db.session.add(u)
-            db.session.commit()
+            sa.session.add(u)
+            sa.session.commit()
             user = User.query.filter_by(email='johndoe@example.com').first()
             response = self.client.post(url_for('auth.login'), data={
                 'email': 'johndoe@example.com',
@@ -81,8 +81,8 @@ class AuthViewsFormsTestCase(TestCase):
     def test_change_invalid_change_email_request_existing_email(self):
         with self.client:
             u = User(email='johndoe@example.com', password='cat', confirmed=True)
-            db.session.add(u)
-            db.session.commit()
+            sa.session.add(u)
+            sa.session.commit()
             user = User.query.filter_by(email='johndoe@example.com').first()
             response = self.client.post(url_for('auth.login'), data={
                 'email': 'johndoe@example.com',
@@ -98,8 +98,8 @@ class AuthViewsFormsTestCase(TestCase):
     def test_change_invalid_change_email_request_wrong_password(self):
         with self.client:
             u = User(email='johndoe@example.com', password='cat', confirmed=True)
-            db.session.add(u)
-            db.session.commit()
+            sa.session.add(u)
+            sa.session.commit()
             user = User.query.filter_by(email='johndoe@example.com').first()
             response = self.client.post(url_for('auth.login'), data={
                 'email': 'johndoe@example.com',
@@ -115,8 +115,8 @@ class AuthViewsFormsTestCase(TestCase):
     def test_change_email_token_success(self):
         with self.client:
             u = User(email='johndoe@example.com', password='cat', confirmed=True)
-            db.session.add(u)
-            db.session.commit()
+            sa.session.add(u)
+            sa.session.commit()
             response = self.client.post(url_for('auth.login'), data={
                 'email': 'johndoe@example.com',
                 'password': 'cat'
@@ -129,9 +129,9 @@ class AuthViewsFormsTestCase(TestCase):
         with self.client:
             u1 = User(email='johndoe@example.com', password='cat', confirmed=True)
             u2 = User(email='janedoe@example.com', password='cat', confirmed=True)
-            db.session.add(u1)
-            db.session.add(u2)
-            db.session.commit()
+            sa.session.add(u1)
+            sa.session.add(u2)
+            sa.session.commit()
             response = self.client.post(url_for('auth.login'), data={
                 'email': 'johndoe@example.com',
                 'password': 'cat'
@@ -144,8 +144,8 @@ class AuthViewsFormsTestCase(TestCase):
     def test_user_profile_update_success(self):
         with self.client:
             u = User(email='johndoe@example.com', username='john.doe', password='cat', confirmed=True)
-            db.session.add(u)
-            db.session.commit()
+            sa.session.add(u)
+            sa.session.commit()
             user = User.query.filter_by(email='johndoe@example.com').first()
             userid = user.id
             response = self.client.post(url_for('auth.login'), data={
@@ -163,15 +163,15 @@ class AuthViewsFormsTestCase(TestCase):
             }, follow_redirects=True)
             user = User.query.filter_by(email='johndoe@example.com').first()
             self.assertMessageFlashed('Your profile has been updated.', 'success')
-            db.session.remove()
+            sa.session.remove()
 
     def test_user_profile_invalid_update_existing_username(self):
         with self.client:
             u = User(email='johndoe@example.com', username='john.doe', password='cat', confirmed=True)
             u2 = User(email='janedoe@example.com', username='jane.doe', password='cat', confirmed=True)
-            db.session.add(u)
-            db.session.add(u2)
-            db.session.commit()
+            sa.session.add(u)
+            sa.session.add(u2)
+            sa.session.commit()
             response = self.client.post(url_for('auth.login'), data={
                 'email': 'johndoe@example.com',
                 'password': 'cat'
@@ -184,16 +184,16 @@ class AuthViewsFormsTestCase(TestCase):
                 'dob': current_date,
                 'phone': '222-888-9988'
             }, follow_redirects=True)
-            db.session.remove()
+            sa.session.remove()
             self.assertMessageFlashed('The username jane.doe is already taken. We kept your username the same.',
                                       'danger')
 
     def test_unable_to_access_user_profile_of_another_user(self):
         u = User(email='johndoe@example.com', username='john.doe', password='cat', confirmed=True)
         u2 = User(email='janedoe@example.com', username='jane.doe', password='cat', confirmed=True)
-        db.session.add(u)
-        db.session.add(u2)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.add(u2)
+        sa.session.commit()
         user2 = User.query.filter_by(email='janedoe@example.com').first()
         userid2 = user2.id
         response = self.client.post(url_for('auth.login'), data={
@@ -206,9 +206,9 @@ class AuthViewsFormsTestCase(TestCase):
     def test_unable_to_access_user_profile_of_none_user(self):
         u = User(email='johndoe@example.com', username='john.doe', password='cat', confirmed=True)
         u2 = User(email='janedoe@example.com', username='jane.doe', password='cat', confirmed=True)
-        db.session.add(u)
-        db.session.add(u2)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.add(u2)
+        sa.session.commit()
         response = self.client.post(url_for('auth.login'), data={
             'email': 'johndoe@example.com',
             'password': 'cat'

@@ -10,7 +10,7 @@ from marshmallow import fields, ValidationError, post_load, validates
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app import db, login_manager, ma
+from app import sa, login_manager, ma
 from .role import Role
 
 
@@ -108,29 +108,29 @@ users_schema_update = UserSchemaUpdate(many=True)
 # is_active() - Returns True if useris allowed to login, else False.
 # is_anonymous() - Returns False for logged in users
 # get_id() - Returns unique identifier for user, as Unicode string
-class User(UserMixin, db.Model):
+class User(UserMixin, sa.Model):
     ##################################
     # MODEL ATTRIBUTES AND PROPERTIES
     ##################################
     __tablename__ = 'user'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.Text, unique=True, index=True)
-    email = db.Column(db.Text, unique=True, index=True)
-    last_email = db.Column(db.Text, index=True)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id'))
-    password_hash = db.Column(db.Text)
-    last_password_hash = db.Column(db.Text)
-    password_timestamp = db.Column(db.TIMESTAMP)
-    first_name = db.Column(db.Text)
-    last_name = db.Column(db.Text)
-    dob = db.Column(db.Date)
-    phone = db.Column(db.Text)
-    description = db.Column(db.Text)
-    confirmed = db.Column(db.Boolean, default=False)
-    active = db.Column(db.BOOLEAN, default=True)
-    create_timestamp = db.Column(db.TIMESTAMP, default=datetime.utcnow())
-    last_seen = db.Column(db.TIMESTAMP, default=datetime.utcnow)
-    avatar_hash = db.Column(db.Text)
+    id = sa.Column(sa.Integer, primary_key=True)
+    username = sa.Column(sa.Text, unique=True, index=True)
+    email = sa.Column(sa.Text, unique=True, index=True)
+    last_email = sa.Column(sa.Text, index=True)
+    role_id = sa.Column(sa.Integer, sa.ForeignKey('role.id'))
+    password_hash = sa.Column(sa.Text)
+    last_password_hash = sa.Column(sa.Text)
+    password_timestamp = sa.Column(sa.TIMESTAMP)
+    first_name = sa.Column(sa.Text)
+    last_name = sa.Column(sa.Text)
+    dob = sa.Column(sa.Date)
+    phone = sa.Column(sa.Text)
+    description = sa.Column(sa.Text)
+    confirmed = sa.Column(sa.Boolean, default=False)
+    active = sa.Column(sa.BOOLEAN, default=True)
+    create_timestamp = sa.Column(sa.TIMESTAMP, default=datetime.utcnow())
+    last_seen = sa.Column(sa.TIMESTAMP, default=datetime.utcnow)
+    avatar_hash = sa.Column(sa.Text)
 
     def __repr__(self):
         __doc__ = """
@@ -174,7 +174,7 @@ class User(UserMixin, db.Model):
         Ping function called before each request initiated by authenticated user.
         Stores timestamp of last request for the user in the 'last_seen' attribute."""
         self.last_seen = datetime.utcnow()
-        db.session.add(self)
+        sa.session.add(self)
 
     ####################################
     # PASSWORD HASHING AND VERIFICATION
@@ -226,7 +226,7 @@ class User(UserMixin, db.Model):
         if data.get('confirm') != self.id:
             return False
         self.confirmed = True
-        db.session.add(self)
+        sa.session.add(self)
         return True
 
     def generate_reset_token(self, expiration=3600):
@@ -249,7 +249,7 @@ class User(UserMixin, db.Model):
         if data.get('reset') != self.id:
             return False
         self.password = new_password
-        db.session.add(self)
+        sa.session.add(self)
         return True
 
     def generate_email_change_token(self, new_email, expiration=3600):
@@ -278,7 +278,7 @@ class User(UserMixin, db.Model):
         self.last_email = self.email
         self.email = new_email
         self.generate_avatar_hash()
-        db.session.add(self)
+        sa.session.add(self)
         return True
 
     def verify_email(self, email):
@@ -456,8 +456,8 @@ class User(UserMixin, db.Model):
         url = 'https://secure.gravatar.com/avatar'
         if not self.avatar_hash:
             self.generate_avatar_hash()
-            db.session.add(self)
-            db.session.commit()
+            sa.session.add(self)
+            sa.session.commit()
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
             url=url, hash=self.avatar_hash, size=size, default=default, rating=rating)
 
@@ -594,8 +594,8 @@ class User(UserMixin, db.Model):
             user.last_name = os.environ.get('UNKANI_ADMIN_LAST_NAME')
             user.phone = os.environ.get('UNKANI_ADMIN_PHONE')
             user.confirmed = True
-            db.session.add(user)
-            db.session.commit()
+            sa.session.add(user)
+            sa.session.commit()
 
 
 ###################################################

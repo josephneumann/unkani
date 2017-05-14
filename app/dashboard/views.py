@@ -4,7 +4,7 @@ from app.auth.views import complete_logout
 from app.security import *
 from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
-from .. import db
+from .. import sa
 from ..flask_sendgrid import send_email
 from ..models import User
 
@@ -32,8 +32,8 @@ def change_password(userid):
     if form.validate_on_submit():
         if user.verify_password(form.old_password.data):
             user.password = form.password.data
-            db.session.add(user)
-            db.session.commit()
+            sa.session.add(user)
+            sa.session.commit()
             flash('Your password has been changed.', 'success')
             return redirect(url_for('dashboard.user_profile', userid=user.id))
         else:
@@ -106,7 +106,7 @@ def user_profile(userid):
         user.phone = form.phone.data
         user.dob = form.dob.data
         user.description = form.about_me.data
-        db.session.add(user)
+        sa.session.add(user)
         flash('Your profile has been updated.', 'success')
 
     form.username.data = user.username
@@ -127,14 +127,14 @@ def deactivate_user(userid):
     if user.id == current_user.id:
         complete_logout()
         user.active = False
-        db.session.add(user)
-        db.session.commit()
+        sa.session.add(user)
+        sa.session.commit()
         flash("Your account has been deactivated and you have been logged out.", "info")
         return redirect(url_for('main.landing'))
     else:
         user.active = False
-        db.session.add(user)
-        db.session.commit()
+        sa.session.add(user)
+        sa.session.commit()
         flash("The account with email {} was successfully deactivated".format(user.email), "info")
         return redirect(url_for('dashboard.dashboard_main'))
 
@@ -161,8 +161,8 @@ def force_confirm_user(userid):
         flash("The user {} is already confirmed.".format(user.email), 'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     user.confirmed = True
-    db.session.add(user)
-    db.session.commit()
+    sa.session.add(user)
+    sa.session.commit()
     flash("User account {} has been confirmed manually.".format(user.email), 'success')
     return redirect(url_for('dashboard.user_profile', userid=userid))
 
@@ -178,8 +178,8 @@ def revoke_user_confirmation(userid):
         flash("The user {} is already un-confirmed.".format(user.email), 'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     user.confirmed = False
-    db.session.add(user)
-    db.session.commit()
+    sa.session.add(user)
+    sa.session.commit()
     flash("User account {} has had their confirmed status revoked manually.".format(user.email), 'success')
     return redirect(url_for('dashboard.user_profile', userid=userid))
 

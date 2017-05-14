@@ -1,4 +1,4 @@
-from app import db
+from app import sa
 from .role_app_permission import role_app_permission
 from .app_permission import AppPermission
 
@@ -6,16 +6,16 @@ from .app_permission import AppPermission
 ###################################################################################################
 # USER ROLE SQL ALCHEMY MODEL DEFINITION
 ###################################################################################################
-class Role(db.Model):
+class Role(sa.Model):
     __tablename__ = 'role'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Text, unique=True)
-    users = db.relationship('User', backref='role', lazy='dynamic')
-    default = db.Column(db.Boolean, default=False)
-    level = db.Column(db.Integer)
-    app_permissions = db.relationship('AppPermission',
+    id = sa.Column(sa.Integer, primary_key=True)
+    name = sa.Column(sa.Text, unique=True)
+    users = sa.relationship('User', backref='role', lazy='dynamic')
+    default = sa.Column(sa.Boolean, default=False)
+    level = sa.Column(sa.Integer)
+    app_permissions = sa.relationship('AppPermission',
                                       secondary=role_app_permission,
-                                      backref=db.backref('app_permissions', lazy='dynamic'),
+                                      backref=sa.backref('app_permissions', lazy='dynamic'),
                                       lazy='dynamic')
 
     def __repr__(self):
@@ -35,8 +35,8 @@ class Role(db.Model):
                 role = Role(name=r, id=role_dict[r]['id'], level=role_dict[r]['level'])
                 if role.name == 'User':
                     role.default = True
-                db.session.add(role)
-                db.session.commit()
+                sa.session.add(role)
+                sa.session.commit()
             role = Role.query.filter_by(name=r).first()
             for p in role_dict[r]['permissions']:
                 ap = AppPermission.query.filter_by(name=p).first()
@@ -44,7 +44,7 @@ class Role(db.Model):
                     role_ap_list = role.app_permissions.all()
                     if ap not in role_ap_list:
                         role.app_permissions.append(ap)
-            db.session.add(role)
-            db.session.commit()
+            sa.session.add(role)
+            sa.session.commit()
 
-        db.session.commit()
+        sa.session.commit()

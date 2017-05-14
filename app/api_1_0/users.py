@@ -5,7 +5,7 @@ from .authentication import token_auth, basic_auth, multi_auth
 from .errors import ValidationError, forbidden
 from app.flask_sendgrid import send_email
 from . import api
-from app import db
+from app import sa
 from app.security import *
 
 @api.route('/users', methods=['GET'])
@@ -53,8 +53,8 @@ def new_user():
     if errors:
         return jsonify({"error": "User could not be created",
                         "message": errors}), 422
-    db.session.add(user)
-    db.session.commit()
+    sa.session.add(user)
+    sa.session.commit()
     result = user_schema.dump(user)
     json_result = jsonify({"message": "Created new user.",
                            "user": result.data})
@@ -110,8 +110,8 @@ def edit_user(userid):
         additional_message = {
             "email changed": "The user's email has been changed to {} and requires confirmation via email".format(
                 user.email)}
-    db.session.add(user)
-    db.session.commit()
+    sa.session.add(user)
+    sa.session.commit()
     updated_user = user_schema.dump(User.query.get(userid))
 
     response = {"message": "User successfully updated",
@@ -135,7 +135,7 @@ def delete_user(id):
     user = User.query.get_or_404(int(id))
     if not g.current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userdelete]):
         forbidden("You do not have permission to delete user with id {}".format(user.id))
-    db.session.delete(user)
-    db.session.commit()
+    sa.session.delete(user)
+    sa.session.commit()
     json_response = jsonify({"message": "User {} deleted".format(user.email)})
     return json_response, 200

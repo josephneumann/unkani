@@ -1,13 +1,13 @@
-from app import db
+from app import sa
 
 ###################################################################################################
 # APP PERMISSION SQL ALCHEMY MODEL DEFINITION
 ###################################################################################################
 
-class AppPermission(db.Model):
+class AppPermission(sa.Model):
     __tablename__ = 'app_permission'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Text, unique=True)
+    id = sa.Column(sa.Integer, primary_key=True)
+    name = sa.Column(sa.Text, unique=True)
 
     def __repr__(self):
         return str(self.name)
@@ -25,5 +25,5 @@ class AppPermission(db.Model):
             if app_permission is None:
                 app_permission = AppPermission(name=p)
                 app_permission.id = app_permissions_dict[p]
-                db.session.add(app_permission)
-        db.session.commit()
+                sa.session.add(app_permission)
+        sa.session.commit()

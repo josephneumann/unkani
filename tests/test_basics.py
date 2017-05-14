@@ -1,7 +1,7 @@
 from flask import current_app
 from flask_testing import TestCase
 from app import create_app as create_application
-from app import db
+from app import sa
 
 
 class BasicsTestCase(TestCase):
@@ -10,13 +10,13 @@ class BasicsTestCase(TestCase):
         return app
 
     def setUp(self):
-        db.drop_all()
-        db.create_all()
+        sa.drop_all()
+        sa.create_all()
 
     def tearDown(self):
-        db.session.remove()
-        db.drop_all()
-        db.create_all()
+        sa.session.remove()
+        sa.drop_all()
+        sa.create_all()
 
     def test_app_exists(self):
         self.assertFalse(current_app is None)

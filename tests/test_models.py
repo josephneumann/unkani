@@ -1,7 +1,7 @@
 import time
 from flask_testing import TestCase
 from app.models import User, Role, load_user
-from app import db
+from app import sa
 from app import create_app as create_application
 from datetime import datetime, timedelta
 
@@ -12,14 +12,14 @@ class UserModelTestCase(TestCase):
         return app
 
     def setUp(self):
-        db.drop_all()
-        db.create_all()
+        sa.drop_all()
+        sa.create_all()
         Role.initialize_roles()
 
     def tearDown(self):
-        db.session.remove()
-        db.drop_all()
-        db.create_all()
+        sa.session.remove()
+        sa.drop_all()
+        sa.create_all()
 
     def test_password_setter(self):
         u = User(password='cat')
@@ -49,39 +49,39 @@ class UserModelTestCase(TestCase):
 
     def test_users_created_in_db(self):
         u1 = User()
-        db.session.add(u1)
-        db.session.commit()
+        sa.session.add(u1)
+        sa.session.commit()
         userlist = User.query.all()
         self.assertEqual(len(userlist), 1)
 
     def test_valid_confirmation_token(self):
         u = User(password='cat')
-        db.session.add(u)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.commit()
         token = u.generate_confirmation_token()
         self.assertTrue(u.confirm(token))
 
     def test_invalid_confirmation_token(self):
         u1 = User(password='cat')
         u2 = User(password='dog')
-        db.session.add(u1)
-        db.session.add(u2)
-        db.session.commit()
+        sa.session.add(u1)
+        sa.session.add(u2)
+        sa.session.commit()
         token = u1.generate_confirmation_token()
         self.assertFalse(u2.confirm(token))
 
     def test_expired_confirmation_token(self):
         u = User(password='cat')
-        db.session.add(u)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.commit()
         token = u.generate_confirmation_token(1)
         time.sleep(2)
         self.assertFalse(u.confirm(token))
 
     def test_valid_reset_token(self):
         u = User(password='cat')
-        db.session.add(u)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.commit()
         token = u.generate_reset_token()
         self.assertTrue(u.reset_password(token, 'dog'))  # Test token vlaue matches userid
         self.assertTrue(u.verify_password('dog'))  # Test new password is dog
@@ -89,9 +89,9 @@ class UserModelTestCase(TestCase):
     def test_invalid_reset_token(self):
         u1 = User(password='cat')
         u2 = User(password='dog')
-        db.session.add(u1)
-        db.session.add(u2)
-        db.session.commit()
+        sa.session.add(u1)
+        sa.session.add(u2)
+        sa.session.commit()
         token = u1.generate_reset_token()
         none_token = None
         self.assertFalse(u2.reset_password(token, 'horse'))
@@ -101,8 +101,8 @@ class UserModelTestCase(TestCase):
     def test_valid_email_change_token_and_last_email_saved(self):
         test_email = 'johndoe@example.com'
         u = User(email=test_email)
-        db.session.add(u)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.commit()
         token = u.generate_email_change_token('johndoe@aol.com')
         self.assertTrue(u.change_email(token))
 
@@ -113,10 +113,10 @@ class UserModelTestCase(TestCase):
         u1 = User(email=email1)
         u2 = User(email=email2)
         u3 = User(email=email3)
-        db.session.add(u1)
-        db.session.add(u2)
-        db.session.add(u3)
-        db.session.commit()
+        sa.session.add(u1)
+        sa.session.add(u2)
+        sa.session.add(u3)
+        sa.session.commit()
         email4 = 'johndoe@aol.com'
         u1_token = u1.generate_email_change_token(email4)
         u1_token_taken_email = u1.generate_email_change_token(email2)
@@ -128,8 +128,8 @@ class UserModelTestCase(TestCase):
     def test_verify_last_email(self):
         test_email = 'johndoe@example.com'
         u = User(email=test_email)
-        db.session.add(u)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.commit()
         new_email = 'johndoe@aol.com'
         token = u.generate_email_change_token(new_email)
         u.change_email(token)
@@ -139,8 +139,8 @@ class UserModelTestCase(TestCase):
     def test_verify_email(self):
         test_email = 'johndoe@example.com'
         u = User(email=test_email)
-        db.session.add(u)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.commit()
         u = User.query.filter_by(email=test_email).first()
         new_email = 'johndoe@aol.com'
         self.assertTrue(u.verify_email(test_email))
@@ -149,8 +149,8 @@ class UserModelTestCase(TestCase):
     def test_user_repr(self):
         username = 'testusername'
         u = User(username=username)
-        db.session.add(u)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.commit()
         string_user = str(u)
         self.assertEqual(string_user, "<User 'testusername'>")
         self.assertNotEqual(string_user, "<User 'testusername2'>")
@@ -163,8 +163,8 @@ class UserModelTestCase(TestCase):
 
     def test_load_user(self):
         u = User(username='testuser')
-        db.session.add(u)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.commit()
         u2 = load_user("1")
         self.assertEqual(u.username, u2.username)
         self.assertEqual(u.id, u2.id)
@@ -173,8 +173,8 @@ class UserModelTestCase(TestCase):
         u = User()
         u.randomize_user()
         email = u.email
-        db.session.add(u)
-        db.session.commit()
+        sa.session.add(u)
+        sa.session.commit()
         user = User.query.filter_by(email=email).first()
         self.assertTrue(user is not None)
         self.assertTrue(user.email is not None)

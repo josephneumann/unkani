@@ -11,7 +11,7 @@ if os.environ.get('FLASK_COVERAGE'):
     COV.start()
 
 from app import create_app, sa, mail
-from app.models import User, Role, AppPermission, Patient, Address, EmailAddress
+from app.models import User, Role, AppPermission,PhoneNumber, Patient, Address, EmailAddress
 from flask_script import Manager, Shell, Command, prompt, prompt_bool
 from flask_migrate import Migrate, MigrateCommand
 
@@ -23,7 +23,7 @@ migrate = Migrate(app, sa)
 
 # Run python shell with application context
 def make_shell_context():
-    return dict(app=app, sa=sa, mail=mail, User=User, Role=Role, AppPermission=AppPermission, Patient=Patient,
+    return dict(app=app, sa=sa, mail=mail, PhoneNumber=PhoneNumber, User=User, Role=Role, AppPermission=AppPermission, Patient=Patient,
                 Address=Address, EmailAddress=EmailAddress)
 
 

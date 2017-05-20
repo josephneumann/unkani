@@ -1,10 +1,13 @@
 from app import sa, ma
 from marshmallow import fields, ValidationError, post_load, validates
 from app.utils.demographics import *
+from app.models.extensions import BaseExtension
 
 
 class Address(sa.Model):
     _tablename__ = 'address'
+    __mapper_args__ = {'extension': BaseExtension()}
+
     id = sa.Column(sa.Integer, primary_key=True)
     _address1 = sa.Column(sa.Text)
     _address2 = sa.Column(sa.Text)
@@ -123,6 +126,12 @@ class Address(sa.Model):
         self._state = address_dict.get("state", None)
         self._zipcode = address_dict.get("zipcode", None)
         # element_hierarchy = {"state":1, "city":2, "zipcode":3, "address1":4, "address2":4}
+
+    def before_insert(self):
+        pass
+
+    def before_update(self):
+        pass
 
 
 class AddressSchema(ma.Schema):

@@ -4,7 +4,7 @@ import re
 from datetime import datetime, date
 from random import randint, choice
 from app.security import *
-from app.models.email import EmailAddress
+from app.models.email_address import EmailAddress
 from app.models.address import Address
 from flask import current_app, request, url_for, g, abort, jsonify
 from flask_login import UserMixin, AnonymousUserMixin
@@ -13,93 +13,10 @@ from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, Signatur
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import sa, login_manager, ma
-from .role import Role
-from .address import Address
-
-
-##################################################################################################
-# MARSHMALLOW USER SCHEMA DEFINITION FOR OBJECT SERIALIZATION AND INPUT VALIDATION
-##################################################################################################
-
-class UserSchema(ma.Schema):
-    __doc__ = """
-    Marshmallow schema, associated with SQLAlchemy User model.  Used as a base object for
-    serialization and de-serialization.  Defines read-only and write only attributes for basic
-    object use.  Defines validation criteria for input."""
-    id = fields.Int(dump_only=True)
-    email = fields.Email(dump_only=True)
-    username = fields.String(dump_only=True)
-    password = fields.String(load_only=True)
-    first_name = fields.String()
-    last_name = fields.String()
-    dob = fields.Date()
-    phone = fields.String()
-    description = fields.String()
-    confirmed = fields.Boolean(dump_only=True)
-    active = fields.Boolean(dump_only=True)
-    gravatar_url = fields.Method("generate_gravatar_url", dump_only=True)
-    role_id = fields.Int(dump_only=True)
-    role_name = fields.Method("get_role_name", dump_only=True)
-    create_timestamp = fields.DateTime(dump_only=True)
-    last_seen = fields.DateTime(dump_only=True)
-
-    def generate_gravatar_url(self, user):
-        __doc__ = """
-        Calls gravatar method for user, and outputs a fully qualified gravatar URL."""
-        return user.gravatar()
-
-    def get_role_name(self, user):
-        __doc__ = """
-        Returns the name of the user's role as a string."""
-        return user.role.name
-
-
-class UserSchemaCreate(UserSchema):
-    __doc__ = """
-    Marshmallow schema, associated with SQLAlchemy User model.  Extends base User model schema.
-    Defines updated read-only and write only attributes for User object creation (POST)."""
-    email = fields.Email(required=True)
-    username = fields.String(required=True)
-    password = fields.String(required=True, load_only=True)
-    first_name = fields.String(required=True)
-    last_name = fields.String(required=True)
-
-    @post_load
-    def make_user(self, data):
-        return User(**data)
-
-    @validates('email')
-    def validate_email(self, value):
-        if User.query.filter_by(email=value).first():
-            raise ValidationError('An account with the email {} already exists.'.format(value))
-
-    @validates('username')
-    def validate_username(self, value):
-        if User.query.filter_by(username=value).first():
-            raise ValidationError('An account with the username {} already exists.'.format(value))
-
-
-class UserSchemaUpdate(UserSchema):
-    __doc__ = """
-    Marshmallow schema, associated with SQLAlchemy User model.  Extends base User model schema.
-    Defines updated read-only and write only attributes for User object updates (PATCH and PUT)."""
-    id = fields.Int(required=True)
-    email = fields.Email(dump_only=False)
-    username = fields.String(dump_only=False)
-
-    @post_load
-    def update_user(self, data):
-        return User(**data)
-
-
-# Assign Schema functions to variables, with handling of multiple instances pre-configured
-# Schema variables are imported into API module for use with serializing / de-serializing
-user_schema = UserSchema()
-users_schema = UserSchema(many=True)
-user_schema_create = UserSchemaCreate()
-users_schema_create = UserSchemaCreate(many=True)
-user_schema_update = UserSchemaUpdate()
-users_schema_update = UserSchemaUpdate(many=True)
+from app.models.role import Role
+from app.models.address import Address
+from app.models.phone_number import PhoneNumber
+from app.models.extensions import BaseExtension
 
 
 ##################################################################################################
@@ -116,6 +33,8 @@ class User(UserMixin, sa.Model):
     # MODEL ATTRIBUTES AND PROPERTIES
     ##################################
     __tablename__ = 'user'
+    __mapper_args__ = {'extension': BaseExtension()}
+
     id = sa.Column(sa.Integer, primary_key=True)
     username = sa.Column(sa.Text, unique=True, index=True)
     email = sa.Column(sa.Text, unique=True, index=True)
@@ -125,24 +44,34 @@ class User(UserMixin, sa.Model):
     role_id = sa.Column(sa.Integer, sa.ForeignKey('role.id'))
     password_hash = sa.Column(sa.Text)
     last_password_hash = sa.Column(sa.Text)
-    password_timestamp = sa.Column(sa.TIMESTAMP)
+    password_timestamp = sa.Column(sa.DateTime)
     first_name = sa.Column(sa.Text)
     last_name = sa.Column(sa.Text)
     dob = sa.Column(sa.Date)
     phone = sa.Column(sa.Text)
+    phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
+                                    lazy="dynamic",
+                                    cascade="all, delete, delete-orphan")
     description = sa.Column(sa.Text)
     confirmed = sa.Column(sa.Boolean, default=False)
-    active = sa.Column(sa.BOOLEAN, default=True)
+    active = sa.Column(sa.Boolean, default=True)
     avatar_hash = sa.Column(sa.Text)
     addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="user",
                                 cascade="all, delete, delete-orphan")
-    create_timestamp = sa.Column(sa.TIMESTAMP, default=datetime.utcnow())
-    last_seen = sa.Column(sa.TIMESTAMP, default=datetime.utcnow)
+    last_seen = sa.Column(sa.DateTime)
+    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
+    updated_at = sa.Column(sa.DateTime)
 
     def __repr__(self):
         __doc__ = """
         Represents user model instance as a username string"""
         return '<User %r>' % self.username
+
+    def before_insert(self):
+        pass
+
+    def before_update(self):
+        pass
 
     @property
     def dob_string(self):
@@ -605,6 +534,7 @@ class User(UserMixin, sa.Model):
             sa.session.commit()
 
 
+
 ###################################################
 # AnonymousUser custom class definition
 ###################################################
@@ -632,3 +562,88 @@ def load_user(user_id):
     None if no record exists.  Used by Flask-Login to set the
     current_user attribute."""
     return User.query.get(int(user_id))
+
+
+##################################################################################################
+# MARSHMALLOW USER SCHEMA DEFINITION FOR OBJECT SERIALIZATION AND INPUT VALIDATION
+##################################################################################################
+
+class UserSchema(ma.Schema):
+    __doc__ = """
+    Marshmallow schema, associated with SQLAlchemy User model.  Used as a base object for
+    serialization and de-serialization.  Defines read-only and write only attributes for basic
+    object use.  Defines validation criteria for input."""
+    id = fields.Int(dump_only=True)
+    email = fields.Email(dump_only=True)
+    username = fields.String(dump_only=True)
+    password = fields.String(load_only=True)
+    first_name = fields.String()
+    last_name = fields.String()
+    dob = fields.Date()
+    phone = fields.String()
+    description = fields.String()
+    confirmed = fields.Boolean(dump_only=True)
+    active = fields.Boolean(dump_only=True)
+    gravatar_url = fields.Method("generate_gravatar_url", dump_only=True)
+    role_id = fields.Int(dump_only=True)
+    role_name = fields.Method("get_role_name", dump_only=True)
+    create_timestamp = fields.DateTime(dump_only=True)
+    last_seen = fields.DateTime(dump_only=True)
+
+    def generate_gravatar_url(self, user):
+        __doc__ = """
+        Calls gravatar method for user, and outputs a fully qualified gravatar URL."""
+        return user.gravatar()
+
+    def get_role_name(self, user):
+        __doc__ = """
+        Returns the name of the user's role as a string."""
+        return user.role.name
+
+
+class UserSchemaCreate(UserSchema):
+    __doc__ = """
+    Marshmallow schema, associated with SQLAlchemy User model.  Extends base User model schema.
+    Defines updated read-only and write only attributes for User object creation (POST)."""
+    email = fields.Email(required=True)
+    username = fields.String(required=True)
+    password = fields.String(required=True, load_only=True)
+    first_name = fields.String(required=True)
+    last_name = fields.String(required=True)
+
+    @post_load
+    def make_user(self, data):
+        return User(**data)
+
+    @validates('email')
+    def validate_email(self, value):
+        if User.query.filter_by(email=value).first():
+            raise ValidationError('An account with the email {} already exists.'.format(value))
+
+    @validates('username')
+    def validate_username(self, value):
+        if User.query.filter_by(username=value).first():
+            raise ValidationError('An account with the username {} already exists.'.format(value))
+
+
+class UserSchemaUpdate(UserSchema):
+    __doc__ = """
+    Marshmallow schema, associated with SQLAlchemy User model.  Extends base User model schema.
+    Defines updated read-only and write only attributes for User object updates (PATCH and PUT)."""
+    id = fields.Int(required=True)
+    email = fields.Email(dump_only=False)
+    username = fields.String(dump_only=False)
+
+    @post_load
+    def update_user(self, data):
+        return User(**data)
+
+
+# Assign Schema functions to variables, with handling of multiple instances pre-configured
+# Schema variables are imported into API module for use with serializing / de-serializing
+user_schema = UserSchema()
+users_schema = UserSchema(many=True)
+user_schema_create = UserSchemaCreate()
+users_schema_create = UserSchemaCreate(many=True)
+user_schema_update = UserSchemaUpdate()
+users_schema_update = UserSchemaUpdate(many=True)

@@ -1,12 +1,14 @@
 from app import sa, ma
 from marshmallow import fields, ValidationError, post_load, validates
 from app.utils.demographics import *
-from app.models.address import Address
-from app.models.email import EmailAddress
+from app.models import Address, EmailAddress, PhoneNumber
+from app.models.extensions import BaseExtension
 
 
 class Patient(sa.Model):
     __tablename__ = 'patient'
+    __mapper_args__ = {'extension': BaseExtension()}
+
     id = sa.Column(sa.Integer, primary_key=True)
     _first_name = sa.Column("first_name", sa.Text)
     _last_name = sa.Column("last_name", sa.Text)
@@ -19,11 +21,10 @@ class Patient(sa.Model):
     _ethnicity = sa.column("ethnicity", sa.Text)
     _marital_status = sa.column("marital_status", sa.String(1))
     email_addresses = sa.relationship("EmailAddress", back_populates="patient", cascade="all, delete, delete-orphan")
-    _home_phone = sa.Column("home_phone", sa.Text)
-    _cell_phone = sa.Column("cell_phone", sa.Text)
-    _work_phone = sa.Column("work_phone", sa.Text)
     _deceased = sa.Column("deceased", sa.Boolean)
     addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="patient", lazy="dynamic",
+                                cascade="all, delete, delete-orphan")
+    phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="patient", lazy="dynamic",
                                 cascade="all, delete, delete-orphan")
     created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
     updated_at = sa.Column(sa.DateTime)
@@ -35,15 +36,36 @@ class Patient(sa.Model):
         self.first_name = first_name
         self.middle_name = middle_name
         self.last_name, self.suffix = normalize_lastname_suffix(last_name=last_name, suffix=suffix)
-        self.home_phone = home_phone
-        self.cell_phone = cell_phone
-        self.work_phone = work_phone
         self.ssn = ssn
         self.race = race
         self.ethnicity = ethnicity
         self.sex = sex
         self.dob = dob
         self.deceased = deceased
+
+        home_phone = normalize_phone(phone=home_phone)
+        cell_phone = normalize_phone(phone=cell_phone)
+        work_phone = normalize_phone(phone=work_phone)
+        phone_list = []
+
+        if home_phone:
+            home_phone = PhoneNumber(number=home_phone, type="H")
+            if home_phone:
+                phone_list.append(home_phone)
+
+        if cell_phone:
+            cell_phone = PhoneNumber(number=cell_phone, type="C")
+            if cell_phone:
+                phone_list.append(cell_phone)
+
+        if work_phone:
+            work_phone = PhoneNumber(number=work_phone, type="W")
+            if work_phone:
+                phone_list.append(work_phone)
+
+        if phone_list:
+            for number in phone_list:
+                self.phone_numbers.append(number)
 
         if email:
             self.email_address = list(EmailAddress(email=email, active=True, primary=True))
@@ -75,7 +97,6 @@ class Patient(sa.Model):
         else:
             return None
 
-    # TODO:  Make addresses attribute read-only and only able to be set through set_addresses
     def set_addresses(self, addresses=None):
         current_primary = self.primary_address
         if isinstance(addresses, list):
@@ -162,33 +183,15 @@ class Patient(sa.Model):
 
     @property
     def home_phone(self):
-        return self._home_phone
-
-    @home_phone.setter
-    def home_phone(self, home_phone):
-        n_home_phone = normalize_phone(home_phone)
-        if n_home_phone:
-            self._home_phone = n_home_phone
+        pass
 
     @property
     def cell_phone(self):
-        return self._cell_phone
-
-    @cell_phone.setter
-    def cell_phone(self, cell_phone):
-        n_cell_phone = normalize_phone(cell_phone)
-        if n_cell_phone:
-            self._cell_phone = n_cell_phone
+        pass
 
     @property
     def work_phone(self):
-        return self._work_phone
-
-    @work_phone.setter
-    def work_phone(self, work_phone):
-        n_work_phone = normalize_phone(work_phone)
-        if n_work_phone:
-            self._work_phone = n_work_phone
+        pass
 
     @property
     def email(self):
@@ -272,12 +275,19 @@ class Patient(sa.Model):
         #         hash_attributes[item] = str(self.__getattribute__(item))
         # json_hash_attributes = json.JSONEncoder().encode(hash_attributes)
 
+    def before_insert(self):
+        pass
+
+    def before_update(self):
+        pass
+
 
 class PatientSchema(ma.Schema):
     __doc__ = """
     Marshmallow schema, associated with SQLAlchemy Patient model.  Used as a base object for
     serialization and de-serialization.  Defines read-only and write only attributes for basic
     object use.  Defines validation criteria for input."""
+    #TODO: Review and finalize Marshmallow schema for Patient model
     id = fields.Int(dump_only=True)
     first_name = fields.String()
     last_name = fields.String()

@@ -22,7 +22,7 @@ def normalize_phone(phone):
     if not n_phone:
         return None
     else:
-        return str('{}.{}.{}'.format(n_phone.group(1), n_phone.group(2), n_phone.group(3)))
+        return str('{}{}{}'.format(n_phone.group(1), n_phone.group(2), n_phone.group(3)))
 
 
 def normalize_ssn(ssn):
@@ -64,7 +64,7 @@ def normalize_ssn(ssn):
             elif shannon_entropy(n_ssn_digits) < .16:
                 return None
             else:
-                return str('{}-{}-{}'.format(n_ssn.group(1), n_ssn.group(2), n_ssn.group(3)))
+                return str('{}{}{}'.format(n_ssn.group(1), n_ssn.group(2), n_ssn.group(3)))
 
 
 def normalize_city_state(city=None, state=None):

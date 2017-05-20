@@ -12,10 +12,6 @@ class Role(sa.Model):
     users = sa.relationship('User', backref='role', lazy='dynamic')
     default = sa.Column(sa.Boolean, default=False)
     level = sa.Column(sa.Integer)
-    # app_permissions = sa.relationship('AppPermission',
-    #                                   secondary=role_app_permission,
-    #                                   backref=sa.backref('app_permissions', lazy='dynamic'),
-    #                                   lazy='dynamic')
     app_permissions = sa.relationship('AppPermission',
                                       secondary=role_app_permission,
                                       back_populates='roles')
@@ -43,7 +39,7 @@ class Role(sa.Model):
             for p in role_dict[r]['permissions']:
                 ap = AppPermission.query.filter_by(name=p).first()
                 if ap:
-                    role_ap_list = role.app_permissions.all()
+                    role_ap_list = role.app_permissions
                     if ap not in role_ap_list:
                         role.app_permissions.append(ap)
             sa.session.add(role)

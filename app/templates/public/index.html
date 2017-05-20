@@ -6,7 +6,7 @@
 
 {% block body %}
     {% block navbar %}
-        <nav class="navbar navbar-default" role="navigation-demo">
+        <nav class="navbar navbar-ct-transparent" role="navigation-demo">
             <div class="container">
                 <!-- Brand and toggle get grouped for better mobile display -->
                 <div class="navbar-header">
@@ -23,8 +23,8 @@
                                 <img src="{{ url_for("static", filename="img/logo/unkani_cat.svg") }}"
                                      alt="Unkani Logo">
                             </div>
-                            <div class="brand">
-                                unKani app
+                            <div class="text-muted">
+                                unkani app
                             </div>
                         </div>
                     </a>
@@ -35,19 +35,19 @@
                     <ul class="nav navbar-nav navbar-right">
                         {% if current_user.is_authenticated %}
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                <a href="#" class="btn btn-simple dropdown-toggle" data-toggle="dropdown">
                                     <p>@{{ current_user.username }}<b class="caret"></b></p>
                                 </a>
                                 <ul class="dropdown-menu">
-                                    <li><a href="{{ url_for('dashboard.user_profile', userid = current_user.id) }}">My
+                                    <li><a href="{{ url_for('dashboard.user_profile', userid = current_user.id) }}"><i class="ti ti-user"></i> My
                                         Profile</a></li>
-                                    <li><a href="{{ url_for('dashboard.dashboard_main') }}">Dashboard</a></li>
-                                    <li><a href="{{ url_for('auth.logout') }}">Sign Out</a></li>
+                                    <li><a href="{{ url_for('dashboard.dashboard_main') }}"><i class="ti ti-dashboard"></i> Dashboard</a></li>
+                                    <li><a href="{{ url_for('auth.logout') }}"><i class="ti ti-power-off"></i> Sign Out</a></li>
                                 </ul>
                             </li>
                         {% else %}
                             <li>
-                                <a href="{{ url_for('auth.login') }}" class="btn btn-default btn-wd">Log In</a>
+                                <a href="{{ url_for('auth.login') }}" class="btn btn-simple">Log In</a>
                             </li>
                         {% endif %}
 
@@ -79,10 +79,10 @@
                 <div class="container">
                     <div class="motto">
                         <h1 class="title">Unkani</h1>
-                        <h3 class="text">Healthcare data insight</h3>
+                        <h3 class="text">healthcare data: simplified</h3>
                         <br/>
-                        <a href="#" class="btn btn-default btn-fill"><i class="fa fa-play"></i>Watch video</a>
-                        <a class="btn btn-default btn-fill">View More</a>
+                        <a class="btn btn-default btn-fill"><i class="fa fa-gavel"></i> Be the Judge</a>
+                        <a href="#" class="btn btn-default btn-fill"><i class="fa fa-code-fork"></i>Open Source</a>
                     </div>
                 </div>
             </div>
@@ -92,12 +92,16 @@
                         <div class="row">
                             <div class="col-md-8 col-md-offset-2">
                                 <h2>Built by Doctors, For Doctors</h2>
-                                <h5>We're doctors, but we're data nerds too.  We know what it's like to cobble together tools
-                                    to run your practice.  Let our team of 27 physician-coders do the heavy lifting for you.
-                                    With over 1 Million daily users, the Unkani team has spent 10+ years developing the
-                                    product that every primary care practice needs.</h5>
+                                <h5>At Unkani we're all trained physicians, but we're data nerds too. That's where the
+                                    magic happens. We know what it's like to have to cobble together tools just to try
+                                    to figure out what the %&!# is going on with our patients.
+                                    <br/>
+                                    <br/>
+                                    Stop dreaming of the day your EHR vendor will actually give you the data you need,
+                                    and let our team of <a href="#">physician-coders</a> do the heavy lifting for
+                                    you. Get with the future.</h5>
                                 <br/>
-                                <a href="#" class="btn btn-default btn-fill">See Details</a>
+                                <a href="#" class="btn btn-default btn-fill"><i class="fa fa-apple"></i>Get Unkani</a>
                             </div>
                         </div>
                     </div>
@@ -107,9 +111,12 @@
                         <div class="row">
                             <div class="col-md-4 column">
                                 <h4>Operational Power</h4>
-                                <p>Manage your patient population online and connect with other providers electronically.
-                                Integrate with your EHR for seamless data exchange.  Identify your highest risk patients
-                                and know what to do about it.  Unkani has everything your practice needs to succeed in
+                                <p>Manage your patient population online and connect with other providers
+                                    electronically.
+                                    Integrate with your EHR for seamless data exchange. Identify your highest risk
+                                    patients
+                                    and know what to do about it. Unkani has everything your practice needs to succeed
+                                    in
                                     new value basedpayment models.</p>
                                 <a class="btn btn-neutral btn-simple" href="#">See more <i
                                         class="fa fa-chevron-right"></i></a>
@@ -117,7 +124,7 @@
                             <div class="col-md-4 column">
                                 <h4>Quality / Quantity</h4>
                                 <p>Automatically capture data from your EHR, claims data from insurers and clinical
-                                    insights from other healthcare organizations and services.  Report quality measures
+                                    insights from other healthcare organizations and services. Report quality measures
                                     and identify care gaps with ease.
                                 </p>
                                 <a class="btn btn-neutral btn-simple" href="#">See more <i
@@ -126,8 +133,8 @@
                             <div class="col-md-4 column">
                                 <h4>Join the Club</h4>
                                 <p>With Unkani Social, providers can connect with their patients securely with
-                                    interactive forums.  Manage patient questions and messages with our Unkani
-                                    recommendation and triage engine.  See where your patients are going and what
+                                    interactive forums. Manage patient questions and messages with our Unkani
+                                    recommendation and triage engine. See where your patients are going and what
                                     services they are receiving elsewhere by tapping into Unkani's nationwide network
                                     of 280,000 providers.
                                 </p>
@@ -181,7 +188,8 @@
                                 </h5>
                                 <p>With style and poise of regal lord, this cool cat makes sure our team
                                     continues to grow. His effortless aptitude for all things business has allowed
-                                    Unkani to be the <a href="#">number one healthcare insight platform</a> in the world</p>
+                                    Unkani to be the <a href="#">number one healthcare insight platform</a> in the world
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -191,7 +199,7 @@
                     <div class="container">
                         <div class="row">
                             <div class="col-md-8 col-md-offset-2">
-                                <h2 class="text-center">Keep in touch?</h2>
+                                <h2 class="text-center">Get in touch</h2>
                                 <form class="contact-form">
                                     <div class="row">
                                         <div class="col-md-6">
@@ -205,10 +213,10 @@
                                     </div>
                                     <label>Message</label>
                                     <textarea class="form-control" rows="4"
-                                              placeholder="Tell us your thoughts and feelings..."></textarea>
+                                              placeholder="What's on your mind..."></textarea>
                                     <div class="row">
                                         <div class="col-md-4 col-md-offset-4">
-                                            <button class="btn btn-primary btn-block btn-lg btn-fill">Send Message
+                                            <button class="btn btn-primary btn-block btn-lg btn-fill"><i class="fa fa-envelope fa-align-left"></i>  Send Message
                                             </button>
                                         </div>
                                     </div>
@@ -230,7 +238,7 @@
 
                         <li>
                             <a href="{{ url_for("main.landing") }}">
-                                <h4> Unkani App</h4>
+                                <h4> Unkani</h4>
 
                             </a>
                         </li>

@@ -9,7 +9,7 @@ def run():
     os.environ['FLASK_CONFIG'] = 'testing'
 
     # start coverage engine
-    cov = coverage.coverage(branch=True, include=['app/*'], omit=['app/utils.py', 'app/flask_sendgrid.py'])
+    cov = coverage.coverage(branch=True, include=['app/*'], omit=['app/general.py', 'app/flask_sendgrid.py'])
     cov.start()
 
     # run tests

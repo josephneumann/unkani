@@ -1,11 +1,12 @@
 from flask import render_template, redirect, url_for, flash, abort, request
 from flask_login import login_required, current_user
+
 from app.auth.views import complete_logout
+from app.flask_sendgrid import send_email
 from app.security import *
 from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
 from .. import sa
-from ..flask_sendgrid import send_email
 from ..models import User
 
 

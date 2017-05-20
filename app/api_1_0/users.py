@@ -1,12 +1,13 @@
-from flask import request, abort, jsonify, g, url_for
-from ..models import User, user_schema, users_schema, user_schema_create, users_schema_create, user_schema_update, \
-    users_schema_update
-from .authentication import token_auth, basic_auth, multi_auth
-from .errors import ValidationError, forbidden
-from app.flask_sendgrid import send_email
-from . import api
+from flask import request, jsonify, g, url_for
+
 from app import sa
+from app.flask_sendgrid import send_email
 from app.security import *
+from . import api
+from .authentication import token_auth
+from .errors import forbidden
+from ..models import User, user_schema, user_schema_create, user_schema_update
+
 
 @api.route('/users', methods=['GET'])
 @token_auth.login_required

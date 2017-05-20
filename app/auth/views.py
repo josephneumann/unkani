@@ -1,20 +1,14 @@
-from flask import render_template, redirect, request, url_for, flash, session, g, current_app
+from flask import render_template, redirect, request, url_for, flash, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_principal import identity_changed, Identity, AnonymousIdentity, identity_loaded, UserNeed, RoleNeed
 
+from app.flask_sendgrid import send_email
 from app.security import AppPermissionNeed, create_user_permission, app_permission_usercreate, \
     return_template_context_permissions
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from .. import sa
-from ..flask_sendgrid import send_email
 from ..models import User, Role
-
-
-# flash('Info message, blue', 'info')
-# flash('Success message, green.', 'success')
-# flash('Warning message, yellow.', 'warning')
-# flash('Danger message, red/orange.', 'danger')
 
 
 @auth.before_app_request
@@ -114,23 +108,17 @@ def confirm(token):
 @auth.route('/resend_confirmation/<int:userid>')
 @login_required
 def resend_confirmation(userid):
-    user = User.query.get(userid)
-    if not user:
-        flash("User with id {} does not exist.".format(userid), "danger")
-        if request.referrer:
+    user = User.query.get_or_404(userid)
+    user_permission = create_user_permission(user.id)
+    if not (user_permission.can() or app_permission_usercreate.can()):
+        flash('You do not have permission to resend the confirmation for this user.', 'danger')
+        if request.referrer != url_for('auth.unconfirmed'):
             return redirect(request.referrer)
         else:
-            redirect(url_for('main.landing'))
+            return redirect(url_for('main.landing'))
     if user.confirmed:
         flash("The user {} is already confirmed".format(user.email), "danger")
         if request.referrer:
-            return redirect(request.referrer)
-        else:
-            redirect(url_for('main.landing'))
-    user_permission = create_user_permission(user.id)
-    if not (user_permission.can() or app_permission_usercreate.can()):
-        flash('You do not have permission to resend the confirmation for {}'.format(user.email), 'danger')
-        if request.referrer != url_for('auth.unconfirmed'):
             return redirect(request.referrer)
         else:
             return redirect(url_for('main.landing'))
@@ -206,6 +194,6 @@ def on_identity_loaded(sender, identity):
     if hasattr(current_user, 'role_id'):
         role = Role.query.filter_by(id=current_user.role_id).first()
         identity.provides.add(RoleNeed(role.name))
-        app_permissions = role.app_permissions.all()
+        app_permissions = role.app_permissions
         for app_permission_name in app_permissions:
             identity.provides.add(AppPermissionNeed(str(app_permission_name)))

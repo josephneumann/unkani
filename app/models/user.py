@@ -4,6 +4,8 @@ import re
 from datetime import datetime, date
 from random import randint, choice
 from app.security import *
+from app.models.email import EmailAddress
+from app.models.address import Address
 from flask import current_app, request, url_for, g, abort, jsonify
 from flask_login import UserMixin, AnonymousUserMixin
 from marshmallow import fields, ValidationError, post_load, validates
@@ -12,6 +14,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import sa, login_manager, ma
 from .role import Role
+from .address import Address
 
 
 ##################################################################################################
@@ -116,6 +119,8 @@ class User(UserMixin, sa.Model):
     id = sa.Column(sa.Integer, primary_key=True)
     username = sa.Column(sa.Text, unique=True, index=True)
     email = sa.Column(sa.Text, unique=True, index=True)
+    # TODO: Update all email lookups to email_addresses
+    email_addresses = sa.relationship("EmailAddress", back_populates="user", cascade="all, delete, delete-orphan")
     last_email = sa.Column(sa.Text, index=True)
     role_id = sa.Column(sa.Integer, sa.ForeignKey('role.id'))
     password_hash = sa.Column(sa.Text)
@@ -128,9 +133,11 @@ class User(UserMixin, sa.Model):
     description = sa.Column(sa.Text)
     confirmed = sa.Column(sa.Boolean, default=False)
     active = sa.Column(sa.BOOLEAN, default=True)
+    avatar_hash = sa.Column(sa.Text)
+    addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="user",
+                                cascade="all, delete, delete-orphan")
     create_timestamp = sa.Column(sa.TIMESTAMP, default=datetime.utcnow())
     last_seen = sa.Column(sa.TIMESTAMP, default=datetime.utcnow)
-    avatar_hash = sa.Column(sa.Text)
 
     def __repr__(self):
         __doc__ = """
@@ -189,7 +196,7 @@ class User(UserMixin, sa.Model):
     @password.setter
     def password(self, password):
         __doc__ = """
-        Defines setter method for property 'password'.  The sring passed as the password
+        Defines setter method for property 'password'.  The string passed as the password
         parameter is converted to salted hash and stored in database.  The former password hash
         is archived in the 'last_password_hash' attribute."""
         if self.password_hash:

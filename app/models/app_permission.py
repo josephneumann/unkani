@@ -1,5 +1,15 @@
 from app import sa
 
+##################################################################################################
+# ROLE -> APP PERMISSION ASSOCIATION TABLE
+##################################################################################################
+
+role_app_permission = sa.Table('role_app_permission',
+                               sa.Column('role_id', sa.Integer, sa.ForeignKey('role.id'), primary_key=True),
+                               sa.Column('app_permission_id', sa.Integer, sa.ForeignKey('app_permission.id'),
+                                         primary_key=True))
+
+
 ###################################################################################################
 # APP PERMISSION SQL ALCHEMY MODEL DEFINITION
 ###################################################################################################
@@ -8,6 +18,7 @@ class AppPermission(sa.Model):
     __tablename__ = 'app_permission'
     id = sa.Column(sa.Integer, primary_key=True)
     name = sa.Column(sa.Text, unique=True)
+    roles = sa.relationship('Role', secondary=role_app_permission, back_populates='app_permissions')
 
     def __repr__(self):
         return str(self.name)

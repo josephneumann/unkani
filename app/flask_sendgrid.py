@@ -15,7 +15,7 @@ send_email(
 from sendgrid import *
 from sendgrid.helpers.mail import *
 from flask import render_template, current_app
-from . import celery
+from app import celery
 import re
 
 

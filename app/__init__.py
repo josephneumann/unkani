@@ -1,17 +1,17 @@
 # Application factory and primary Flask initialization
+import logging
+import os
+
+from celery import Celery
 from flask import Flask
 from flask_bootstrap import Bootstrap
-from flask_mail import Mail
-from flask_moment import Moment
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from flask_principal import Principal
+from flask_mail import Mail
 from flask_marshmallow import Marshmallow
+from flask_moment import Moment
+from flask_principal import Principal
+from flask_sqlalchemy import SQLAlchemy
 from raven.contrib.flask import Sentry
-import logging
-from celery import Celery
-import os
-from config import config, Config
 
 # Import config object [which is itself a dict of config objects] from config package
 from config import config
@@ -34,7 +34,7 @@ celery = Celery(__name__, broker=os.environ.get('CELERY_BROKER_URL', 'redis://')
 ma = Marshmallow()
 
 
-from .flask_sendgrid import send_async_email
+from app.flask_sendgrid import send_async_email
 
 
 # Application factory function

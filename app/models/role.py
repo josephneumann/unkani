@@ -1,6 +1,5 @@
 from app import sa
-from .role_app_permission import role_app_permission
-from .app_permission import AppPermission
+from .app_permission import AppPermission, role_app_permission
 
 
 ###################################################################################################
@@ -13,10 +12,13 @@ class Role(sa.Model):
     users = sa.relationship('User', backref='role', lazy='dynamic')
     default = sa.Column(sa.Boolean, default=False)
     level = sa.Column(sa.Integer)
+    # app_permissions = sa.relationship('AppPermission',
+    #                                   secondary=role_app_permission,
+    #                                   backref=sa.backref('app_permissions', lazy='dynamic'),
+    #                                   lazy='dynamic')
     app_permissions = sa.relationship('AppPermission',
                                       secondary=role_app_permission,
-                                      backref=sa.backref('app_permissions', lazy='dynamic'),
-                                      lazy='dynamic')
+                                      back_populates='roles')
 
     def __repr__(self):
         return '<Role %r>' % self.name

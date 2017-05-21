@@ -1,8 +1,8 @@
-"""Initial migration of unkani models
+"""initial commit of unkani data models
 
-Revision ID: 3e7e94f1beaa
+Revision ID: 88dadbf52cf5
 Revises: 
-Create Date: 2017-05-20 17:18:21.558878
+Create Date: 2017-05-20 21:34:01.610838
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '3e7e94f1beaa'
+revision = '88dadbf52cf5'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -32,6 +32,9 @@ def upgrade():
     sa.Column('sex', sa.String(length=1), nullable=True),
     sa.Column('dob', sa.Date(), nullable=True),
     sa.Column('ssn', sa.Text(), nullable=True),
+    sa.Column('race', sa.Text(), nullable=True),
+    sa.Column('ethnicity', sa.Text(), nullable=True),
+    sa.Column('marital_status', sa.String(length=1), nullable=True),
     sa.Column('deceased', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
@@ -73,6 +76,7 @@ def upgrade():
     sa.Column('last_seen', sa.DateTime(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('row_hash', sa.Text(), nullable=True),
     sa.ForeignKeyConstraint(['role_id'], ['role.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -81,8 +85,8 @@ def upgrade():
     op.create_index(op.f('ix_user_username'), 'user', ['username'], unique=True)
     op.create_table('address',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('_address1', sa.Text(), nullable=True),
-    sa.Column('_address2', sa.Text(), nullable=True),
+    sa.Column('address1', sa.Text(), nullable=True),
+    sa.Column('address2', sa.Text(), nullable=True),
     sa.Column('city', sa.Text(), nullable=True),
     sa.Column('state', sa.String(length=2), nullable=True),
     sa.Column('zipcode', sa.Text(), nullable=True),

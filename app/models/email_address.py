@@ -3,6 +3,8 @@ from marshmallow import fields, ValidationError, post_load, validates
 from app.utils.demographics import *
 from app.models.extensions import BaseExtension
 
+import hashlib, json
+
 
 class EmailAddress(sa.Model):
     __tablename__ = 'email_address'
@@ -47,8 +49,15 @@ class EmailAddress(sa.Model):
         if isinstance(active, bool):
             self._primary = active
 
+    def generate_row_hash(self):
+        data = {"email": str(self.email), "active": str(self.active), "patient_id": str(self.patient_id),
+                "user_id": str(self.user_id)}
+        data_str = json.dumps(data, sort_keys=True)
+        data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
+        return data_hash
+
     def before_insert(self):
-        pass
+        self.row_hash = self.generate_row_hash()
 
     def before_update(self):
-        pass
+        self.row_hash = self.generate_row_hash()

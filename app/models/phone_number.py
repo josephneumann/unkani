@@ -2,6 +2,7 @@ from app import sa, ma
 from marshmallow import fields, ValidationError, post_load, validates
 from app.utils.demographics import *
 from app.models.extensions import BaseExtension
+import hashlib, json
 
 
 class PhoneNumber(sa.Model):
@@ -92,8 +93,15 @@ class PhoneNumber(sa.Model):
                 self.updated_at = datetime.utcnow()
             self._type = n_type
 
+    def generate_row_hash(self):
+        data = {"number": str(self.number), "type": str(self.type), "patient_id": str(self.patient_id),
+                "user_id": str(self.user_id), "active": str(self.active)}
+        data_str = json.dumps(data, sort_keys=True)
+        data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
+        return data_hash
+
     def before_insert(self):
-        pass
+        self.row_hash = self.generate_row_hash()
 
     def before_update(self):
-        pass
+        self.row_hash = self.generate_row_hash()

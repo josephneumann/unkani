@@ -3,12 +3,12 @@ from marshmallow import fields, ValidationError, post_load, validates
 from app.utils.demographics import *
 from app.models import Address, EmailAddress, PhoneNumber
 from app.models.extensions import BaseExtension
+import hashlib, json
 
 
 class Patient(sa.Model):
     __tablename__ = 'patient'
     __mapper_args__ = {'extension': BaseExtension()}
-
     id = sa.Column(sa.Integer, primary_key=True)
     _first_name = sa.Column("first_name", sa.Text)
     _last_name = sa.Column("last_name", sa.Text)
@@ -24,8 +24,9 @@ class Patient(sa.Model):
     _deceased = sa.Column("deceased", sa.Boolean)
     addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="patient", lazy="dynamic",
                                 cascade="all, delete, delete-orphan")
-    phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="patient", lazy="dynamic",
-                                cascade="all, delete, delete-orphan")
+    phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="patient",
+                                    lazy="dynamic",
+                                    cascade="all, delete, delete-orphan")
     created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
     updated_at = sa.Column(sa.DateTime)
     row_hash = sa.Column(sa.Text)
@@ -68,7 +69,10 @@ class Patient(sa.Model):
                 self.phone_numbers.append(number)
 
         if email:
-            self.email_address = list(EmailAddress(email=email, active=True, primary=True))
+            n_email = None
+            n_email = EmailAddress(email=email, active=True, primary=True)
+            if n_email:
+                self.email_addresses.append(n_email)
 
         if addresses:
             address_list = []
@@ -263,23 +267,20 @@ class Patient(sa.Model):
     # make one utility address function that is called in the model unified
     # maybe one write property for patient address with address1, 2 and zip city etc as params and read only individ
 
-    def check_hash(self):
-        pass
-        # included_hash_keys = (
-        #     "first_name", "last_name", "middle_name", "sex", "dob", "ssn", "race", "ethnicity", "marital_status",
-        #     "address1", "address2", "city", "state", "zip", "email", "home_phone", "cell_phone", "work_phone",
-        #     "deceased")
-        # hash_attributes = {}
-        # for item in self.__dict__.keys():
-        #     if item in included_hash_keys:
-        #         hash_attributes[item] = str(self.__getattribute__(item))
-        # json_hash_attributes = json.JSONEncoder().encode(hash_attributes)
+    def generate_row_hash(self):
+        data = {"first_name": str(self.first_name), "last_name": str(self.last_name),
+                "middle_name": str(self.middle_name), "sex": str(self.sex), "dob": self.dob.strftime("YYYYMMDD"),
+                "ssn": str(self.ssn), "race": str(self.race), "ethnicity": str(self.ethnicity),
+                "marital_status": str(self.marital_status), "deceased": str(self.deceased), "suffix": str(self.suffix)}
+        data_str = json.dumps(data, sort_keys=True)
+        data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
+        return data_hash
 
     def before_insert(self):
-        pass
+        self.row_hash = self.generate_row_hash()
 
     def before_update(self):
-        pass
+        self.row_hash = self.generate_row_hash()
 
 
 class PatientSchema(ma.Schema):
@@ -287,7 +288,7 @@ class PatientSchema(ma.Schema):
     Marshmallow schema, associated with SQLAlchemy Patient model.  Used as a base object for
     serialization and de-serialization.  Defines read-only and write only attributes for basic
     object use.  Defines validation criteria for input."""
-    #TODO: Review and finalize Marshmallow schema for Patient model
+    # TODO: Review and finalize Marshmallow schema for Patient model
     id = fields.Int(dump_only=True)
     first_name = fields.String()
     last_name = fields.String()

@@ -2,15 +2,15 @@ from app import sa, ma
 from marshmallow import fields, ValidationError, post_load, validates
 from app.utils.demographics import *
 from app.models.extensions import BaseExtension
+import hashlib, json
 
 
 class Address(sa.Model):
     _tablename__ = 'address'
     __mapper_args__ = {'extension': BaseExtension()}
-
     id = sa.Column(sa.Integer, primary_key=True)
-    _address1 = sa.Column(sa.Text)
-    _address2 = sa.Column(sa.Text)
+    _address1 = sa.Column("address1", sa.Text)
+    _address2 = sa.Column("address2", sa.Text)
     _city = sa.Column("city", sa.Text)
     _state = sa.Column("state", sa.String(2))
     _zipcode = sa.Column("zipcode", sa.Text)
@@ -127,11 +127,19 @@ class Address(sa.Model):
         self._zipcode = address_dict.get("zipcode", None)
         # element_hierarchy = {"state":1, "city":2, "zipcode":3, "address1":4, "address2":4}
 
+    def generate_row_hash(self):
+        data = {"address1": str(self.address1), "address2": str(self.address2), "city": str(self.city), "state": str(self.state),
+                "zipcode": str(self.zipcode), "primary": str(self.primary), "active": str(self.active), "patient_id": str(self.patient_id),
+                "user_id": str(self.user_id)}
+        data_str = json.dumps(data, sort_keys=True)
+        data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
+        return data_hash
+
     def before_insert(self):
-        pass
+        self.row_hash = self.generate_row_hash()
 
     def before_update(self):
-        pass
+        self.row_hash = self.generate_row_hash()
 
 
 class AddressSchema(ma.Schema):

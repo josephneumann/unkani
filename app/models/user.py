@@ -61,17 +61,29 @@ class User(UserMixin, sa.Model):
     last_seen = sa.Column(sa.DateTime)
     created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
     updated_at = sa.Column(sa.DateTime)
+    row_hash = sa.Column(sa.Text)
 
     def __repr__(self):
         __doc__ = """
         Represents user model instance as a username string"""
         return '<User %r>' % self.username
 
+    #TODO: When attributes are finalized, implement row hashing
+    # def generate_row_hash(self):
+    #     data = {"username": self.username, "email": self.email, "first_name": self.first_name,
+    #             "last_name": self.last_name, "dob": self.dob, "phone": self.phone, "description": self.description,
+    #             "confirmed": self.confirmed, "active": self.active}
+    #     data_str = json.dumps(data, sort_keys=True)
+    #     data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
+    #     return data_hash
+    #
     def before_insert(self):
         pass
+        # self.row_hash = self.generate_row_hash()
 
     def before_update(self):
         pass
+        # self.row_hash = self.generate_row_hash()
 
     @property
     def dob_string(self):
@@ -532,7 +544,6 @@ class User(UserMixin, sa.Model):
             user.confirmed = True
             sa.session.add(user)
             sa.session.commit()
-
 
 
 ###################################################

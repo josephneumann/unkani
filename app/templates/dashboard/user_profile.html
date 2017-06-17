@@ -14,10 +14,10 @@
                             <div class="content">
                                 <div class="author">
                                     <img class="avatar border-white"
-                                         src="{{ user.gravatar() }}"/>
-                                    <h4 class="title">{{ user.first_name }} {{ user.last_name }}<br/>
+                                         src="{{ user.gravatar }}"/>
+                                    <h4 class="title">{{ user.first_name.title() }} {{ user.last_name.title() }}<br/>
                                         <a href="#">
-                                            <small>@{{ user.username }}</small>
+                                            <small>@{{ user.username.lower() }}</small>
                                         </a>
                                     </h4>
                                 </div>
@@ -83,7 +83,7 @@
                                                 <label>Email address</label>
                                                 <input type="email" class="form-control border-input"
                                                        placeholder="Email"
-                                                       value="{{ user.email }}" disabled="">
+                                                       value="{{ user.email.email.lower() }}" disabled="">
                                             </div>
                                         </div>
                                     </div>
@@ -168,6 +168,7 @@
                             or (not user.confirmed and app_permission_userresendconfirmation.can()) %}
                         <div class="col-lg-12 col-md-12">
                             <div class="card">
+                                {% if app_permission_useradmin.can() %}
                                 <div class="header">
                                     <h4 class="title">User Admin</h4>
                                 </div>
@@ -212,6 +213,7 @@
                                             </a>
                                         {% endif %}
                                     {% endif %}
+                                {% endif %}
                                 </div>
                             </div>
                         </div>

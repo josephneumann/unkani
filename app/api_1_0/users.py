@@ -84,14 +84,14 @@ def edit_user(userid):
         allowed_fields += ['active']
     if app_permission_userrolechange.can():
         allowed_fields += ['role_id']
-    original_email = user.email
+    original_email = user.email.email
     data = request.get_json()
     data['id'] = userid
     errors = user_schema_update.validate(data)
     if errors:
         return jsonify({"error": "User could not be updated",
                         "message": errors}), 422
-    if 'email' in data and User.query.filter(User.email == data['email'], User.id != data['id']).first():
+    if 'email' in data and User.query.filter(user.email.email == data['email'], User.id != data['id']).first():
         return jsonify({"error": "User could not be updated",
                         "message": "A user with email {} already exists".format(data['email'])}), 422
     if 'username' in data and User.query.filter(User.username == data['username'], User.id != data['id']).first():
@@ -103,14 +103,14 @@ def edit_user(userid):
             setattr(user, key, data[key])
         elif key != 'id':
             unallowed_fields[0][key] = data[key]
-    if user.email.lower() != original_email.lower():
+    if user.email.email.lower() != original_email.lower():
         user.confirmed = False
-        token = user.generate_email_change_token(user.email.lower())
-        send_email(subject='Unkani - Email Change', to=[user.email.lower()], template='auth/email/change_email',
+        token = user.generate_email_change_token(user.email.email.lower())
+        send_email(subject='Unkani - Email Change', to=[user.email.email.lower()], template='auth/email/change_email',
                    token=token, user=user)
         additional_message = {
             "email changed": "The user's email has been changed to {} and requires confirmation via email".format(
-                user.email)}
+                user.email.email)}
     sa.session.add(user)
     sa.session.commit()
     updated_user = user_schema.dump(User.query.get(userid))
@@ -138,5 +138,5 @@ def delete_user(id):
         forbidden("You do not have permission to delete user with id {}".format(user.id))
     sa.session.delete(user)
     sa.session.commit()
-    json_response = jsonify({"message": "User {} deleted".format(user.email)})
+    json_response = jsonify({"message": "User {} deleted".format(user.email.email)})
     return json_response, 200

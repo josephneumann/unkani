@@ -1,5 +1,5 @@
 from app import sa, ma
-from marshmallow import fields, ValidationError, post_load, validates
+from marshmallow import fields, post_load
 from app.utils.demographics import *
 from app.models import Address, EmailAddress, PhoneNumber
 from app.models.extensions import BaseExtension
@@ -9,27 +9,28 @@ import hashlib, json
 class Patient(sa.Model):
     __tablename__ = 'patient'
     __mapper_args__ = {'extension': BaseExtension()}
+
     id = sa.Column(sa.Integer, primary_key=True)
-    _first_name = sa.Column("first_name", sa.Text)
-    _last_name = sa.Column("last_name", sa.Text)
+    _first_name = sa.Column("first_name", sa.Text, index=True)
+    _last_name = sa.Column("last_name", sa.Text, index=True)
     _middle_name = sa.Column("middle_name", sa.Text)
     _suffix = sa.Column("suffix", sa.Text)
     _sex = sa.Column("sex", sa.String(1))
-    _dob = sa.Column("dob", sa.Date)
+    _dob = sa.Column("dob", sa.Date, index=True)
     _ssn = sa.Column("ssn", sa.Text)
-    _race = sa.column("race", sa.Text)
-    _ethnicity = sa.column("ethnicity", sa.Text)
-    _marital_status = sa.column("marital_status", sa.String(1))
-    email_addresses = sa.relationship("EmailAddress", back_populates="patient", cascade="all, delete, delete-orphan")
+    _race = sa.Column("race", sa.Text)
+    _ethnicity = sa.Column("ethnicity", sa.Text)
+    _marital_status = sa.Column("marital_status", sa.String(1))
     _deceased = sa.Column("deceased", sa.Boolean)
+    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
+    updated_at = sa.Column(sa.DateTime)
+    row_hash = sa.Column(sa.Text)
+    email_addresses = sa.relationship("EmailAddress", back_populates="patient", cascade="all, delete, delete-orphan")
     addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="patient", lazy="dynamic",
                                 cascade="all, delete, delete-orphan")
     phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="patient",
                                     lazy="dynamic",
                                     cascade="all, delete, delete-orphan")
-    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
-    updated_at = sa.Column(sa.DateTime)
-    row_hash = sa.Column(sa.Text)
 
     def __init__(self, first_name=None, last_name=None, middle_name=None, suffix=None, email=None,
                  home_phone=None, cell_phone=None, work_phone=None, ssn=None, race=None, ethnicity=None, sex=None,
@@ -83,43 +84,69 @@ class Patient(sa.Model):
                     city = address.get("city", None)
                     state = address.get("state", None)
                     zipcode = address.get("zipcode", None)
-                    primary = address.get("primary", None)
+                    primary = address.get("primary", True)
                     if not isinstance(primary, bool):
-                        primary = None
+                        primary = True
                     address_list.append(Address(address1=address1, address2=address2, city=city, state=state,
                                                 zipcode=zipcode, primary=primary))
-            self.set_addresses(addresses=address_list)
+            if address_list:
+                primary_counter = 0
+                for address in address_list:
+                    if address.primary:
+                        primary_counter += 1
+                if primary_counter == 0:
+                    address_list[0].primary = True
+                if primary_counter > 1:
+                    for address in address_list[1:]:
+                        address.primary = False
+                    address_list[0].primary = True
+                for address in address_list:
+                    self.addresses.append(address)
 
     @property
     def primary_address(self):
-        if self._sa_instance_state.persistent or self._sa_instance_state.pending:
-            current_primary = self.addresses.filter(Address._primary == True).first()
-            if not current_primary:
-                return None
-            if current_primary:
-                return current_primary
+        address_list = []
+        address_list = self.addresses.all()
+        primary = None
+        if address_list:
+            for address in address_list:
+                if address.primary:
+                    primary = address
+            return primary
         else:
             return None
 
-    def set_addresses(self, addresses=None):
-        current_primary = self.primary_address
-        if isinstance(addresses, list):
-            primary_counter = 0
-            for address in addresses:
-                if isinstance(address, dict):
-                    if address.get("primary", False):
-                        primary_counter += 1
-            if primary_counter > 0:
-                if current_primary:
-                    current_primary.primary = False
-                    sa.session.add(current_primary)
-                if primary_counter > 1:
-                    for address in addresses:
-                        address.primary = False
-                    addresses[0].primary = True
-            if not current_primary and primary_counter == 0:
-                addresses[0].primary = True
-            for address in addresses:
+    @primary_address.setter
+    def primary_address(self, address):
+        if isinstance(address, dict):
+            address1 = address.get("address1", None)
+            address2 = address.get("address2", None)
+            city = address.get("city", None)
+            state = address.get("state", None)
+            zipcode = address.get("zipcode", None)
+            address = Address(address1=address1, address2=address2, city=city, state=state, zipcode=zipcode,
+                              primary=True)
+
+        else:
+            address = address
+            address_hash = address.generate_address_hash()
+            current_addresses = self.addresses.all()
+            match_address = None
+            if current_addresses:
+                for existing in current_addresses:
+                    if existing.generate_address_hash() == address_hash:
+                        match_address = existing
+                        current_addresses.pop(current_addresses.index(existing))
+                for current_addr in current_addresses:
+                    if current_addr.primary:
+                        current_addr.primary = False
+                if match_address:
+                    if not (match_address.primary and match_address.active):
+                        match_address.primary = True
+                        match_address.active = True
+                else:
+                    self.addresses.append(address)
+            else:
                 self.addresses.append(address)
 
     @property
@@ -187,29 +214,87 @@ class Patient(sa.Model):
 
     @property
     def home_phone(self):
-        pass
+        phone_list = self.phone_numbers
+        if phone_list:
+            home_phone = None
+            for phone in phone_list:
+                if phone.type == "H":
+                    home_phone = phone
+            if home_phone:
+                return home_phone.number
+            else:
+                return None
+        else:
+            return None
 
     @property
     def cell_phone(self):
-        pass
+        phone_list = self.phone_numbers
+        if phone_list:
+            cell_phone = None
+            for phone in phone_list:
+                if phone.type == "C":
+                    cell_phone = phone
+            if cell_phone:
+                return cell_phone.number
+            else:
+                return None
+        else:
+            return None
 
     @property
     def work_phone(self):
-        pass
+        phone_list = self.phone_numbers
+        if phone_list:
+            work_phone = None
+            for phone in phone_list:
+                if phone.type == "W":
+                    work_phone = phone
+            if work_phone:
+                return work_phone.number
+            else:
+                return None
+        else:
+            return None
 
     @property
     def email(self):
-        return self._email
+        email_list = self.email_addresses
+        primary_email = []
+        if email_list:
+            for email in email_list:
+                if email.active and email.primary:
+                    primary_email.append(email.email)
+            if primary_email:
+                return primary_email[0]
 
     @email.setter
-    def email(self, email):
-        email = normalize_email(email=email)
-        if email:
-            self._email = email
+    def email(self, email=None):
+        if isinstance(email, str):
+            email = EmailAddress(email=email, active=True, primary=True)
+            if not email:
+                raise ValueError("A valid email is required to create a user.")
+            email_list = self.email_addresses
+            email_exists = False
+            if email_list:
+                for item in email_list:
+                    if item.email == email.email:
+                        item.active = True
+                        item.primary = True
+                        email_exists = True
+                    else:
+                        if item.active:
+                            item.active = False
+                        if item.primary:
+                            item.primary = False
+            if not email_exists:
+                self.email_addresses.append(email)
+        else:
+            raise ValueError("A string value was not passed to the email parameter.  Unable to set email for user.")
 
     @property
     def ssn(self):
-        return self._ssn
+        return format_ssn(ssn=self._ssn)
 
     @ssn.setter
     def ssn(self, ssn):
@@ -262,16 +347,78 @@ class Patient(sa.Model):
             else:
                 self._deceased = False
 
-    # TODO:  Group zip and address together, take city from zip lookup, fuzzy lookup for city state etc, lookup
-    # By location and proximity to last zipcode, store addresses separately from patient? Zipcode type store?
-    # make one utility address function that is called in the model unified
-    # maybe one write property for patient address with address1, 2 and zip city etc as params and read only individ
+    ##############################################################################################
+    # Patient RANDOMIZATION UTILITIES
+    ##############################################################################################
+    def randomize_patient(self, demo_dict=None):
+        __doc__ = """
+        Patient Method: acts upon an initialized user object and randomizes key attributes
+        of the user.
+
+        Demo Dict:  Dictionary of demographic data supplied if needed.  Else, randomly created
+
+        """
+        if not isinstance(demo_dict, dict):
+            demo_dict = list(random_demographics(number=1))[0]
+            demo_dict = dict(demo_dict)
+        self._first_name = demo_dict.get("first_name", None)
+        self._last_name = demo_dict.get("last_name", None)
+        self._middle_name = demo_dict.get("middle_name", None)
+        self._suffix = demo_dict.get("suffix", None)
+        self._dob = demo_dict.get("dob", None)
+        self.email = demo_dict.get("email", None)
+        self._sex = demo_dict.get("sex", None)
+        self.ssn = demo_dict.get("ssn", None)
+        self._race = demo_dict.get("race", None)
+        self._ethnicity = demo_dict.get("ethnicity", None)
+        self._marital_status = demo_dict.get("marital_status", None)
+        self._deceased = demo_dict.get("deceased", False)
+
+        addr = Address()
+        addr._address1 = demo_dict.get("address1", None)
+        addr._address2 = demo_dict.get("address2", None)
+        addr._city = demo_dict.get("city", None)
+        addr._state = demo_dict.get("state", None)
+        addr._zipcode = demo_dict.get("zipcode", None)
+        addr.active = True
+        addr.primary = True
+        self.addresses.append(addr)
+
+        phone_list = []
+        home_phone = demo_dict.get("home_phone", None)
+        cell_phone = demo_dict.get("cell_phone", None)
+        work_phone = demo_dict.get("work_phone", None)
+
+        if home_phone:
+            home_phone = PhoneNumber(number=home_phone, type="H")
+            if home_phone:
+                phone_list.append(home_phone)
+
+        if cell_phone:
+            cell_phone = PhoneNumber(number=cell_phone, type="C")
+            if cell_phone:
+                phone_list.append(cell_phone)
+
+        if work_phone:
+            work_phone = PhoneNumber(number=work_phone, type="W")
+            if work_phone:
+                phone_list.append(work_phone)
+
+        if phone_list:
+            for number in phone_list:
+                self.phone_numbers.append(number)
 
     def generate_row_hash(self):
-        data = {"first_name": str(self.first_name), "last_name": str(self.last_name),
-                "middle_name": str(self.middle_name), "sex": str(self.sex), "dob": self.dob.strftime("YYYYMMDD"),
-                "ssn": str(self.ssn), "race": str(self.race), "ethnicity": str(self.ethnicity),
-                "marital_status": str(self.marital_status), "deceased": str(self.deceased), "suffix": str(self.suffix)}
+        if self.dob:
+            dob_str = self.dob.strftime("YYYYMMDD")
+        else:
+            dob_str = None
+        data = {"first_name": self.first_name, "last_name": self.last_name,
+                "middle_name": self.middle_name, "sex": self.sex, "dob": dob_str,
+                "ssn": self.ssn, "race": self.race, "ethnicity": self.ethnicity,
+                "marital_status": self.marital_status, "deceased": self.deceased, "suffix": self.suffix}
+        for key in data:
+            data[key] = str(data[key])
         data_str = json.dumps(data, sort_keys=True)
         data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
         return data_hash

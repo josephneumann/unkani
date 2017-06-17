@@ -11,7 +11,7 @@ if os.environ.get('FLASK_COVERAGE'):
     COV.start()
 
 from app import create_app, sa, mail
-from app.models import User, Role, AppPermission,PhoneNumber, Patient, Address, EmailAddress
+from app.models import *
 from flask_script import Manager, Shell, Command, prompt, prompt_bool
 from flask_migrate import Migrate, MigrateCommand
 
@@ -23,7 +23,8 @@ migrate = Migrate(app, sa)
 
 # Run python shell with application context
 def make_shell_context():
-    return dict(app=app, sa=sa, mail=mail, PhoneNumber=PhoneNumber, User=User, Role=Role, AppPermission=AppPermission, Patient=Patient,
+    return dict(app=app, sa=sa, mail=mail, PhoneNumber=PhoneNumber, User=User, Role=Role, AppPermission=AppPermission,
+                Patient=Patient,
                 Address=Address, EmailAddress=EmailAddress)
 
 
@@ -103,6 +104,10 @@ def test(coverage=False):
     Run with '--coverage' command to run coverage and
     output results as HTML report in /tmp/coverage/*
     """
+    os.environ['FLASK_CONFIG'] = 'testing'
+    app.config['TESTING'] = True
+    app.login_manager.init_app(app)
+
     if coverage and not os.environ.get('FLASK_COVERAGE'):
         import sys
         os.environ['FLASK_COVERAGE'] = '1'
@@ -130,22 +135,7 @@ def deploy():
      3) Create new tables if introduced in revision
      4) Initialize app permisions, user roles and admin user
      5) Create random users (optional) """
-    print(""""
-    __________________________________________________________________________
-    |                        !!!-----WARNING-----!!!                          |
-    |This command has the potential to drop all tables,                       |
-    |re-create them and initialize some user and role data.                   |
-    |                                                                         |
-    |As a result  data may be lost from the target environment.  Use caution! |
-    --------------------------------------------------------------------------
-
-    """)
     if prompt_bool("Are you sure you want to proceed?", default=False):
-        if prompt_bool("Drop all tables first?", default=False):
-            if prompt_bool("Are you really sure you want to drop tables???", default=False):
-                print('Dropping and recreating tables...')
-                sa.drop_all()
-                print('Tables have been dropped...')
         if prompt_bool("Upgrade to latest Alembic revision?", default=True):
             print()
             print("Upgrading to Alembic head revision if needed...")
@@ -153,8 +143,6 @@ def deploy():
             upgrade()
             print("Alembic revision up to date!")
             print()
-        print("Creating tables if needed...")
-        sa.create_all()
         print("Initializing app permissions...")
         AppPermission.initialize_app_permissions()
         print("Initializing user roles...")
@@ -169,19 +157,45 @@ def deploy():
                 user_create_number = 10
             print("Creating " + str(user_create_number) + " random user(s)...")
             user_list = []
+            print("Generating a library of random demographics to use...")
+            demo_list = random_demographics(number=int(user_create_number))
+            print("Creating user objects...")
+            print(user_create_number, end="...")
             while len(user_list) < int(user_create_number):
                 user = User()
-                user.randomize_user()
+                user.randomize_user(demo_dict=demo_list.pop(0))
                 user_list.append(user)
+                print("{}".format(int(user_create_number) - len(user_list)), end='...', flush=True)
+            print()
+            print("Persisting objects to the database...")
             sa.session.add_all(user_list)
             sa.session.commit()
-            print()
-            print("Created the following users:")
-            for user in user_list:
-                print(user.username)
             total_users = str(len(user_list))
             print()
             print("Total random users created: " + total_users)
+
+        if prompt_bool("Create randomly generated patients?", default=True):
+            patient_create_number = prompt("How many random patients do you want to create?: ", default=10)
+            if not patient_create_number:
+                patient_create_number = 10
+            print("Creating " + str(patient_create_number) + " random patient(s)...")
+            patient_list = []
+            print("Generating a library of random demographics to use...")
+            demo_list = random_demographics(number=int(patient_create_number))
+            print("Creating patient objects...")
+            print(patient_create_number, end="...")
+            while len(patient_list) < int(patient_create_number):
+                pt = Patient()
+                pt.randomize_patient(demo_dict=demo_list.pop(0))
+                patient_list.append(pt)
+                print("{}".format(int(patient_create_number) - len(patient_list)), end='...', flush=True)
+            print()
+            print("Persisting objects to the database...")
+            sa.session.add_all(patient_list)
+            sa.session.commit()
+            total_patients = str(len(patient_list))
+            print()
+            print("Total random users created: " + total_patients)
 
         print("Process completed without errors.")
     else:

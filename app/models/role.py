@@ -8,10 +8,10 @@ from .app_permission import AppPermission, role_app_permission
 class Role(sa.Model):
     __tablename__ = 'role'
     id = sa.Column(sa.Integer, primary_key=True)
-    name = sa.Column(sa.Text, unique=True)
+    name = sa.Column(sa.Text, unique=True, index=True)
     users = sa.relationship('User', backref='role', lazy='dynamic')
     default = sa.Column(sa.Boolean, default=False)
-    level = sa.Column(sa.Integer)
+    level = sa.Column(sa.Integer, index=True)
     app_permissions = sa.relationship('AppPermission',
                                       secondary=role_app_permission,
                                       back_populates='roles')

@@ -3,7 +3,7 @@ from functools import partial, wraps
 
 # Define Custom Need Types
 AppPermissionNeed = partial(Need, 'AppPermission')
-AppPermissionNeed.__doc__ = """A need with the method preset to `"action"`."""
+AppPermissionNeed.__doc__ = """A need with the method preset to `"AppPermission"`."""
 
 # Role Permission Definition
 role_permission_superadmin = Permission(RoleNeed('Super Admin'))
@@ -20,6 +20,8 @@ app_permission_userpasswordchange = Permission(AppPermissionNeed('User Change Pa
 app_permission_userresendconfirmation = Permission(AppPermissionNeed('User Resend Confirmation'))
 app_permission_userforceconfirmation = Permission(AppPermissionNeed('User Force Confirmation'))
 app_permission_userrolechange = Permission(AppPermissionNeed('User Role Change'))
+app_permission_patientadmin = Permission(AppPermissionNeed('Patient Admin'))
+app_permission_useradmin = Permission(AppPermissionNeed('User Admin'))
 
 
 def return_template_context_permissions():
@@ -36,6 +38,8 @@ def return_template_context_permissions():
         "app_permission_userforceconfirmation": app_permission_userforceconfirmation,
         "app_permission_userrolechange": app_permission_userrolechange,
         "app_permission_userprofileupdate": app_permission_userprofileupdate,
+        "app_permission_patientadmin": app_permission_patientadmin,
+        "app_permission_useradmin": app_permission_useradmin,
         "test_user_permission": test_user_permission
     }
     return template_context_permissions
@@ -66,6 +70,8 @@ app_permissions_dict = {
     'User Resend Confirmation': (7),
     'User Force Confirmation': (8),
     'User Role Change': (9),
+    'Patient Admin': (10),
+    'User Admin': (11)
 }
 
 role_dict = {
@@ -79,11 +85,17 @@ role_dict = {
                          'User Role Change',
                          'User Delete',
                          'User Change Password',
-                         'User Force Confirmation'],
+                         'User Force Confirmation',
+                         'Patient Admin',
+                         'User Admin'],
                     'level': 1000},
     'User': {'id': 2,
              'permissions':
-                 ['User View', 'Role View', 'App Permission View'],
+                 ['User Profile Update',
+                  'User Deactivate',
+                  'User Reset Password',
+                  'User Resend Confirmation',
+                  'User Change Password'],
              'level': 100},
     'Admin': {'id': 3,
               'permissions':
@@ -92,7 +104,8 @@ role_dict = {
                    'User Deactivate',
                    'User Reset Password',
                    'User Resend Confirmation',
-                   'User Role Change'],
+                   'User Role Change',
+                   'User Admin'],
               'level': 500
               }
 }

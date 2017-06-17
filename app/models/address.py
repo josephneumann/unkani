@@ -2,7 +2,7 @@ from app import sa, ma
 from marshmallow import fields, ValidationError, post_load, validates
 from app.utils.demographics import *
 from app.models.extensions import BaseExtension
-import hashlib, json
+import hashlib, json, re
 
 
 class Address(sa.Model):
@@ -13,12 +13,12 @@ class Address(sa.Model):
     _address2 = sa.Column("address2", sa.Text)
     _city = sa.Column("city", sa.Text)
     _state = sa.Column("state", sa.String(2))
-    _zipcode = sa.Column("zipcode", sa.Text)
+    _zipcode = sa.Column("zipcode", sa.Text, index=True)
     _primary = sa.Column("primary", sa.Boolean)
     _active = sa.Column("active", sa.Boolean, default=True)
-    patient_id = sa.Column(sa.Integer, sa.ForeignKey('patient.id'))
+    patient_id = sa.Column(sa.Integer, sa.ForeignKey('patient.id'), index=True)
     patient = sa.relationship("Patient", back_populates="addresses")
-    user_id = sa.Column(sa.Integer, sa.ForeignKey('user.id'))
+    user_id = sa.Column(sa.Integer, sa.ForeignKey('user.id'), index=True)
     user = sa.relationship("User", back_populates="addresses")
     created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
     updated_at = sa.Column(sa.DateTime)
@@ -45,7 +45,7 @@ class Address(sa.Model):
         n_city, n_state, n_zip = normalize_city_state(state=state)
         if n_state:
             if self.zipcode:
-                current_zip_object = lookup_zipcode(self.zipcode)
+                current_zip_object = lookup_zipcode_object(self.zipcode)
                 if n_state != current_zip_object.State:
                     self._zipcode = None
             if self.city:
@@ -61,7 +61,7 @@ class Address(sa.Model):
 
     @zipcode.setter
     def zipcode(self, zipcode):
-        zipcode = lookup_zipcode(zipcode=zipcode)
+        zipcode = lookup_zipcode_object(zipcode=zipcode)
         if zipcode:
             self._zipcode = zipcode.Zipcode
             self._city = str(zipcode.City).upper()
@@ -125,12 +125,25 @@ class Address(sa.Model):
         self._city = address_dict.get("city", None)
         self._state = address_dict.get("state", None)
         self._zipcode = address_dict.get("zipcode", None)
-        # element_hierarchy = {"state":1, "city":2, "zipcode":3, "address1":4, "address2":4}
 
     def generate_row_hash(self):
-        data = {"address1": str(self.address1), "address2": str(self.address2), "city": str(self.city), "state": str(self.state),
-                "zipcode": str(self.zipcode), "primary": str(self.primary), "active": str(self.active), "patient_id": str(self.patient_id),
-                "user_id": str(self.user_id)}
+        data = {"address1": self.address1, "address2": self.address2, "city": self.city,
+                "state": self.state, "zipcode": self.zipcode,
+                "patient_id": self.patient_id, "user_id": self.user_id}
+        for key in data:
+            data[key] = str(data[key])
+        data_str = json.dumps(data, sort_keys=True)
+        data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
+        return data_hash
+
+    def generate_address_hash(self):
+        data = {"address1": str(self.address1), "address2": str(self.address2), "city": str(self.city),
+                "state": str(self.state), "zipcode": str(self.zipcode)}
+        for item in data:
+            if not data[item]:
+                data.pop(item)
+            else:
+                data[item] = re.sub('[\W_]+', '', data[item])
         data_str = json.dumps(data, sort_keys=True)
         data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
         return data_hash

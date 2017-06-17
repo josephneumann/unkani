@@ -1,15 +1,11 @@
-import hashlib
-import os
-import re
-from datetime import datetime, date
-from random import randint, choice
+import os, hashlib, json
+from random import randint
 from app.security import *
 from app.models.email_address import EmailAddress
-from app.models.address import Address
-from flask import current_app, request, url_for, g, abort, jsonify
+from flask import current_app
 from flask_login import UserMixin, AnonymousUserMixin
 from marshmallow import fields, ValidationError, post_load, validates
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import sa, login_manager, ma
@@ -17,6 +13,7 @@ from app.models.role import Role
 from app.models.address import Address
 from app.models.phone_number import PhoneNumber
 from app.models.extensions import BaseExtension
+from app.utils.demographics import *
 
 
 ##################################################################################################
@@ -36,26 +33,22 @@ class User(UserMixin, sa.Model):
     __mapper_args__ = {'extension': BaseExtension()}
 
     id = sa.Column(sa.Integer, primary_key=True)
-    username = sa.Column(sa.Text, unique=True, index=True)
-    email = sa.Column(sa.Text, unique=True, index=True)
-    # TODO: Update all email lookups to email_addresses
+    _username = sa.Column("username", sa.Text, unique=True, index=True)
     email_addresses = sa.relationship("EmailAddress", back_populates="user", cascade="all, delete, delete-orphan")
-    last_email = sa.Column(sa.Text, index=True)
-    role_id = sa.Column(sa.Integer, sa.ForeignKey('role.id'))
+    role_id = sa.Column(sa.Integer, sa.ForeignKey('role.id'), index=True)
     password_hash = sa.Column(sa.Text)
     last_password_hash = sa.Column(sa.Text)
     password_timestamp = sa.Column(sa.DateTime)
-    first_name = sa.Column(sa.Text)
-    last_name = sa.Column(sa.Text)
-    dob = sa.Column(sa.Date)
-    phone = sa.Column(sa.Text)
+    _first_name = sa.Column("first_name", sa.Text, index=True)
+    _last_name = sa.Column("last_name", sa.Text, index=True)
+    _dob = sa.Column("dob", sa.Date, index=True)
+    _sex = sa.Column("sex", sa.String(length=1))
     phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
                                     lazy="dynamic",
                                     cascade="all, delete, delete-orphan")
     description = sa.Column(sa.Text)
     confirmed = sa.Column(sa.Boolean, default=False)
     active = sa.Column(sa.Boolean, default=True)
-    avatar_hash = sa.Column(sa.Text)
     addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="user",
                                 cascade="all, delete, delete-orphan")
     last_seen = sa.Column(sa.DateTime)
@@ -63,66 +56,178 @@ class User(UserMixin, sa.Model):
     updated_at = sa.Column(sa.DateTime)
     row_hash = sa.Column(sa.Text)
 
+    def __init__(self, username=None, first_name=None, last_name=None, dob=None, email=None, description=None,
+                 phone_number=None, password=None, role_id=None, confirmed=False, active=True, **kwargs):
+        self.username = username
+        if email:
+            email = EmailAddress(email=email, active=True, primary=True)
+        if email:
+            self.email_addresses.append(email)
+            if str(email.email).lower() == current_app.config['UNKANI_ADMIN']:
+                self.role = Role.query.filter_by(name='Super Admin').first()
+        if password:
+            self.password = password
+        if isinstance(role_id, int):
+            role = Role.query.get(role_id)
+            if role:
+                self.role = role
+        if not self.role:
+            self.role = Role.query.filter_by(default=True).first()
+
+        self.first_name = first_name
+        self.last_name = last_name
+        self.dob = dob
+        self.description = description
+
+        if phone_number:
+            phone_number = PhoneNumber(number=phone_number, type="C", active=True)
+            if phone_number:
+                self.phone_numbers.append(phone_number)
+        self.confirmed = confirmed
+        self.active = active
+
     def __repr__(self):
         __doc__ = """
         Represents user model instance as a username string"""
         return '<User %r>' % self.username
 
-    #TODO: When attributes are finalized, implement row hashing
-    # def generate_row_hash(self):
-    #     data = {"username": self.username, "email": self.email, "first_name": self.first_name,
-    #             "last_name": self.last_name, "dob": self.dob, "phone": self.phone, "description": self.description,
-    #             "confirmed": self.confirmed, "active": self.active}
-    #     data_str = json.dumps(data, sort_keys=True)
-    #     data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
-    #     return data_hash
-    #
-    def before_insert(self):
-        pass
-        # self.row_hash = self.generate_row_hash()
+    #########################################
+    # USER ATTRIBUTE NORMALIZATION PROPERTIES
+    #########################################
 
-    def before_update(self):
-        pass
-        # self.row_hash = self.generate_row_hash()
+    @property
+    def username(self):
+        return self._username
+
+    @username.setter
+    def username(self, username):
+        if isinstance(username, str):
+            username = username.upper().strip()
+            self._username = username
+
+    @property
+    def first_name(self):
+        return self._first_name
+
+    @first_name.setter
+    def first_name(self, first_name):
+        self._first_name = normalize_name(name=first_name)
+
+    @property
+    def last_name(self):
+        return self._last_name
+
+    @last_name.setter
+    def last_name(self, last_name):
+        self._last_name = normalize_name(name=last_name)
+
+    @property
+    def sex(self):
+        return self._sex
+
+    @sex.setter
+    def sex(self, sex):
+        sex = normalize_sex(sex=sex)
+        if sex:
+            self._sex = sex
+
+    @property
+    def dob(self):
+        return self._dob
 
     @property
     def dob_string(self):
         __doc__ = """
-        Represent User's DOB as a string with format 'YYYY-MM-DD'"""
+        Represent User's DOB as a string with format 'YYYY-MM-DD'
+        """
         if self.dob:
             return self.dob.strftime('%Y-%m-%d')
         else:
             return None
 
+    @dob.setter
+    def dob(self, dob):
+        dob = normalize_dob(dob=dob)
+        if dob:
+            self._dob = dob.date()
+
     @property
-    def joined_year(self):
-        __doc__ = """
-        Represents the year the user record was created with format 'YYYY'"""
-        if self.create_timestamp:
-            return self.create_timestamp.strftime('%Y')
+    def email(self):
+        email_list = self.email_addresses
+        primary_email = []
+        if email_list:
+            for email in email_list:
+                if email.active and email.primary:
+                    primary_email.append(email)
+            if primary_email:
+                return primary_email[0]
+
+    @email.setter
+    def email(self, email=None):
+        if isinstance(email, str):
+            email = EmailAddress(email=email, active=True, primary=True)
+            if not email:
+                raise ValueError("A valid email string is required to create a user.")
+        elif isinstance(email, EmailAddress):
+            email = email
+        else:
+            raise TypeError("A valid email string or Email object was not passed to the setter method for user.email")
+        if email:
+            email_list = self.email_addresses
+            email_exists = False
+            if email_list:
+                for item in email_list:
+                    if item.email == email.email:
+                        item.active = True
+                        item.primary = True
+                        email_exists = True
+                    else:
+                        if item.active:
+                            item.active = False
+                        if item.primary:
+                            item.primary = False
+            if not email_exists:
+                self.email_addresses.append(email)
+        else:
+            raise ValueError("An email could not be created for the values provided to the setter method for email.")
+
+    @property
+    def phone(self):
+        phone_list = self.phone_numbers
+        if phone_list:
+            for phone in phone_list:
+                if phone.active:
+                    return phone
         else:
             return None
 
-    #############################
-    # USER OBJECT INITIALIZATION
-    #############################
-    def __init__(self, **kwargs):
-        super(User, self).__init__(**kwargs)
-        if self.role is None:
-            if self.email == current_app.config['UNKANI_ADMIN']:
-                self.role = Role.query.filter_by(name='Super Admin').first()
-            if self.role is None:
-                self.role = Role.query.filter_by(default=True).first()
-        self.generate_avatar_hash()
-        self.active = True
-        self.confirmed = False
-
-    def ping(self):
-        __doc__ = """
-        Ping function called before each request initiated by authenticated user.
-        Stores timestamp of last request for the user in the 'last_seen' attribute."""
-        self.last_seen = datetime.utcnow()
-        sa.session.add(self)
+    @phone.setter
+    def phone(self, phone=None):
+        if isinstance(phone, str):
+            phone = PhoneNumber(number=phone, type='C', active=True)
+            if not isinstance(phone, PhoneNumber):
+                raise ValueError("A valid phone string is required to create a PhoneNumber object.")
+        elif isinstance(phone, PhoneNumber):
+            phone = phone
+        else:
+            raise TypeError(
+                "A valid phone number string or PhoneNumber object was not passed to the setter method for user.phone")
+        if phone:
+            phone_list = self.phone_numbers
+            phone_exists = False
+            if phone_list:
+                for item in phone_list:
+                    if item.number == phone.number:
+                        item.active = True
+                        phone_exists = True
+                    else:
+                        if item.active:
+                            item.active = False
+            if not phone_exists:
+                self.phone_numbers.append(phone)
+        else:
+            raise ValueError(
+                "An phone number could not be created for the values provided to the setter method for phone.")
 
     ####################################
     # PASSWORD HASHING AND VERIFICATION
@@ -166,6 +271,7 @@ class User(UserMixin, sa.Model):
         __doc__ = """
         Loads Timed JSON web signature. Decodes using application Secret Key.  If user
         that is encrypted in the token is un-confirmed, sets user.confirmed boolean to True"""
+        # TODO: Move confirmation boolean and process to email_address record instead of user
         s = Serializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
@@ -205,9 +311,9 @@ class User(UserMixin, sa.Model):
         Generates a Timed JSON Web Signature encoding the user's id using the application
         SECRET KEY.  Also encodes a key-value pair for email change and validation."""
         s = Serializer(current_app.config['SECRET_KEY'], expiration)
-        return s.dumps({'change_password': self.id, 'new_email': new_email})
+        return s.dumps({'change_email': self.id, 'new_email': new_email})
 
-    def change_email(self, token):
+    def process_change_email_token(self, token):
         __doc__ = """
         Decode and validate a Time JSON Web Signature supplied as the 'Token' variable. Ensure
         that the id encoded in the token matches the expected user.  Check for a 'change_password'
@@ -217,32 +323,44 @@ class User(UserMixin, sa.Model):
         try:
             data = s.loads(token)
         except:
-            return False
-        if data.get('change_password') != self.id:
-            return False
-        new_email = data.get('new_email')
-        if self.query.filter_by(email=new_email).first() is not None:
-            return False
-        self.last_email = self.email
-        self.email = new_email
-        self.generate_avatar_hash()
-        sa.session.add(self)
-        return True
+            raise ValueError("Invalid token provided.")
+        if data.get('change_email') != self.id:
+            raise ValueError("Token provided did not match the logged in user's identity.")
+        new_email = data.get('new_email', None)
+        if not new_email:
+            raise ValueError("An email address was not included in the change email request token.")
+        matching_email = sa.session.query(EmailAddress).filter(EmailAddress.user_id == self.id).filter(
+            EmailAddress._email == new_email).first()
+        if matching_email:
+            self.email = matching_email
+            sa.session.add(self)
+        else:
+            raise ValueError("A matching email for the logged-in user could not be found.")
 
     def verify_email(self, email):
         __doc__ = """
         Helper method to compare a supplied email with the user's email.  Returns True
         if email matches, False if not."""
-        if self.email.lower() == email.lower():
-            return True
-        else:
-            return False
+        if isinstance(email, str):
+            email = str(email).upper().strip()
+            if self.email.email == email:
+                return True
+            else:
+                return False
+        if isinstance(email, EmailAddress):
+            if self.email.email == email.email:
+                return True
+            else:
+                return False
 
-    def verify_last_email(self, email):
+    def verify_previous_email(self, email):
         __doc__ = """
-        Helper method to compare a supplied email with the user's last email.  Returns True
+        Helper method to compare a supplied email with the user's previous email.  Returns True
         if email matches, False if not."""
-        if self.last_email.lower() == email.lower():
+        email = str(email).strip().upper()
+        previous_email = sa.session.query(EmailAddress).join(User).filter(EmailAddress.user == self).filter(
+            EmailAddress._primary == False).order_by(EmailAddress.updated_at.desc()).first()
+        if previous_email and previous_email.email == email:
             return True
         else:
             return False
@@ -385,29 +503,33 @@ class User(UserMixin, sa.Model):
     #####################################
     # AVATAR HASHING AND GRAVATAR SUPPORT
     #####################################
-    def generate_avatar_hash(self):
-        __doc__ = """
-        Generate an MD5 hash of the user's email.  Stores the result in the user
-        'avatar_hash' attribute.  This value is used when constructing the gravatar URL."""
-        if self.email and not re.search(r'(@example.com)+', self.email):
-            self.avatar_hash = hashlib.md5(self.email.encode('utf-8')).hexdigest()
+    @property
+    def gravatar(self):
+        primary_email = self.email
+        if not primary_email:
+            return None
+        elif isinstance(primary_email, EmailAddress):
+            return primary_email.gravatar()
 
-    def gravatar(self, size=100, default='identicon', rating='g'):
+    #####################################
+    # MISC UTILITY PROPERTIES AND METHODS
+    #####################################
+
+    @property
+    def joined_year(self):
         __doc__ = """
-        Generate a Gravatar url based on an MD5 hash of the user's email. URL output
-        conforms to standards for Globally Recognized Avatar service.
-        Defaults established as:
-         Size: 100px
-         Default: identicon (if gravatar not found, pattern unique to MD5 hash is displayed\
-         Rating: g
-         """
-        url = 'https://secure.gravatar.com/avatar'
-        if not self.avatar_hash:
-            self.generate_avatar_hash()
-            sa.session.add(self)
-            sa.session.commit()
-        return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
-            url=url, hash=self.avatar_hash, size=size, default=default, rating=rating)
+        Represents the year the user record was created with format 'YYYY'"""
+        if self.created_at:
+            return self.created_at.strftime('%Y')
+        else:
+            return None
+
+    def ping(self):
+        __doc__ = """
+        Ping function called before each request initiated by authenticated user.
+        Stores timestamp of last request for the user in the 'last_seen' attribute."""
+        self.last_seen = datetime.utcnow()
+        sa.session.add(self)
 
     ##############################################################################################
     # USER API SUPPORT
@@ -439,91 +561,36 @@ class User(UserMixin, sa.Model):
     ##############################################################################################
     # USER RANDOMIZATION UTILITIES
     ##############################################################################################
-
-    @staticmethod
-    def random_dob():
-        __doc__ = """
-        Returns a random DOB as a datetime.date object."""
-        current_datetime = datetime.now()
-        year = choice(range(current_datetime.year - 100, current_datetime.year - 15))
-        month = choice(range(1, 13))
-        day = choice(range(1, 29))
-        dob = date(year, month, day)
-        return dob
-
-    @staticmethod
-    def random_phone():
-        __doc__ = """
-        Returns a random phone number as a string."""
-        p = list('0000000000')
-        p[0] = str(randint(1, 9))
-        for i in [1, 2, 6, 7, 8]:
-            p[i] = str(randint(0, 9))
-        for i in [3, 4]:
-            p[i] = str(randint(0, 8))
-        if p[3] == p[4] == 0:
-            p[5] = str(randint(1, 8))
-        else:
-            p[5] = str(randint(0, 8))
-        n = range(10)
-        if p[6] == p[7] == p[8]:
-            n = [i for i in n if i != p[6]]
-        p[9] = str(choice(n))
-        p = ''.join(p)
-        return str(p[:3] + '-' + p[3:6] + '-' + p[6:])
-
-    @staticmethod
-    def random_password():
-        __doc__ = """
-        Returns a random password as a string."""
-        import forgery_py
-        random_number = str(randint(0, 1000))
-        password = forgery_py.lorem_ipsum.word() + random_number + forgery_py.lorem_ipsum.word()
-        return password
-
-    def randomize_user(self, **kwargs):
+    def randomize_user(self, demo_dict=None):
         __doc__ = """
         User Method: acts upon an initialized user object and randomizes key attributes
         of the user.
-
-        Always Randomized: email, username, first_name, last_name, phone, dob
-
-        Gender:  May be provided with a keyword argument for 'gender' with value of 'Male'
-        or 'Female' provided exactly.  If gender is provided, a gender-specific first name
-        is created.  If kwarg is not present, a name is generated that disregards gender.
-
+        
+        Demo Dict:  Dictionary of demographic data supplied if needed.  Else, randomly created
+        
         Password:  If a password is supplied in the environment variable 'TEST_USER_PASSWORD'
         that password is assigned to the user.  If not present, the password is randomized.
         """
-        import forgery_py
-        gender = kwargs.get('gender')
-        allowed_genders = ['Male', 'Female']
-        if not gender or gender not in allowed_genders:
-            gender = forgery_py.personal.gender()
-
-        email_domains = ['@gmail.com', '@icloud.com', '@yahoo.com', '@microsoft.com'
-            , '@aol.com', '@comcast.com', '@mail.com', '@inbox.com', '@outlook.com']
-        email_domains_number = len(email_domains)
-        random_number = str(randint(0, 1000))
-        rand_email_index = randint(0, (email_domains_number - 1))
-        if gender == 'Male':
-            self.first_name = forgery_py.name.male_first_name()
-        if gender == 'Female':
-            self.first_name = forgery_py.name.female_first_name()
-        self.last_name = forgery_py.name.last_name()
-        self.username = self.first_name + '.' + self.last_name + random_number
-        rand_domain = email_domains[rand_email_index]
-        self.email = self.username + rand_domain
-        self.dob = self.random_dob()
-        self.phone = self.random_phone()
-
-        password = kwargs.get('password')
-        if not password:
-            password = os.environ.get('TEST_USER_PASSWORD')
-            if not password:
-                password = self.random_password()
-        self.password = password
-        self.gravatar()
+        if not isinstance(demo_dict, dict):
+            demo_dict = list(random_demographics(number=1))[0]
+            demo_dict = dict(demo_dict)
+        self._first_name = demo_dict.get("first_name", None)
+        self._last_name = demo_dict.get("last_name", None)
+        self._dob = demo_dict.get("dob", None)
+        self.email = demo_dict.get("email", None)
+        self.username = (self.first_name + "." + self.last_name + str(randint(0, 1000)))
+        self.sex = demo_dict.get("sex", None)
+        addr = Address()
+        addr._address1 = demo_dict.get("address1", None)
+        addr._address2 = demo_dict.get("address2", None)
+        addr._city = demo_dict.get("city", None)
+        addr._state = demo_dict.get("state", None)
+        addr._zipcode = demo_dict.get("zipcode", None)
+        addr.active = True
+        addr.primary = True
+        self.addresses.append(addr)
+        self.phone = demo_dict.get("cell_phone", None)
+        self.description = random_description(max_chars=200)
 
     @staticmethod
     def initialize_admin_user():
@@ -532,10 +599,10 @@ class User(UserMixin, sa.Model):
         attributes stored as environment variables specified as 'UNKANI_ADMIN_*.
         Executed on deployment and db creation.  Checks for existing user with admin's
         email before attempting to create a new one."""
-        admin_user_email = os.environ.get('UNKANI_ADMIN_EMAIL')
-        user = User.query.filter_by(email=admin_user_email).first()
+        admin_user_username = os.environ.get('UNKANI_ADMIN_USERNAME')
+        user = User.query.filter(User._username == str(admin_user_username).upper()).first()
         if user is None:
-            user = User(email=admin_user_email)
+            user = User(email=os.environ.get('UNKANI_ADMIN_EMAIL'))
             user.username = os.environ.get('UNKANI_ADMIN_USERNAME')
             user.password = os.environ.get('UNKANI_ADMIN_PASSWORD')
             user.first_name = os.environ.get('UNKANI_ADMIN_FIRST_NAME')
@@ -544,6 +611,23 @@ class User(UserMixin, sa.Model):
             user.confirmed = True
             sa.session.add(user)
             sa.session.commit()
+
+    def generate_row_hash(self):
+        data = {"username": self.username, "first_name": self.first_name, "last_name": self.last_name,
+                "dob": self.dob_string, "sex": self.sex}
+        for key in data:
+            data[key] = str(data[key])
+        data_str = json.dumps(data, sort_keys=True)
+        data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
+        return data_hash
+
+    def before_insert(self):
+        pass
+        self.row_hash = self.generate_row_hash()
+
+    def before_update(self):
+        pass
+        self.row_hash = self.generate_row_hash()
 
 
 ###################################################

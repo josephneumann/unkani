@@ -16,35 +16,53 @@
                                 <th data-field="id" data-sortable="true" class="text-center">ID</th>
                                 <th data-field="first_name" data-sortable="true">First Name</th>
                                 <th data-field="last_name" data-sortable="true">Last Name</th>
-                                <th data-field="username" data-sortable="true">Username</th>
+                                <th data-field="mi" data-sortable="true">mi</th>
+                                <th data-field="suffix" data-sortable="true">Suff</th>
+                                <th data-field="sex" data-sortable="true">Sex</th>
+                                <th data-field="dpb" data-sortable="true">Dob</th>
+                                <th data-field="ssn" data-sortable="true">SSN</th>
                                 <th data-field="email" data-sortable="true">Email</th>
-                                <th data-field="role" data-sortable="true">Role</th>
                                 <th data-field="actions" class="td-actions text-right" data-events="operateEvents"
                                     data-formatter="operateFormatter">Actions
                                 </th>
                                 </thead>
                                 <tbody>
-                                {% for user in userlist %}
+                                {% for pt in patient_list %}
                                 <tr>
                                     <td></td>
-                                    <td>{{ user.id }}</td>
-                                    <td>{% if user.first_name %}
-                                        {{ user.first_name.title() }}
+                                    <td>{{ pt.id }}</td>
+                                    <td>{% if pt.first_name %}
+                                        {{ pt.first_name.title() }}
                                         {% endif %}
                                     </td>
-                                    <td>{% if user.last_name %}
-                                        {{ user.last_name.title() }}
+                                    <td>{% if pt.last_name %}
+                                        {{ pt.last_name.title() }}
                                         {% endif %}
                                     </td>
-                                    <td>{% if user.username %}
-                                        @{{ user.username.lower() }}
+                                    <td>{% if pt.middle_name %}
+                                        {{ pt.middle_name[0] }}
+                                    {% endif %}
+                                    </td>
+                                    <td>{% if pt.suffix %}
+                                        {{ pt.suffix }}
                                         {% endif %}
                                     </td>
-                                    <td>{% if user.email.email %}
-                                        {{ user.email.email.lower() }}
+                                    <td>{% if pt.sex %}
+                                        {{ pt.sex }}
                                         {% endif %}
                                     </td>
-                                    <td>{{ user.role.name }}</td>
+                                    <td>{% if pt.dob %}
+                                        {{ pt.dob }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{% if pt.ssn %}
+                                        {{ pt.ssn }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{% if pt.email %}
+                                        {{ pt.email.lower() }}
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 {% endfor %}
                                 </tbody>

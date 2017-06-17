@@ -13,9 +13,9 @@ class PhoneNumber(sa.Model):
     _number = sa.Column("number", sa.Text, nullable=False)
     _type = sa.Column("type", sa.String(1), nullable=False)
     active = sa.Column(sa.Boolean, default=True)
-    patient_id = sa.Column(sa.Integer, sa.ForeignKey('patient.id'))
+    patient_id = sa.Column(sa.Integer, sa.ForeignKey('patient.id'), index=True)
     patient = sa.relationship("Patient", back_populates="phone_numbers")
-    user_id = sa.Column(sa.Integer, sa.ForeignKey('user.id'))
+    user_id = sa.Column(sa.Integer, sa.ForeignKey('user.id'), index=True)
     user = sa.relationship("User", back_populates="phone_numbers")
     created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
     updated_at = sa.Column(sa.DateTime)
@@ -37,7 +37,7 @@ class PhoneNumber(sa.Model):
 
     @property
     def number(self):
-        return self._number
+        return format_phone(phone=self._number)
 
     @number.setter
     def number(self, phone_dict):
@@ -94,8 +94,10 @@ class PhoneNumber(sa.Model):
             self._type = n_type
 
     def generate_row_hash(self):
-        data = {"number": str(self.number), "type": str(self.type), "patient_id": str(self.patient_id),
-                "user_id": str(self.user_id), "active": str(self.active)}
+        data = {"number": self.number, "type": self.type, "patient_id": self.patient_id,
+                "user_id": self.user_id}
+        for key in data:
+            data[key] = str(data[key])
         data_str = json.dumps(data, sort_keys=True)
         data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
         return data_hash

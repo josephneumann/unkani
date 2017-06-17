@@ -59,7 +59,7 @@ def create_app(config_name):
     login_manager.init_app(app)
     sentry.init_app(app, logging=True, level=logging.ERROR)
     celery.conf.update(app.config)
-    Principal(app)
+    Principal(app, use_sessions=True)
     ma.init_app(app)
 
     # Register blueprint objects with application object

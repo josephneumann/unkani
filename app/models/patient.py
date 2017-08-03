@@ -1,7 +1,9 @@
 from app import sa, ma
 from marshmallow import fields, post_load
 from app.utils.demographics import *
-from app.models import Address, EmailAddress, PhoneNumber
+from app.models.address import Address
+from app.models.email_address import EmailAddress
+from app.models.phone_number import PhoneNumber
 from app.models.extensions import BaseExtension
 import hashlib, json
 

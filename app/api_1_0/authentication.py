@@ -1,8 +1,9 @@
-from flask import g, jsonify, current_app, url_for
+from flask import g, jsonify, current_app, url_for, current_app
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
-from flask_principal import Identity, UserNeed, RoleNeed
+from flask_principal import Identity, UserNeed, RoleNeed, identity_changed
+from app import sa
 from app.security import AppPermissionNeed
-from ..models import User, Role, AnonymousUser
+from ..models import User, Role, AnonymousUser, EmailAddress
 from . import api
 from .errors import unauthorized, ValidationError as APIValidationError, forbidden
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
@@ -13,23 +14,27 @@ multi_auth = MultiAuth(basic_auth, token_auth)
 
 
 @api.before_request
-def before_request():
+def before_request():  # pragma: no cover
     pass
 
 
 @basic_auth.verify_password
 def verify_password(email, password):
     if not email:
-        return False
-    user = User.query.filter_by(email=email).first()
+        raise APIValidationError("No email provided for login.")
+    user = sa.session.query(User).join(EmailAddress).filter(EmailAddress._active == True).filter(
+        EmailAddress._email == str(email).upper().strip()).first()
     if user is None:
         raise APIValidationError("Email provided does not match an active account")
     if not user.verify_password(password):
         return False
     if not user.confirmed:
         raise APIValidationError("User account is unconfirmed")
-    g.current_user = user
-    set_identity_permissions(user)
+    if not user.active:
+        raise APIValidationError("User account is inactive")
+    setattr(g, 'current_user', user)
+    identity_changed.send(current_app._get_current_object(),
+                          identity=Identity(user.id))
     return True
 
 
@@ -61,8 +66,9 @@ def verify_token(token):
     if not user.confirmed:
         raise APIValidationError("User account is unconfirmed.")
     # Set global request context g.current_user variable which is used in API routes
-    g.current_user = user
-    set_identity_permissions(g.current_user)
+    setattr(g, 'current_user', user)
+    identity_changed.send(current_app._get_current_object(),
+                          identity=Identity(user.id))
     return True
 
 
@@ -89,19 +95,19 @@ def new_token():
     return jsonify({'token': token})
 
 
-def set_identity_permissions(user):
-    # Set the identity user object
-    identity = Identity(user.id)
-    identity.user = user
-    # Add the UserNeed to the identity
-    if hasattr(user, 'id'):
-        identity.provides.add(UserNeed(user.id))
-    # Update the identity with the roles that the user provides
-    if hasattr(user, 'role_id'):
-        role = Role.query.filter_by(id=user.role_id).first()
-        identity.provides.add(RoleNeed(role.name))
-        app_permissions = role.app_permissions.all()
-        for app_permission_name in app_permissions:
-            identity.provides.add(AppPermissionNeed(str(app_permission_name)))
-    # Manually set global request context g variable for identity since session is not loaded
-    g.identity.provides = identity.provides
+# def set_identity_permissions(user):
+#     # Set the identity user object
+#     identity = Identity(user.id)
+#     identity.user = user
+#     # Add the UserNeed to the identity
+#     if hasattr(user, 'id'):
+#         identity.provides.add(UserNeed(user.id))
+#     # Update the identity with the roles that the user provides
+#     if hasattr(user, 'role_id'):
+#         role = Role.query.filter_by(id=user.role_id).first()
+#         identity.provides.add(RoleNeed(role.name))
+#         app_permissions = role.app_permissions
+#         for app_permission_name in app_permissions:
+#             identity.provides.add(AppPermissionNeed(str(app_permission_name)))
+#     # Manually set global request context g variable for identity since session is not loaded
+#     g.identity.provides = identity.provides

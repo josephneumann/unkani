@@ -2,6 +2,7 @@ import os, hashlib, json
 from random import randint
 from app.security import *
 from app.models.email_address import EmailAddress
+from sqlalchemy.ext.hybrid import Comparator
 from flask import current_app
 from flask_login import UserMixin, AnonymousUserMixin
 from marshmallow import fields, ValidationError, post_load, validates
@@ -86,7 +87,7 @@ class User(UserMixin, sa.Model):
         self.confirmed = confirmed
         self.active = active
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         __doc__ = """
         Represents user model instance as a username string"""
         return '<User %r>' % self.username
@@ -669,26 +670,23 @@ class UserSchema(ma.Schema):
     serialization and de-serialization.  Defines read-only and write only attributes for basic
     object use.  Defines validation criteria for input."""
     id = fields.Int(dump_only=True)
-    email = fields.Email(dump_only=True)
-    username = fields.String(dump_only=True)
-    password = fields.String(load_only=True)
+    # email_prop = User.__mapper__.get_property('email')
+    # email = property2field(email_prop)
+    # email = fields.Email(attribute='email', dump_only=True)
+    # username = fields.String(dump_only=True)
+    # password = fields.String(load_only=True)
     first_name = fields.String()
     last_name = fields.String()
-    dob = fields.Date()
-    phone = fields.String()
-    description = fields.String()
+    # dob = fields.Date()
+    # phone = fields.String()
+    # description = fields.String()
     confirmed = fields.Boolean(dump_only=True)
     active = fields.Boolean(dump_only=True)
-    gravatar_url = fields.Method("generate_gravatar_url", dump_only=True)
+    # gravatar_url = fields.Method("gravatar", dump_only=True)
     role_id = fields.Int(dump_only=True)
     role_name = fields.Method("get_role_name", dump_only=True)
     create_timestamp = fields.DateTime(dump_only=True)
     last_seen = fields.DateTime(dump_only=True)
-
-    def generate_gravatar_url(self, user):
-        __doc__ = """
-        Calls gravatar method for user, and outputs a fully qualified gravatar URL."""
-        return user.gravatar()
 
     def get_role_name(self, user):
         __doc__ = """

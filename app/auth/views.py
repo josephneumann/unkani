@@ -1,9 +1,10 @@
-from flask import render_template, redirect, request, url_for, flash, session, current_app
+from flask import render_template, redirect, request, url_for, flash, session, current_app, g
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_principal import identity_changed, Identity, AnonymousIdentity, identity_loaded, UserNeed, RoleNeed
 from app.flask_sendgrid import send_email
 from app.security import AppPermissionNeed, create_user_permission, app_permission_usercreate, \
     return_template_context_permissions
+from app.models import AnonymousUser
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from .. import sa
@@ -192,13 +193,16 @@ def reset_password(token):
 @identity_loaded.connect
 def on_identity_loaded(sender, identity):
     # Set the identity user object
-    identity.user = current_user
+    if getattr(g,'current_user', None):
+        identity.user = g.current_user
+    else:
+        identity.user = current_user
     # Add the UserNeed to the identity
-    if hasattr(current_user, 'id'):
-        identity.provides.add(UserNeed(current_user.id))
+    if hasattr(identity.user, 'id'):
+        identity.provides.add(UserNeed(identity.user.id))
     # Update the identity with the roles that the user provides
-    if hasattr(current_user, 'role_id'):
-        role = Role.query.filter_by(id=current_user.role_id).first()
+    if hasattr(identity.user, 'role_id'):
+        role = Role.query.filter_by(id=identity.user.role_id).first()
         identity.provides.add(RoleNeed(role.name))
         app_permissions = role.app_permissions
         for perm in app_permissions:

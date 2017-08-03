@@ -25,9 +25,6 @@ def send_async_email(data):
     api_key = app.config['SENDGRID_API_KEY']
     sg = SendGridAPIClient(apikey=api_key)
     response = sg.client.mail.send.post(request_body=data)
-    print(response.status_code)
-    print(response.headers)
-    print(response.body)
 
 
 def send_email(**kwargs):

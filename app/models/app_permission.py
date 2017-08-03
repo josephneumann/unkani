@@ -33,7 +33,7 @@ class AppPermission(sa.Model):
         from app.security import app_permissions_dict
         for p in app_permissions_dict:
             app_permission = AppPermission.query.filter_by(name=p).first()
-            if app_permission is None:
+            if app_permission is None:  # pragma: no cover
                 app_permission = AppPermission(name=p)
                 app_permission.id = app_permissions_dict[p]
                 sa.session.add(app_permission)

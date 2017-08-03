@@ -36,7 +36,7 @@
                         {% if current_user.is_authenticated %}
                             <li class="dropdown">
                                 <a href="#" class="btn btn-simple dropdown-toggle" data-toggle="dropdown">
-                                    <p>@{{ current_user.username }}<b class="caret"></b></p>
+                                    <p>@{{ current_user.username.lower() }}<b class="caret"></b></p>
                                 </a>
                                 <ul class="dropdown-menu">
                                     <li><a href="{{ url_for('dashboard.user_profile', userid = current_user.id) }}"><i class="ti ti-user"></i> My
@@ -46,6 +46,9 @@
                                 </ul>
                             </li>
                         {% else %}
+                            <li>
+                                <a href="{{ url_for('auth.register') }}" class="btn btn-simple">Register</a>
+                            </li>
                             <li>
                                 <a href="{{ url_for('auth.login') }}" class="btn btn-simple">Log In</a>
                             </li>
@@ -81,8 +84,8 @@
                         <h1 class="title">Unkani</h1>
                         <h3 class="text">healthcare data: simplified</h3>
                         <br/>
-                        <a class="btn btn-default btn-fill"><i class="fa fa-gavel"></i> Be the Judge</a>
-                        <a href="#" class="btn btn-default btn-fill"><i class="fa fa-code-fork"></i>Open Source</a>
+                        <a class="btn btn-default btn-fill"> Award Winning</a>
+                        <a href="https://github.com/josephneumann/unkani" class="btn btn-default btn-fill"><i class="fa fa-code-fork"></i>Open Source</a>
                     </div>
                 </div>
             </div>

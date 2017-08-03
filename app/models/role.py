@@ -16,7 +16,7 @@ class Role(sa.Model):
                                       secondary=role_app_permission,
                                       back_populates='roles')
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return '<Role %r>' % self.name
 
     @staticmethod

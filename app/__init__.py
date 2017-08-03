@@ -33,7 +33,6 @@ celery = Celery(__name__, broker=os.environ.get('CELERY_BROKER_URL', 'redis://')
                 backend=os.environ.get('CELERY_BROKER_URL', 'redis://'))
 ma = Marshmallow()
 
-
 from app.flask_sendgrid import send_async_email
 
 
@@ -47,7 +46,7 @@ def create_app(config_name):
     app.config.from_object(config[config_name])
     config[config_name].init_app(app)
 
-    if not app.config['SSL_DISABLE']:
+    if not app.config['SSL_DISABLE']:  # pragma: no cover
         from flask_sslify import SSLify
         sslify = SSLify(app)
 

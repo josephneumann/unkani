@@ -27,6 +27,7 @@ from app.flask_sendgrid import send_email
 @rate_limit(limit=5, period=15)
 @etag
 def get_users():
+    #TODO: Add filtering by app group info
 
     # Set variables for query to execute
     app_groups = g.current_user.app_groups
@@ -207,6 +208,7 @@ def get_user(userid):
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def new_user():
+    #TODO: Default app group to that of requesting user when creating.  Might need to set a default on assoc. table.
     """
     Register a new user
     """

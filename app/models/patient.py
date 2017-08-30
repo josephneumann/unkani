@@ -1,9 +1,10 @@
 from app import sa, ma
 from marshmallow import fields, post_load
 from app.utils.demographics import *
-from app.models.address import Address
-from app.models.email_address import EmailAddress
-from app.models.phone_number import PhoneNumber
+from app.utils.general import json_serial
+from app.models.address import Address, AddressSchema
+from app.models.email_address import EmailAddress, EmailAddressSchema
+from app.models.phone_number import PhoneNumber, PhoneNumberSchema
 from app.models.extensions import BaseExtension
 import hashlib, json
 
@@ -13,57 +14,78 @@ class Patient(sa.Model):
     __mapper_args__ = {'extension': BaseExtension()}
 
     id = sa.Column(sa.Integer, primary_key=True)
-    _first_name = sa.Column("first_name", sa.Text, index=True)
-    _last_name = sa.Column("last_name", sa.Text, index=True)
-    _middle_name = sa.Column("middle_name", sa.Text)
-    _suffix = sa.Column("suffix", sa.Text)
-    _sex = sa.Column("sex", sa.String(1))
-    _dob = sa.Column("dob", sa.Date, index=True)
-    _ssn = sa.Column("ssn", sa.Text)
-    _race = sa.Column("race", sa.Text)
-    _ethnicity = sa.Column("ethnicity", sa.Text)
-    _marital_status = sa.Column("marital_status", sa.String(1))
-    _deceased = sa.Column("deceased", sa.Boolean)
+    first_name = sa.Column(sa.Text, index=True)
+    last_name = sa.Column(sa.Text, index=True)
+    middle_name = sa.Column(sa.Text)
+    prefix = sa.Column(sa.Text)
+    suffix = sa.Column(sa.Text)
+    sex = sa.Column(sa.String)
+    dob = sa.Column(sa.Date, index=True)
+    ssn = sa.Column(sa.Text)
+    race = sa.Column(sa.Text)
+    ethnicity = sa.Column(sa.Text)
+    marital_status = sa.Column(sa.String(3))
+    deceased = sa.Column(sa.Boolean, default=False)
+    deceased_date = sa.Column(sa.Date)
+    multiple_birth = sa.Column(sa.Boolean, default=False)
+    preferred_language = sa.Column(sa.Text)
     created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
     updated_at = sa.Column(sa.DateTime)
-    row_hash = sa.Column(sa.Text)
-    email_addresses = sa.relationship("EmailAddress", back_populates="patient", cascade="all, delete, delete-orphan")
+    row_hash = sa.Column(sa.Text, index=True)
     addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="patient", lazy="dynamic",
                                 cascade="all, delete, delete-orphan")
+    email_addresses = sa.relationship("EmailAddress", order_by=EmailAddress.id.desc(), back_populates="patient",
+                                      lazy="dynamic",
+                                      cascade="all, delete, delete-orphan")
     phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="patient",
                                     lazy="dynamic",
                                     cascade="all, delete, delete-orphan")
 
     def __init__(self, first_name=None, last_name=None, middle_name=None, suffix=None, email=None,
-                 home_phone=None, cell_phone=None, work_phone=None, ssn=None, race=None, ethnicity=None, sex=None,
-                 dob=None, deceased=False, addresses=None, **kwargs):
-        self.first_name = first_name
-        self.middle_name = middle_name
-        self.last_name, self.suffix = normalize_lastname_suffix(last_name=last_name, suffix=suffix)
-        self.ssn = ssn
-        self.race = race
-        self.ethnicity = ethnicity
-        self.sex = sex
-        self.dob = dob
-        self.deceased = deceased
+                 home_phone=None, mobile_phone=None, work_phone=None, ssn=None, race=None, ethnicity=None, sex=None,
+                 dob=None, deceased=False, deceased_date=None, addresses=None, multiple_birth=None,
+                 preferred_language=None, **kwargs):
+        if first_name:
+            self.first_name = first_name
+        if middle_name:
+            self.middle_name = middle_name
+        if last_name:
+            self.last_name = last_name
+        if suffix:
+            self.suffix = suffix
+        if ssn:
+            self.ssn = ssn
+        if race:
+            self.race = race
+        if ethnicity:
+            self.ethnicity = ethnicity
+        if sex:
+            self.sex = sex
+        if dob:
+            self.dob = dob
+        if deceased:
+            self.deceased = deceased
+        if deceased_date:
+            self.deceased_date = deceased_date
+        if multiple_birth:
+            self.multiple_birth = multiple_birth
+        if preferred_language:
+            self.preferred_language = preferred_language
 
-        home_phone = normalize_phone(phone=home_phone)
-        cell_phone = normalize_phone(phone=cell_phone)
-        work_phone = normalize_phone(phone=work_phone)
         phone_list = []
 
         if home_phone:
-            home_phone = PhoneNumber(number=home_phone, type="H")
+            home_phone = PhoneNumber(number=home_phone, type="HOME")
             if home_phone:
                 phone_list.append(home_phone)
 
-        if cell_phone:
-            cell_phone = PhoneNumber(number=cell_phone, type="C")
-            if cell_phone:
-                phone_list.append(cell_phone)
+        if mobile_phone:
+            mobile_phone = PhoneNumber(number=mobile_phone, type="MOBILE")
+            if mobile_phone:
+                phone_list.append(mobile_phone)
 
         if work_phone:
-            work_phone = PhoneNumber(number=work_phone, type="W")
+            work_phone = PhoneNumber(number=work_phone, type="WORK")
             if work_phone:
                 phone_list.append(work_phone)
 
@@ -152,75 +174,12 @@ class Patient(sa.Model):
                 self.addresses.append(address)
 
     @property
-    def first_name(self):
-        return self._first_name
-
-    @first_name.setter
-    def first_name(self, first_name):
-        self._first_name = normalize_name(name=first_name)
-
-    @property
-    def last_name(self):
-        return self._last_name
-
-    @last_name.setter
-    def last_name(self, last_name):
-        self._last_name, self._suffix = normalize_lastname_suffix(last_name=last_name, suffix=self.suffix)
-
-    @property
-    def middle_name(self):
-        return self._middle_name
-
-    @middle_name.setter
-    def middle_name(self, middle_name):
-        self._middle_name = normalize_name(name=middle_name)
-
-    @property
-    def suffix(self):
-        return self._suffix
-
-    @suffix.setter
-    def suffix(self, suffix):
-        self._last_name, self._suffix = normalize_lastname_suffix(last_name=self.last_name, suffix=suffix)
-
-    @property
-    def sex(self):
-        return self._sex
-
-    @sex.setter
-    def sex(self, sex):
-        female_values = frozenset(["F", "FEMALE", "WOMAN", "GIRL"])
-        male_values = frozenset(["M", "MALE", "MAN", "BOY"])
-        unknown_values = frozenset(["U", "UNKNOWN"])
-        other_values = frozenset(["O", "OTHER", "N/A"])
-        if isinstance(sex, str):
-            sex = str(sex).upper().strip()
-            if sex in female_values:
-                self._sex = 'F'
-            if sex in male_values:
-                self._sex = 'M'
-            if sex in unknown_values:
-                self._sex = 'U'
-            if sex in other_values:
-                self._sex = 'O'
-
-    @property
-    def dob(self):
-        return self._dob
-
-    @dob.setter
-    def dob(self, dob):
-        dob = normalize_dob(dob=dob)
-        if dob:
-            self._dob = dob.date()
-
-    @property
     def home_phone(self):
         phone_list = self.phone_numbers
         if phone_list:
             home_phone = None
             for phone in phone_list:
-                if phone.type == "H":
+                if phone.type == "HOME":
                     home_phone = phone
             if home_phone:
                 return home_phone.number
@@ -230,15 +189,15 @@ class Patient(sa.Model):
             return None
 
     @property
-    def cell_phone(self):
+    def mobile_phone(self):
         phone_list = self.phone_numbers
         if phone_list:
-            cell_phone = None
+            mobile_phone = None
             for phone in phone_list:
-                if phone.type == "C":
-                    cell_phone = phone
-            if cell_phone:
-                return cell_phone.number
+                if phone.type == "MOBILE":
+                    mobile_phone = phone
+            if mobile_phone:
+                return mobile_phone.number
             else:
                 return None
         else:
@@ -250,7 +209,7 @@ class Patient(sa.Model):
         if phone_list:
             work_phone = None
             for phone in phone_list:
-                if phone.type == "W":
+                if phone.type == "WORK":
                     work_phone = phone
             if work_phone:
                 return work_phone.number
@@ -261,7 +220,7 @@ class Patient(sa.Model):
 
     @property
     def email(self):
-        email_list = self.email_addresses
+        email_list = self.email_addresses.all()
         primary_email = []
         if email_list:
             for email in email_list:
@@ -276,7 +235,7 @@ class Patient(sa.Model):
             email = EmailAddress(email=email, active=True, primary=True)
             if not email:
                 raise ValueError("A valid email is required to create a user.")
-            email_list = self.email_addresses
+            email_list = self.email_addresses.all()
             email_exists = False
             if email_list:
                 for item in email_list:
@@ -294,61 +253,6 @@ class Patient(sa.Model):
         else:
             raise ValueError("A string value was not passed to the email parameter.  Unable to set email for user.")
 
-    @property
-    def ssn(self):
-        return format_ssn(ssn=self._ssn)
-
-    @ssn.setter
-    def ssn(self, ssn):
-        n_ssn = normalize_ssn(ssn)
-        if n_ssn:
-            self._ssn = n_ssn
-
-    @property
-    def race(self):
-        return self._race
-
-    @race.setter
-    def race(self, race):
-        race = normalize_race(race=race)
-        if race:
-            self._race = race
-
-    @property
-    def ethnicity(self):
-        return self._ethnicity
-
-    @ethnicity.setter
-    def ethnicity(self, ethnicity):
-        ethnicity = normalize_ethnicity(ethnicity=ethnicity)
-        if ethnicity:
-            self._ethnicity = ethnicity
-
-    @property
-    def marital_status(self):
-        return self._marital_status
-
-    @marital_status.setter
-    def marital_status(self, marital_status):
-        marital_status = normalize_marital_status(status=marital_status)
-        if marital_status:
-            self._marital_status = marital_status
-
-    @property
-    def deceased(self):
-        return self._deceased
-
-    @deceased.setter
-    def deceased(self, deceased):
-        if self._deceased:
-            pass
-        else:
-            status = normalize_deceased(value=deceased)
-            if status:
-                self._deceased = True
-            else:
-                self._deceased = False
-
     ##############################################################################################
     # Patient RANDOMIZATION UTILITIES
     ##############################################################################################
@@ -363,65 +267,64 @@ class Patient(sa.Model):
         if not isinstance(demo_dict, dict):
             demo_dict = list(random_demographics(number=1))[0]
             demo_dict = dict(demo_dict)
-        self._first_name = demo_dict.get("first_name", None)
-        self._last_name = demo_dict.get("last_name", None)
-        self._middle_name = demo_dict.get("middle_name", None)
-        self._suffix = demo_dict.get("suffix", None)
-        self._dob = demo_dict.get("dob", None)
+        self.first_name = demo_dict.get("first_name", None)
+        self.last_name = demo_dict.get("last_name", None)
+        self.middle_name = demo_dict.get("middle_name", None)
+        self.suffix = demo_dict.get("suffix", None)
+        self.dob = demo_dict.get("dob", None)
         self.email = demo_dict.get("email", None)
-        self._sex = demo_dict.get("sex", None)
+        self.sex = demo_dict.get("sex", None)
         self.ssn = demo_dict.get("ssn", None)
-        self._race = demo_dict.get("race", None)
-        self._ethnicity = demo_dict.get("ethnicity", None)
-        self._marital_status = demo_dict.get("marital_status", None)
-        self._deceased = demo_dict.get("deceased", False)
+        self.race = demo_dict.get("race", None)
+        self.ethnicity = demo_dict.get("ethnicity", None)
+        self.marital_status = demo_dict.get("marital_status", None)
+        self.deceased = demo_dict.get("deceased", False)
+        self.preferred_language = random_language()
 
         addr = Address()
-        addr._address1 = demo_dict.get("address1", None)
-        addr._address2 = demo_dict.get("address2", None)
-        addr._city = demo_dict.get("city", None)
-        addr._state = demo_dict.get("state", None)
-        addr._zipcode = demo_dict.get("zipcode", None)
+        addr.address1 = demo_dict.get("address1", None)
+        addr.address2 = demo_dict.get("address2", None)
+        addr.city = demo_dict.get("city", None)
+        addr.state = demo_dict.get("state", None)
+        addr.zipcode = demo_dict.get("zipcode", None)
         addr.active = True
         addr.primary = True
         self.addresses.append(addr)
 
         phone_list = []
         home_phone = demo_dict.get("home_phone", None)
-        cell_phone = demo_dict.get("cell_phone", None)
+        mobile_phone = demo_dict.get("mobile_phone", None)
         work_phone = demo_dict.get("work_phone", None)
 
         if home_phone:
-            home_phone = PhoneNumber(number=home_phone, type="H")
+            home_phone = PhoneNumber(number=home_phone, type="HOME")
             if home_phone:
                 phone_list.append(home_phone)
 
-        if cell_phone:
-            cell_phone = PhoneNumber(number=cell_phone, type="C")
-            if cell_phone:
-                phone_list.append(cell_phone)
+        if mobile_phone:
+            mobile_phone = PhoneNumber(number=mobile_phone, type="MOBILE")
+            if mobile_phone:
+                phone_list.append(mobile_phone)
 
         if work_phone:
-            work_phone = PhoneNumber(number=work_phone, type="W")
+            work_phone = PhoneNumber(number=work_phone, type="WORK")
             if work_phone:
                 phone_list.append(work_phone)
 
         if phone_list:
+            prim_ph = random.choice(phone_list)
+            prim_ph.primary = True
             for number in phone_list:
                 self.phone_numbers.append(number)
 
     def generate_row_hash(self):
-        if self.dob:
-            dob_str = self.dob.strftime("YYYYMMDD")
-        else:
-            dob_str = None
-        data = {"first_name": self.first_name, "last_name": self.last_name,
-                "middle_name": self.middle_name, "sex": self.sex, "dob": dob_str,
-                "ssn": self.ssn, "race": self.race, "ethnicity": self.ethnicity,
-                "marital_status": self.marital_status, "deceased": self.deceased, "suffix": self.suffix}
-        for key in data:
-            data[key] = str(data[key])
-        data_str = json.dumps(data, sort_keys=True)
+        data = {"first_name": self.first_name, "last_name": self.last_name, "middle_name": self.middle_name,
+                "dob": self.dob, "sex": self.sex, "prefix": self.prefix, "suffix": self.suffix, "race": self.race,
+                "ethnicity": self.ethnicity, "marital_status": self.marital_status, "deceased": self.deceased,
+                "deceased_date": self.deceased_date, "multiple_birth": self.multiple_birth, "ssn": self.ssn,
+                "preferred_language": self.preferred_language}
+
+        data_str = json.dumps(data, sort_keys=True, default=json_serial)
         data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
         return data_hash
 
@@ -433,33 +336,39 @@ class Patient(sa.Model):
 
 
 class PatientSchema(ma.Schema):
-    __doc__ = """
+    """
     Marshmallow schema, associated with SQLAlchemy Patient model.  Used as a base object for
     serialization and de-serialization.  Defines read-only and write only attributes for basic
     object use.  Defines validation criteria for input."""
-    # TODO: Review and finalize Marshmallow schema for Patient model
-    id = fields.Int(dump_only=True)
-    first_name = fields.String()
-    last_name = fields.String()
-    middle_name = fields.String()
-    sex = fields.String()
-    dob = fields.Date()
-    ssn = fields.String()
-    race = fields.String()
-    ethnicity = fields.String()
-    marital_status = fields.String()
-    email = fields.Email()
-    home_phone = fields.String()
-    cell_phone = fields.String()
-    work_phone = fields.String()
-    deceased = fields.Boolean()
-    created_at = fields.DateTime(dump_only=True)
-    updated_at = fields.DateTime(dump_only=True)
-    row_hash = fields.String(dump_only=True)
+
+    class Meta:
+        exclude = ('addresses.patient_id', 'phone_numbers.patient_id', 'email_addresses.patient_id',
+                   'addresses.user_id', 'phone_numbers.user_id', 'email_addresses.user_id')
+        ordered = False
+
+    id = fields.Integer(attribute="id", dump_only=True)
+    first_name = fields.String(attribute="first_name")
+    last_name = fields.String(attribute="last_name")
+    middle_name = fields.String(attribute="middle_name")
+    prefix = fields.String(attribute="prefix")
+    suffix = fields.String(attribute="suffix")
+    sex = fields.String(attribute='sex')
+    dob = fields.Date(attribute='dob')
+    ssn = fields.String(attribute='ssn')
+    race = fields.String(attribute='race')
+    ethnicity = fields.String(attribute='ethnicity')
+    marital_status = fields.String(attribute='marital_status')
+    addresses = fields.Nested(attribute='addresses', nested=AddressSchema, default=None, many=True)
+    email_addresses = fields.Nested(attribute='email_addresses', nested=EmailAddressSchema, default=None, many=True)
+    phone_numbers = fields.Nested(attribute='phone_numbers', nested=PhoneNumberSchema, default=None, many=True)
+    deceased = fields.Boolean(attribute='deceased')
+    deceased_date = fields.Date(attribute='deceased_date')
+    multiple_birth = fields.Boolean(attribute='multiple_birth')
+    preferred_language = fields.String(attribute='preferred_language')
+    created_at = fields.DateTime(attribute='created_at')
+    updated_at = fields.DateTime(attribute='updated_at')
+    row_hash = fields.String(attribute='row_hash')
 
     @post_load
     def make_patient(self, data):
         return Patient(**data)
-
-
-patient_schema = PatientSchema()

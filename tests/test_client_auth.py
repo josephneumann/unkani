@@ -144,7 +144,7 @@ class AuthViewsFormsTestCase(BaseClientTestCase):
         response = self.client.get(url_for('auth.unconfirmed'), follow_redirects=False)
         self.assertRedirects(response, location=url_for('main.landing'))
 
-        # Test that further requests to confirmation page are redirected to index
+        # Test that further client.py to confirmation page are redirected to index
         response = self.client.get(url_for('auth.confirm', token=token1),
                                    follow_redirects=False)
         self.assertRedirects(response=response, location=url_for('main.landing'))

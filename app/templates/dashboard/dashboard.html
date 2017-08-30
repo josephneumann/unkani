@@ -24,7 +24,7 @@
         <div class="sidebar-wrapper">
             <div class="user">
                 <div class="photo">
-                    <img src="{{ current_user.gravatar }}" alt="user gravatar"/>
+                    <img src="{{ current_user.gravatar_url() }}" alt="user gravatar"/>
                 </div>
                 <div class="info">
                     <a data-toggle="collapse" href="#collapseExample" class="collapsed">
@@ -139,7 +139,7 @@
                         <li class="dropdown">
                             <a href="#" class="dropdown-toggle btn-move-left" data-toggle="dropdown">
                                 {#                                <i class="ti-user"></i>#}
-                                <img class="img-rounded" src="{{ current_user.email.gravatar(size=25) }}"
+                                <img class="img-rounded" src="{{ current_user.gravatar_url(size=25) }}"
                                      alt="user gravatar">
                                 <p>Account</p>
                             </a>

@@ -6,6 +6,8 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hfwznel2805lkd43o98udnj'
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
     UNKANI_ADMIN = os.environ.get('UNKANI_ADMIN_EMAIL') or 'app.unkani@gmail.com'
+    UNKANI_ADMIN_EMAIL = os.environ.get('UNKANI_ADMIN_EMAIL')
+    UNKANI_ADMIN_PASSWORD = os.environ.get('UNKANI_ADMIN_PASSWORD')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SENTRY_DSN = os.environ.get('SENTRY_DSN')
     SENTRY_USER_ATTRS = ['username', 'first_name', 'last_name', 'email']
@@ -32,10 +34,12 @@ class Config:
 class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
-    EMAIL_OFF = False
+    EMAIL_OFF = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SSL_DISABLE = True
     SENTRY_DISABLE = True
+    USE_RATE_LIMITS = True
+
 
 class TestingConfig(Config):
     DEBUG = True
@@ -47,6 +51,9 @@ class TestingConfig(Config):
     CELERY_ALWAYS_EAGER = True
     SSL_DISABLE = True
     SENTRY_DISABLE = True
+    USE_RATE_LIMITS = False
+
+
 
 class StagingConfig(Config):
     DEBUG = False
@@ -55,6 +62,8 @@ class StagingConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SSL_DISABLE = False
     SENTRY_DISABLE = False
+    USE_RATE_LIMITS = False
+
 
 
 class ProductionConfig(Config):
@@ -64,6 +73,7 @@ class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SSL_DISABLE = False
     SENTRY_DISABLE = False
+    USE_RATE_LIMITS = True
 
 
     @classmethod

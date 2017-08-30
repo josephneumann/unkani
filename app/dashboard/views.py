@@ -8,6 +8,9 @@ from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
 from .. import sa
 from app.models import User, EmailAddress, Patient
+from app.models.user import lookup_user_by_email, lookup_user_by_username
+from app.api_v1.email_addresses import EmailAddressAPI
+from app.api_v1.users import UserAPI
 
 
 @dashboard.before_request
@@ -26,8 +29,8 @@ def dashboard_context_processor():
 def change_password(userid):
     form = ChangePasswordForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userpasswordchange],
-                                                     self_permissions=[app_permission_userpasswordchange]):
+    if not user.is_accessible(requesting_user=current_user, other_permissions=[app_permission_userpasswordchange],
+                              self_permissions=[app_permission_userpasswordchange]):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
               'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
@@ -49,25 +52,25 @@ def change_password(userid):
 def change_email_request(userid):
     form = ChangeEmailForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userprofileupdate],
-                                                     self_permissions=[app_permission_userprofileupdate]):
+    if not user.is_accessible(requesting_user=current_user, other_permissions=[app_permission_userprofileupdate],
+                              self_permissions=[app_permission_userprofileupdate]):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
               'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if form.validate_on_submit():
         if user.verify_password(form.password.data):
             new_email = form.new_email.data
-            try:
-                new_email = EmailAddress(email=new_email, primary=False, active=False)
-            except:
+            api = EmailAddressAPI(email=new_email, primary=True, active=True)
+            api.run_validations()
+            if api.errors['critical']:
                 flash(
                     """A new email could not be created from the form data provided.  
                     You were re-directed to your own profile instead.""",
                     'danger')
                 return redirect(url_for('dashboard.user_profile', userid=user.id))
+            new_email, errors = api.make_object()
             if isinstance(new_email, EmailAddress):
-                matching_email = sa.session.query(EmailAddress).join(User).filter(
-                    EmailAddress._email == new_email.email).first()
+                matching_email = lookup_user_by_email(email=new_email.email)
                 if matching_email:
                     if matching_email.user == user:
                         token = user.generate_email_change_token(new_email=matching_email.email)
@@ -119,38 +122,58 @@ def dashboard_main():
 def user_profile(userid):
     form = UpdateUserProfileForm()
     user = User.query.filter_by(id=userid).first_or_404()
-    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userprofileupdate],
-                                                     self_permissions=[app_permission_userprofileupdate]):
+    if not user.is_accessible(requesting_user=current_user, other_permissions=[app_permission_userprofileupdate],
+                              self_permissions=[app_permission_userprofileupdate]):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
               'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if form.validate_on_submit():
-        username = None
-        if form.username.data.upper().strip() != user.username.upper().strip():
-            if User.query.filter_by(_username=form.username.data.upper().strip()).first():
-                flash(
-                    'The username {} is already taken. We kept your username the same.'.format(form.username.data),
-                    'danger')
-                n_username = None
-            else:
-                n_username = form.username.data
-        else:
-            n_username = None
-        if n_username:
-            user.username = username.lower()
-        user.first_name = form.first_name.data
-        user.last_name = form.last_name.data
-        user.phone = form.phone.data
-        user.dob = form.dob.data
-        user.description = form.about_me.data
-        sa.session.add(user)
-        flash('Your profile has been updated.', 'success')
+        api = UserAPI()
+        api.user = user
+        api.username = form.username.data
+        api.first_name = form.first_name.data
+        api.last_name = form.last_name.data
+        api.dob = form.dob.data
+        api.description = form.about_me.data
+        api.phone_number = form.phone.data
+
+        api.run_validations()
+
+        if not api.errors['critical'].get('username'):
+            if api.username and api.username != api.user.username:
+                username_match = lookup_user_by_username(api.username)
+                if username_match and username_match != api.user:
+                    api.errors['critical']['username'] = 'The username {} is already registered.'.format(api.username)
+                    api.username = None
+
+        if api.errors['critical']:
+            for key in api.errors['critical']:
+                if isinstance(api.errors['critical'][key], dict):
+                    for nested_key in api.errors['critical'][key]:
+                        flash(api.errors['critical'][key][nested_key], 'danger')
+                flash(api.errors['critical'][key], 'danger')
+            flash('User could not be updated due to critical errors.', 'danger')
+
+        if api.errors['warning']:
+            for key in api.errors['warning']:
+                if isinstance(api.errors['warning'][key], dict):
+                    for nested_key in api.errors['warning'][key]:
+                        flash(api.errors['warning'][key][nested_key], 'warning')
+                else:
+                    flash(api.errors['warning'][key], 'warning')
+
+        if not api.errors['critical']:
+            updated_user, errors = api.make_object()
+            if updated_user:
+                sa.session.add(updated_user)
+                flash('User profile has been updated.', 'success')
 
     form.username.data = user.username.lower()
     form.first_name.data = user.first_name.title()
     form.last_name.data = user.last_name.title()
-    form.dob.data = getattr(user.dob, 'dob', None)
-    form.phone.data = getattr(user.phone, 'number', None)
+    form.dob.data = getattr(user, 'dob', None)
+    if user.phone_number:
+        form.phone.data = user.phone_number.formatted_phone
     form.about_me.data = getattr(user, 'description', None)
     return render_template('dashboard/user_profile.html', form=form, user=user)
 
@@ -158,8 +181,8 @@ def user_profile(userid):
 @dashboard.route('/user/<int:userid>/deactivate', methods=['GET'])
 def deactivate_user(userid):
     user = User.query.get_or_404(userid)
-    if not current_user.has_access_to_user_operation(user=user, other_permissions=[app_permission_userdeactivate],
-                                                     self_permissions=[app_permission_userdeactivate]):
+    if not user.is_accessible(requesting_user=current_user, other_permissions=[app_permission_useractivation],
+                              self_permissions=[app_permission_useractivation]):
         flash("You do not have permission to deactivate user with id {}".format(userid))
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if user.id == current_user.id:
@@ -183,7 +206,7 @@ def admin_user_list():
         abort(403)
     userlist = User.query.order_by(User.id).all()
     for user in userlist:
-        if not current_user.has_access_to_user_operation(user=user):
+        if not user.is_accessible(requesting_user=current_user):
             userlist.pop(userlist.index(user))
     return render_template('dashboard/admin_user_list.html', userlist=userlist)
 
@@ -199,9 +222,9 @@ def admin_patient_list():
 @dashboard.route('/admin/user/<int:userid>/confirm', methods=['GET'])
 def force_confirm_user(userid):
     user = User.query.get_or_404(userid)
-    if not current_user.has_access_to_user_operation(user=user,
-                                                     other_permissions=[app_permission_userforceconfirmation],
-                                                     self_permissions=[app_permission_userforceconfirmation]):
+    if not user.is_accessible(requesting_user=current_user,
+                              other_permissions=[app_permission_userforceconfirmation],
+                              self_permissions=[app_permission_userforceconfirmation]):
         flash("You do not have permission to confirm user with id {}".format(user.id), 'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if user.confirmed:
@@ -217,9 +240,9 @@ def force_confirm_user(userid):
 @dashboard.route('/admin/user/<int:userid>/unconfirm', methods=['GET'])
 def revoke_user_confirmation(userid):
     user = User.query.get_or_404(userid)
-    if not current_user.has_access_to_user_operation(user=user,
-                                                     other_permissions=[app_permission_userforceconfirmation],
-                                                     self_permissions=[app_permission_userforceconfirmation]):
+    if not user.is_accessible(requesting_user=current_user,
+                              other_permissions=[app_permission_userforceconfirmation],
+                              self_permissions=[app_permission_userforceconfirmation]):
         flash("You do not have permission to un-confirm user with id {}".format(user.id), 'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     if not user.confirmed:
@@ -235,9 +258,9 @@ def revoke_user_confirmation(userid):
 @dashboard.route('/admin/user/<int:userid>/reset_password', methods=['GET'])
 def reset_user_password(userid):
     user = User.query.get_or_404(userid)
-    if not current_user.has_access_to_user_operation(user=user,
-                                                     other_permissions=[app_permission_userpasswordreset],
-                                                     self_permissions=[app_permission_userpasswordreset]):
+    if not user.is_accessible(requesting_user=current_user,
+                              other_permissions=[app_permission_userpasswordreset],
+                              self_permissions=[app_permission_userpasswordreset]):
         flash("You do not have permission to confirm user with id {}".format(user.id), 'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     token = user.generate_reset_token()

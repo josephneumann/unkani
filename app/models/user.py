@@ -1,20 +1,21 @@
 import os, hashlib, json
-from random import randint
-from app.security import *
-from app.models.email_address import EmailAddress
-from sqlalchemy.ext.hybrid import Comparator
-from flask import current_app
-from flask_login import UserMixin, AnonymousUserMixin
-from marshmallow import fields, ValidationError, post_load, validates
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+from flask import current_app, g
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy import func
+from flask_login import UserMixin, AnonymousUserMixin, current_user
+from marshmallow import fields, ValidationError
+from itsdangerous import TimedJSONWebSignatureSerializer as TimedSerializer, JSONWebSignatureSerializer as Serializer
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import sa, login_manager, ma
+from app.models.email_address import EmailAddress
 from app.models.role import Role
-from app.models.address import Address
+from app.models.address import Address, AddressSchema
 from app.models.phone_number import PhoneNumber
 from app.models.extensions import BaseExtension
+from app.models.app_group import user_app_group, AppGroup, AppGroupSchema
 from app.utils.demographics import *
+from app.utils.general import json_serial, url_for
 
 
 ##################################################################################################
@@ -34,201 +35,104 @@ class User(UserMixin, sa.Model):
     __mapper_args__ = {'extension': BaseExtension()}
 
     id = sa.Column(sa.Integer, primary_key=True)
-    _username = sa.Column("username", sa.Text, unique=True, index=True)
-    email_addresses = sa.relationship("EmailAddress", back_populates="user", cascade="all, delete, delete-orphan")
+    username = sa.Column("username", sa.Text, unique=True, index=True)
     role_id = sa.Column(sa.Integer, sa.ForeignKey('role.id'), index=True)
-    password_hash = sa.Column(sa.Text)
-    last_password_hash = sa.Column(sa.Text)
-    password_timestamp = sa.Column(sa.DateTime)
-    _first_name = sa.Column("first_name", sa.Text, index=True)
-    _last_name = sa.Column("last_name", sa.Text, index=True)
-    _dob = sa.Column("dob", sa.Date, index=True)
-    _sex = sa.Column("sex", sa.String(length=1))
-    phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
-                                    lazy="dynamic",
-                                    cascade="all, delete, delete-orphan")
+    first_name = sa.Column("first_name", sa.Text, index=True)
+    last_name = sa.Column("last_name", sa.Text, index=True)
+    dob = sa.Column("dob", sa.Date, index=True)
+    sex = sa.Column("sex", sa.Text())
     description = sa.Column(sa.Text)
     confirmed = sa.Column(sa.Boolean, default=False)
     active = sa.Column(sa.Boolean, default=True)
+    password_hash = sa.Column(sa.Text)
+    last_password_hash = sa.Column(sa.Text)
+    password_timestamp = sa.Column(sa.DateTime)
+    email_addresses = sa.relationship("EmailAddress", back_populates="user", lazy="dynamic",
+                                      cascade="all, delete, delete-orphan")
+    phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
+                                    lazy="dynamic",
+                                    cascade="all, delete, delete-orphan")
     addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="user",
-                                cascade="all, delete, delete-orphan")
+                                lazy="dynamic", cascade="all, delete, delete-orphan")
+    app_groups = sa.relationship('AppGroup',
+                                 secondary=user_app_group,
+                                 back_populates='users')
     last_seen = sa.Column(sa.DateTime)
     created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
     updated_at = sa.Column(sa.DateTime)
-    row_hash = sa.Column(sa.Text)
+    row_hash = sa.Column(sa.Text, index=True)
 
-    def __init__(self, username=None, first_name=None, last_name=None, dob=None, email=None, description=None,
-                 phone_number=None, password=None, role_id=None, confirmed=False, active=True, **kwargs):
+    def __init__(self, username=None, first_name=None, last_name=None, dob=None, description=None,
+                 password=None, sex=None, role_id=None, confirmed=False, active=True, **kwargs):
         self.username = username
-        if email:
-            email = EmailAddress(email=email, active=True, primary=True)
-        if email:
-            self.email_addresses.append(email)
-            if str(email.email).lower() == current_app.config['UNKANI_ADMIN']:
-                self.role = Role.query.filter_by(name='Super Admin').first()
-        if password:
-            self.password = password
+        self.password = password
+        self.dob = dob
+        self.first_name = first_name
+        self.last_name = last_name
+        self.sex = sex
+        self.description = description
+        self.confirmed = confirmed
+        self.active = active
+
         if isinstance(role_id, int):
             role = Role.query.get(role_id)
             if role:
                 self.role = role
+
         if not self.role:
-            self.role = Role.query.filter_by(default=True).first()
-
-        self.first_name = first_name
-        self.last_name = last_name
-        self.dob = dob
-        self.description = description
-
-        if phone_number:
-            phone_number = PhoneNumber(number=phone_number, type="C", active=True)
-            if phone_number:
-                self.phone_numbers.append(phone_number)
-        self.confirmed = confirmed
-        self.active = active
+            role = Role.query.filter_by(default=True).first()
+            self.role = role
 
     def __repr__(self):  # pragma: no cover
         __doc__ = """
         Represents user model instance as a username string"""
-        return '<User %r>' % self.username
+        return '<User {}:{}>'.format(self.id, self.username)
 
-    #########################################
-    # USER ATTRIBUTE NORMALIZATION PROPERTIES
-    #########################################
+    ############################################
+    # USER PROPERTY HANDLERS FOR RELATED MODELS
+    ############################################
 
-    @property
-    def username(self):
-        return self._username
-
-    @username.setter
-    def username(self, username):
-        if isinstance(username, str):
-            username = username.upper().strip()
-            self._username = username
-
-    @property
-    def first_name(self):
-        return self._first_name
-
-    @first_name.setter
-    def first_name(self, first_name):
-        self._first_name = normalize_name(name=first_name)
-
-    @property
-    def last_name(self):
-        return self._last_name
-
-    @last_name.setter
-    def last_name(self, last_name):
-        self._last_name = normalize_name(name=last_name)
-
-    @property
-    def sex(self):
-        return self._sex
-
-    @sex.setter
-    def sex(self, sex):
-        sex = normalize_sex(sex=sex)
-        if sex:
-            self._sex = sex
-
-    @property
-    def dob(self):
-        return self._dob
-
-    @property
-    def dob_string(self):
-        __doc__ = """
-        Represent User's DOB as a string with format 'YYYY-MM-DD'
-        """
-        if self.dob:
-            return self.dob.strftime('%Y-%m-%d')
-        else:
-            return None
-
-    @dob.setter
-    def dob(self, dob):
-        dob = normalize_dob(dob=dob)
-        if dob:
-            self._dob = dob.date()
-
-    @property
+    @hybrid_property
     def email(self):
-        email_list = self.email_addresses
-        primary_email = []
-        if email_list:
-            for email in email_list:
-                if email.active and email.primary:
-                    primary_email.append(email)
-            if primary_email:
-                return primary_email[0]
+        """Returns the primary email for the account.
+        Users may only have one Active and Primary email per account
+        All other emails (old emails) must be inactive and non primary
+        """
+        return self.email_addresses.filter(EmailAddress.primary == True).filter(EmailAddress.active == True).first()
 
     @email.setter
     def email(self, email=None):
-        if isinstance(email, str):
-            email = EmailAddress(email=email, active=True, primary=True)
-            if not email:
-                raise ValueError("A valid email string is required to create a user.")
-        elif isinstance(email, EmailAddress):
-            email = email
-        else:
-            raise TypeError("A valid email string or Email object was not passed to the setter method for user.email")
-        if email:
-            email_list = self.email_addresses
-            email_exists = False
-            if email_list:
-                for item in email_list:
-                    if item.email == email.email:
-                        item.active = True
-                        item.primary = True
-                        email_exists = True
-                    else:
-                        if item.active:
-                            item.active = False
-                        if item.primary:
-                            item.primary = False
-            if not email_exists:
-                self.email_addresses.append(email)
-        else:
-            raise ValueError("An email could not be created for the values provided to the setter method for email.")
+        raise AttributeError('This property is read-only.')
 
     @property
-    def phone(self):
-        phone_list = self.phone_numbers
-        if phone_list:
-            for phone in phone_list:
-                if phone.active:
-                    return phone
-        else:
-            return None
+    def phone_number(self):
+        """Returns the primary phone number for the account.
+        Users may only have one Active and Primary phone number per account
+        All other phone numbers (old) must be inactive and non primary
+        """
+        return self.phone_numbers.filter(PhoneNumber.primary == True).filter(PhoneNumber.active == True).first()
 
-    @phone.setter
-    def phone(self, phone=None):
-        if isinstance(phone, str):
-            phone = PhoneNumber(number=phone, type='C', active=True)
-            if not isinstance(phone, PhoneNumber):
-                raise ValueError("A valid phone string is required to create a PhoneNumber object.")
-        elif isinstance(phone, PhoneNumber):
-            phone = phone
-        else:
-            raise TypeError(
-                "A valid phone number string or PhoneNumber object was not passed to the setter method for user.phone")
-        if phone:
-            phone_list = self.phone_numbers
-            phone_exists = False
-            if phone_list:
-                for item in phone_list:
-                    if item.number == phone.number:
-                        item.active = True
-                        phone_exists = True
-                    else:
-                        if item.active:
-                            item.active = False
-            if not phone_exists:
-                self.phone_numbers.append(phone)
-        else:
-            raise ValueError(
-                "An phone number could not be created for the values provided to the setter method for phone.")
+    @phone_number.setter
+    def phone_number(self, phone=None):
+        raise AttributeError('This property is read-only.')
+
+    @property
+    def address(self):
+        """Returns the primary address for the account.
+        Users may only have one Active and Primary address per account
+        All other addresses (old) must be inactive and non primary
+        """
+        return self.addresses.filter(Address.primary == True).filter(Address.active == True).first()
+
+    @address.setter
+    def address(self, address=None):
+        raise AttributeError('This property is read-only.')
+
+    ####################################
+    # RESOURCE URL BUILDER
+    ####################################
+    def get_url(self):
+        return url_for('api_v1.get_user', userid=self.id, _external=True)
 
     ####################################
     # PASSWORD HASHING AND VERIFICATION
@@ -246,10 +150,16 @@ class User(UserMixin, sa.Model):
         Defines setter method for property 'password'.  The string passed as the password
         parameter is converted to salted hash and stored in database.  The former password hash
         is archived in the 'last_password_hash' attribute."""
-        if self.password_hash:
-            self.last_password_hash = self.password_hash
-        self.password_hash = generate_password_hash(password, method='pbkdf2:sha1', salt_length=8)
-        self.password_timestamp = datetime.utcnow()
+        if password:
+            pw_hash = unkani_password_hasher(password=password)
+            if self.password_hash:
+                if pw_hash != self.password_hash:
+                    self.last_password_hash = self.password_hash
+                    self.password_hash = pw_hash
+                    self.password_timestamp = datetime.utcnow()
+            else:
+                self.password_hash = pw_hash
+                self.password_timestamp = datetime.utcnow()
 
     def verify_password(self, password):
         __doc__ = """
@@ -265,7 +175,7 @@ class User(UserMixin, sa.Model):
         __doc__ = """
         Generates a Timed JSON Web Signature encoding the user's id using the application
         SECRET KEY.  Also encodes a key-value pair for account confirmation."""
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
+        s = TimedSerializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'confirm': self.id})
 
     def confirm(self, token):
@@ -273,7 +183,7 @@ class User(UserMixin, sa.Model):
         Loads Timed JSON web signature. Decodes using application Secret Key.  If user
         that is encrypted in the token is un-confirmed, sets user.confirmed boolean to True"""
         # TODO: Move confirmation boolean and process to email_address record instead of user
-        s = Serializer(current_app.config['SECRET_KEY'])
+        s = TimedSerializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
         except:
@@ -288,7 +198,7 @@ class User(UserMixin, sa.Model):
         __doc__ = """
         Generates a Timed JSON Web Signature encoding the user's id using the application
         SECRET KEY.  Also encodes a key-value pair for account password reset."""
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
+        s = TimedSerializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'reset': self.id})
 
     def reset_password(self, token, new_password):
@@ -296,7 +206,7 @@ class User(UserMixin, sa.Model):
         Decode and validate a Time JSON Web Signature supplied as the 'Token' variable. Ensure
         that the id encoded in the token matches the expected user.  Update the user password attribute
         with the password supplied in the parameter 'new_password'."""
-        s = Serializer(current_app.config['SECRET_KEY'])
+        s = TimedSerializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
         except:
@@ -311,7 +221,7 @@ class User(UserMixin, sa.Model):
         __doc__ = """
         Generates a Timed JSON Web Signature encoding the user's id using the application
         SECRET KEY.  Also encodes a key-value pair for email change and validation."""
-        s = Serializer(current_app.config['SECRET_KEY'], expiration)
+        s = TimedSerializer(current_app.config['SECRET_KEY'], expiration)
         return s.dumps({'change_email': self.id, 'new_email': new_email})
 
     def process_change_email_token(self, token):
@@ -320,7 +230,7 @@ class User(UserMixin, sa.Model):
         that the id encoded in the token matches the expected user.  Check for a 'change_password'
         key in the token with a value matching the current user id.  If match exists for specified
         user, update the user email with the email supplied in the token as 'new_email'."""
-        s = Serializer(current_app.config['SECRET_KEY'])
+        s = TimedSerializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
         except:
@@ -331,7 +241,7 @@ class User(UserMixin, sa.Model):
         if not new_email:
             raise ValueError("An email address was not included in the change email request token.")
         matching_email = sa.session.query(EmailAddress).filter(EmailAddress.user_id == self.id).filter(
-            EmailAddress._email == new_email).first()
+            EmailAddress.email == new_email).first()
         if matching_email:
             self.email = matching_email
             sa.session.add(self)
@@ -360,7 +270,7 @@ class User(UserMixin, sa.Model):
         if email matches, False if not."""
         email = str(email).strip().upper()
         previous_email = sa.session.query(EmailAddress).join(User).filter(EmailAddress.user == self).filter(
-            EmailAddress._primary == False).order_by(EmailAddress.updated_at.desc()).first()
+            EmailAddress.primary == False).order_by(EmailAddress.updated_at.desc()).first()
         if previous_email and previous_email.email == email:
             return True
         else:
@@ -434,11 +344,11 @@ class User(UserMixin, sa.Model):
         else:
             return False
 
-    def has_access_to_user_operation(self, user, other_permissions=[None], self_permissions=[None]):
+    def is_accessible(self, requesting_user, other_permissions=[], self_permissions=[]):
         __doc__ = """
         User Method:
-        Helper function that checks whether the base user object should have
-        access to perform operations on their own user record, or another user record.
+        Helper function that checks whether the base user object should be
+        accessible to perform operations on their own user record, or another user record.
 
         The method first checks whether the identity of the user passed in the 'user' parameter matches the current
         supplied identity in the session and request via Flask-Principal's Permission object.  If the identities match,
@@ -478,39 +388,55 @@ class User(UserMixin, sa.Model):
             Default is: None
 
         """
-        if isinstance(user, int):
-            user = User.query.get(user)
-        if not user:
-            raise ValidationError("User could not be found.")
-        has_access = False
-        if test_user_permission(user.id):
-            has_access = True
-            if self_permissions[0] is not None:
-                for permission in self_permissions:
-                    if not permission.can():
-                        has_access = False
-                        break
-        elif self.has_higher_permission(user=user):
-            has_access = True
-            if other_permissions[0] is not None:
-                for permission in other_permissions:
-                    if not permission.can():
-                        has_access = False
-                        break
-        if has_access:
-            return True
-        return False
+        if requesting_user:
+            if isinstance(requesting_user, int):
+                requesting_user = User.query.get(requesting_user)
+                print('detected userid input')
+                if not requesting_user:
+                    raise ValueError("User could not be found.")
+        else:
+            if current_user and not current_user.is_anonymous():
+                requesting_user = current_user
+            else:
+                raise ValueError("No user was supplied and no logged in user was detected.")
+
+        # Stuff to check is user is accessing their own record
+        if self.id == requesting_user.id:
+            print('user is themself!')
+            # If self_permissions param is set, make sure all of those permissions are allowed
+            if self_permissions:
+                print('checking self permissions')
+                for perm in self_permissions:
+                    if not perm.can():
+                        print('self permission failure')
+                        return False
+        # Stuff to check is user is accessing another user
+        else:
+            print('checking other user permissions')
+            # Check for overlap between app groups.  If no shared group, deny access
+            if not (set(self.app_groups) & set(requesting_user.app_groups)):
+                print('app group overlap not detected')
+                return False
+            if not requesting_user.has_higher_permission(user=self):
+                print('role permission level check failure')
+                return False
+            if other_permissions:
+                print('checking other permissions')
+                for perm in other_permissions:
+                    if not perm.can():
+                        print('permission failure: {}'.format(perm))
+                        return False
+        print('Everything passes!')
+        return True
 
     #####################################
     # AVATAR HASHING AND GRAVATAR SUPPORT
     #####################################
-    @property
-    def gravatar(self):
+    def gravatar_url(self, size=100):
+        """Returns Gravatar URL from primary user EmailAddress"""
         primary_email = self.email
-        if not primary_email:
-            return None
-        elif isinstance(primary_email, EmailAddress):
-            return primary_email.gravatar()
+        if primary_email:
+            return primary_email.gravatar_url(size=size)
 
     #####################################
     # MISC UTILITY PROPERTIES AND METHODS
@@ -532,6 +458,16 @@ class User(UserMixin, sa.Model):
         self.last_seen = datetime.utcnow()
         sa.session.add(self)
 
+    @property
+    def dob_string(self):
+        __doc__ = """
+        Represent User's DOB as a string with format 'YYYY-MM-DD'
+        """
+        if self.dob:
+            return self.dob.strftime('%Y-%m-%d')
+        else:
+            return None
+
     ##############################################################################################
     # USER API SUPPORT
     ##############################################################################################
@@ -541,8 +477,8 @@ class User(UserMixin, sa.Model):
         Generates a Time JSON Web Signature token, with an expiration of 600 seconds
         by default.  Uses the application SECRET KEY to encrypt the token.  Token encrypts the
         user.id attribute with a key of 'id' for future identification use.  The token is supplied
-        in an ascii format, for use with API requests."""
-        s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)
+        in an ascii format, for use with API client.py."""
+        s = TimedSerializer(current_app.config['SECRET_KEY'], expires_in=expiration)
         token = s.dumps({'id': self.id}).decode('ascii')
         return token
 
@@ -552,7 +488,7 @@ class User(UserMixin, sa.Model):
         User Method:  verify_api_auth_token takes a token and,
         if found valid, returns the user object stored in it.
         """
-        s = Serializer(current_app.config['SECRET_KEY'])
+        s = TimedSerializer(current_app.config['SECRET_KEY'])
         try:
             data = s.loads(token)
         except:
@@ -560,7 +496,7 @@ class User(UserMixin, sa.Model):
         return User.query.get(int(data['id']))
 
     ##############################################################################################
-    # USER RANDOMIZATION UTILITIES
+    # USER RANDOMIZATION METHODS
     ##############################################################################################
     def randomize_user(self, demo_dict=None):
         __doc__ = """
@@ -575,24 +511,28 @@ class User(UserMixin, sa.Model):
         if not isinstance(demo_dict, dict):
             demo_dict = list(random_demographics(number=1))[0]
             demo_dict = dict(demo_dict)
-        self._first_name = demo_dict.get("first_name", None)
-        self._last_name = demo_dict.get("last_name", None)
-        self._dob = demo_dict.get("dob", None)
-        self.email = demo_dict.get("email", None)
-        self.username = (self.first_name + "." + self.last_name + str(randint(0, 1000)))
+        self.first_name = demo_dict.get("first_name", None)
+        self.last_name = demo_dict.get("last_name", None)
+        self.dob = demo_dict.get("dob", None)
+        self.email_addresses.append(EmailAddress(email=demo_dict.get("email", None), primary=True, active=True))
+        self.username = demo_dict.get("username", None)
         self.sex = demo_dict.get("sex", None)
         addr = Address()
-        addr._address1 = demo_dict.get("address1", None)
-        addr._address2 = demo_dict.get("address2", None)
-        addr._city = demo_dict.get("city", None)
-        addr._state = demo_dict.get("state", None)
-        addr._zipcode = demo_dict.get("zipcode", None)
+        addr.address1 = demo_dict.get("address1", None)
+        addr.address2 = demo_dict.get("address2", None)
+        addr.city = demo_dict.get("city", None)
+        addr.state = demo_dict.get("state", None)
+        addr.zipcode = demo_dict.get("zipcode", None)
         addr.active = True
         addr.primary = True
         self.addresses.append(addr)
-        self.phone = demo_dict.get("cell_phone", None)
+        self.phone_numbers.append(PhoneNumber(number=demo_dict.get("mobile_phone", None), type='MOBILE', primary=True))
         self.description = random_description(max_chars=200)
+        self.app_groups.append(AppGroup.query.filter(AppGroup.name == 'DEMO GROUP').first())
 
+    ##############################################################################################
+    # ADMIN USER CREATION METHOD
+    ##############################################################################################
     @staticmethod
     def initialize_admin_user():
         __doc__ = """
@@ -601,34 +541,153 @@ class User(UserMixin, sa.Model):
         Executed on deployment and db creation.  Checks for existing user with admin's
         email before attempting to create a new one."""
         admin_user_username = os.environ.get('UNKANI_ADMIN_USERNAME')
-        user = User.query.filter(User._username == str(admin_user_username).upper()).first()
+        user = User.query.filter(User.username == str(admin_user_username).upper()).first()
         if user is None:
-            user = User(email=os.environ.get('UNKANI_ADMIN_EMAIL'))
-            user.username = os.environ.get('UNKANI_ADMIN_USERNAME')
+            user = User()
+            email = validate_email(os.environ.get('UNKANI_ADMIN_EMAIL'))
+            email_obj = EmailAddress(email=email, primary=True, active=True)
+            user.email_addresses.append(email_obj)
+            user.username = normalize_name(os.environ.get('UNKANI_ADMIN_USERNAME'))
             user.password = os.environ.get('UNKANI_ADMIN_PASSWORD')
-            user.first_name = os.environ.get('UNKANI_ADMIN_FIRST_NAME')
-            user.last_name = os.environ.get('UNKANI_ADMIN_LAST_NAME')
-            user.phone = os.environ.get('UNKANI_ADMIN_PHONE')
+            user.first_name = normalize_name(os.environ.get('UNKANI_ADMIN_FIRST_NAME'))
+            user.last_name = normalize_name(os.environ.get('UNKANI_ADMIN_LAST_NAME'))
+            user.role = Role.query.filter_by(name='Super Admin').first()
+            for ag in AppGroup.query.all():
+                if ag not in user.app_groups:
+                    user.app_groups.append(ag)
+            user.description = 'Unkani creator and lead developer'
+            user.sex = 'MALE'
+            user.dob = validate_dob(dob='19900211')
+
+            admin_phone = os.environ.get('UNKANI_ADMIN_PHONE')
+            if admin_phone:
+                try:
+                    user.phone_number = validate_phone(phone=admin_phone)
+                except:
+                    pass
             user.confirmed = True
             sa.session.add(user)
             sa.session.commit()
 
+    ##############################################################################################
+    # OBJECT HASHING METHODS
+    ##############################################################################################
+
     def generate_row_hash(self):
         data = {"username": self.username, "first_name": self.first_name, "last_name": self.last_name,
-                "dob": self.dob_string, "sex": self.sex}
-        for key in data:
-            data[key] = str(data[key])
-        data_str = json.dumps(data, sort_keys=True)
+                "dob": self.dob_string, "sex": self.sex, "role_id": self.role_id, "password_hash": self.password_hash,
+                "last_password_hash": self.last_password_hash, "password_timestamp": self.password_timestamp,
+                "description": self.description, "confirmed": self.confirmed, "active": self.active,
+                "last_seen": self.last_seen, "created_at": self.created_at, "updated_at": self.updated_at}
+        data_str = json.dumps(data, sort_keys=True, default=json_serial)
         data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
         return data_hash
 
     def before_insert(self):
-        pass
         self.row_hash = self.generate_row_hash()
 
     def before_update(self):
-        pass
         self.row_hash = self.generate_row_hash()
+
+    ##############################################################################################
+    # USER SERIALIZATION METHOD
+    ##############################################################################################
+
+    def dump(self):
+        schema = UserSchema()
+        user = schema.dump(self).data
+        return user
+
+
+##################################################################################################
+# MARSHMALLOW USER SCHEMA DEFINITION FOR OBJECT SERIALIZATION
+##################################################################################################
+
+class UserSchema(ma.Schema):
+    """Marshmallow schema, associated with SQLAlchemy User model.  Used as a base object for
+    serialization and de-serialization.  Defines read-only and write only attributes for basic
+    object use.  Defines validation criteria for input."""
+
+    class Meta:
+        # exclude = ()
+        ordered = False
+
+    id = fields.Int(dump_only=True)
+    first_name = fields.String(attribute='first_name', dump_only=True)
+    last_name = fields.String(attribute='last_name', dump_only=True)
+    username = fields.String(attribute='username', dump_only=True)
+    dob = fields.Date(attribute='dob', dump_only=True)
+    sex = fields.String(attribute='sex', dump_only=True)
+    description = fields.String(attribute='description', dump_only=True)
+    confirmed = fields.Boolean(attribute='confirmed', dump_only=True)
+    active = fields.Boolean(attribute='active', dump_only=True)
+    role = fields.Method('get_role', dump_only=True)
+    email_address = fields.Method('get_email', dump_only=True)
+    phone_number = fields.Method('get_phone', dump_only=True)
+    address = fields.Method('get_address', dump_only=True)
+    gravatar_url = fields.Url(attribute='gravatar', dump_only=True)
+    created_at = fields.DateTime(attribute='created_at', dump_only=True)
+    updated_at = fields.DateTime(attribute='updated_at', dump_only=True)
+    last_seen = fields.DateTime(attribute='last_seen', dump_only=True)
+    row_hash = fields.String(attribute='row_hash', dump_only=True)
+    app_groups = fields.Method('get_app_groups', dump_only=True)
+    self_url = fields.Method('get_self_url', dump_only=True)
+
+    def get_role(self, user):
+        """Returns a dict representing the user's role"""
+        return user.role.dump()
+
+    def get_email(self, user):
+        return user.email.email
+
+    def get_phone(self, user):
+        if user.phone_number:
+            return user.phone_number.formatted_phone
+
+    def get_address(self, user):
+        if user.address:
+            schema = AddressSchema(only=('address1', 'address2', 'city', 'state', 'zipcode'))
+            address_data, x = schema.dump(user.address)
+            return address_data
+        else:
+            return None
+
+    def get_app_groups(self, user):
+        schema = AppGroupSchema(only=('id', 'name'))
+        app_groups = []
+        for x in user.app_groups:
+            data, _ = schema.dump(x)
+            app_groups.append(data)
+        return app_groups
+
+    def get_self_url(self, user):
+        return user.get_url()
+
+
+##################################################################################################
+# USER-RELATED UTILITY FUNCTIONS
+##################################################################################################
+
+def unkani_password_hasher(password):
+    return generate_password_hash(password, method='pbkdf2:sha1', salt_length=8)
+
+
+def lookup_user_by_email(email):
+    if isinstance(email, EmailAddress):
+        email = email.email
+    try:
+        n_email = validate_email(email=email)
+        return sa.session.query(User).join(EmailAddress).filter(EmailAddress.email == n_email).first()
+    except ValueError:
+        return None
+
+
+def lookup_user_by_username(username):
+    try:
+        n_username = normalize_name(name=username)
+        return sa.session.query(User).filter(User.username == n_username).first()
+    except ValueError:
+        return None
 
 
 ###################################################
@@ -658,85 +717,3 @@ def load_user(user_id):
     None if no record exists.  Used by Flask-Login to set the
     current_user attribute."""
     return User.query.get(int(user_id))
-
-
-##################################################################################################
-# MARSHMALLOW USER SCHEMA DEFINITION FOR OBJECT SERIALIZATION AND INPUT VALIDATION
-##################################################################################################
-
-class UserSchema(ma.Schema):
-    __doc__ = """
-    Marshmallow schema, associated with SQLAlchemy User model.  Used as a base object for
-    serialization and de-serialization.  Defines read-only and write only attributes for basic
-    object use.  Defines validation criteria for input."""
-    id = fields.Int(dump_only=True)
-    # email_prop = User.__mapper__.get_property('email')
-    # email = property2field(email_prop)
-    # email = fields.Email(attribute='email', dump_only=True)
-    # username = fields.String(dump_only=True)
-    # password = fields.String(load_only=True)
-    first_name = fields.String()
-    last_name = fields.String()
-    # dob = fields.Date()
-    # phone = fields.String()
-    # description = fields.String()
-    confirmed = fields.Boolean(dump_only=True)
-    active = fields.Boolean(dump_only=True)
-    # gravatar_url = fields.Method("gravatar", dump_only=True)
-    role_id = fields.Int(dump_only=True)
-    role_name = fields.Method("get_role_name", dump_only=True)
-    create_timestamp = fields.DateTime(dump_only=True)
-    last_seen = fields.DateTime(dump_only=True)
-
-    def get_role_name(self, user):
-        __doc__ = """
-        Returns the name of the user's role as a string."""
-        return user.role.name
-
-
-class UserSchemaCreate(UserSchema):
-    __doc__ = """
-    Marshmallow schema, associated with SQLAlchemy User model.  Extends base User model schema.
-    Defines updated read-only and write only attributes for User object creation (POST)."""
-    email = fields.Email(required=True)
-    username = fields.String(required=True)
-    password = fields.String(required=True, load_only=True)
-    first_name = fields.String(required=True)
-    last_name = fields.String(required=True)
-
-    @post_load
-    def make_user(self, data):
-        return User(**data)
-
-    @validates('email')
-    def validate_email(self, value):
-        if User.query.filter_by(email=value).first():
-            raise ValidationError('An account with the email {} already exists.'.format(value))
-
-    @validates('username')
-    def validate_username(self, value):
-        if User.query.filter_by(username=value).first():
-            raise ValidationError('An account with the username {} already exists.'.format(value))
-
-
-class UserSchemaUpdate(UserSchema):
-    __doc__ = """
-    Marshmallow schema, associated with SQLAlchemy User model.  Extends base User model schema.
-    Defines updated read-only and write only attributes for User object updates (PATCH and PUT)."""
-    id = fields.Int(required=True)
-    email = fields.Email(dump_only=False)
-    username = fields.String(dump_only=False)
-
-    @post_load
-    def update_user(self, data):
-        return User(**data)
-
-
-# Assign Schema functions to variables, with handling of multiple instances pre-configured
-# Schema variables are imported into API module for use with serializing / de-serializing
-user_schema = UserSchema()
-users_schema = UserSchema(many=True)
-user_schema_create = UserSchemaCreate()
-users_schema_create = UserSchemaCreate(many=True)
-user_schema_update = UserSchemaUpdate()
-users_schema_update = UserSchemaUpdate(many=True)

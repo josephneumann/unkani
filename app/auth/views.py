@@ -4,7 +4,7 @@ from flask_principal import identity_changed, Identity, AnonymousIdentity, ident
 from app.flask_sendgrid import send_email
 from app.security import AppPermissionNeed, create_user_permission, app_permission_usercreate, \
     return_template_context_permissions
-from app.models import AnonymousUser
+from app.models.app_group import AppGroup
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from .. import sa
@@ -87,6 +87,8 @@ def register():
         else:
             user = User(email=entered_email, first_name=form.first_name.data, last_name=form.last_name.data,
                         username=form.username.data, password=form.password.data)
+            # For now, new users are associated with the default app group
+            user.app_groups.append(AppGroup.query.filter(AppGroup.default == True).first())
             sa.session.add(user)
             sa.session.commit()
             token = user.generate_confirmation_token()
@@ -193,7 +195,7 @@ def reset_password(token):
 @identity_loaded.connect
 def on_identity_loaded(sender, identity):
     # Set the identity user object
-    if getattr(g,'current_user', None):
+    if getattr(g, 'current_user', None):
         identity.user = g.current_user
     else:
         identity.user = current_user

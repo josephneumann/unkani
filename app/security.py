@@ -22,6 +22,8 @@ app_permission_userforceconfirmation = Permission(AppPermissionNeed('User Force 
 app_permission_userrolechange = Permission(AppPermissionNeed('User Role Change'))
 app_permission_patientadmin = Permission(AppPermissionNeed('Patient Admin'))
 app_permission_useradmin = Permission(AppPermissionNeed('User Admin'))
+app_permission_userappgroupupdate= Permission(AppPermissionNeed('User App Group Update'))
+
 
 
 def return_template_context_permissions():
@@ -40,7 +42,7 @@ def return_template_context_permissions():
         "app_permission_userprofileupdate": app_permission_userprofileupdate,
         "app_permission_patientadmin": app_permission_patientadmin,
         "app_permission_useradmin": app_permission_useradmin,
-        "test_user_permission": test_user_permission
+        "app_permission_userappgroupupdate": app_permission_userappgroupupdate
     }
     return template_context_permissions
 
@@ -71,7 +73,8 @@ app_permissions_dict = {
     'User Force Confirmation': (8),
     'User Role Change': (9),
     'Patient Admin': (10),
-    'User Admin': (11)
+    'User Admin': (11),
+    'User App Group Update': (12)
 }
 
 role_dict = {
@@ -87,7 +90,8 @@ role_dict = {
                          'User Change Password',
                          'User Force Confirmation',
                          'Patient Admin',
-                         'User Admin'],
+                         'User Admin',
+                         'User App Group Update'],
                     'level': 1000},
     'User': {'id': 2,
              'permissions':
@@ -105,13 +109,14 @@ role_dict = {
                    'User Reset Password',
                    'User Resend Confirmation',
                    'User Role Change',
-                   'User Admin'],
+                   'User Admin',
+                   'User App Group Update'],
               'level': 500
               }
 }
 
 # App Group Initialization
 app_group_dict = {
-    'UNKANI': 1,
-    'DEMO GROUP': 2
+    'UNKANI': {'id':1, 'default': False},
+    'DEMO GROUP': {'id':2, 'default': True}
 }

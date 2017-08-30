@@ -7,10 +7,8 @@ from app.security import *
 from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
 from .. import sa
-from app.models import User, EmailAddress, Patient
+from app.models import User, EmailAddress, Patient, UserAPI, EmailAddressAPI
 from app.models.user import lookup_user_by_email, lookup_user_by_username
-from app.api_v1.email_addresses import EmailAddressAPI
-from app.api_v1.users import UserAPI
 
 
 @dashboard.before_request

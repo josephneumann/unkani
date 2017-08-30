@@ -491,6 +491,37 @@ def normalize_name(name=None):
     return name
 
 
+def normalize_username(username=None):
+    """
+    Utility Function to Normalize Names
+
+    :param name:
+        Type: String
+        A name to normalize and output
+
+    :return:
+        Returns a 'normalized' name string:
+            Any parentheses with contents will be removed.
+            Any dashes, commas, single quotes or other characters will be removed.
+            Final contents should be trimmed on both sides and in uppercase.
+    """
+
+    def remove_restricted_chars(value):
+        restricted_re = re.compile("[@]")
+        value = restricted_re.sub('', value).strip()
+        return value
+
+    def finalize_output(value):
+        value = value.strip().upper()
+        return value
+
+    if username:
+        username = remove_restricted_chars(value=username).upper()
+        name = finalize_output(value=username)
+
+    return username
+
+
 def random_first_name(sex=None):
     """
     Utility function to generate a random first name string
@@ -925,7 +956,7 @@ def validate_sex(sex):
         female_values = {"F", "FEMALE", "WOMAN", "GIRL"}
         male_values = {"M", "MALE", "MAN", "BOY"}
         other_values = {"OTHER", "O"}
-        unknown_values = {"U", "UNSPECIFIED"}
+        unknown_values = {"U", "UNKNOWN", "UNSPECIFIED"}
         sex = str(sex).upper().strip()
         if sex in female_values:
             return 'FEMALE'
@@ -1117,12 +1148,13 @@ def random_demographics(number=1):
         marital_status = random_marital_status()
         race = random_race()
         ethnicity = random_ethnicity()
+        password = random.randint(1,99999999999)
 
         demo_dict = {"first_name": first_name, "last_name": last_name, "middle_name": middle_name, "dob": dob,
                      "sex": sex, "ssn": ssn, "home_phone": home_phone, "mobile_phone": mobile_phone,
                      "work_phone": work_phone, "email": email, "deceased": deceased,
                      "suffix": suffix, "marital_status": marital_status, "race": race,
-                     "ethnicity": ethnicity, "username": username}
+                     "ethnicity": ethnicity, "username": username, "password":password}
         demo_dict.update(address_list.pop(0))
         result.append(demo_dict)
         print("{}".format(int(number) - len(result)), end='...', flush=True)

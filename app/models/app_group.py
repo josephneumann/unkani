@@ -22,6 +22,7 @@ class AppGroup(sa.Model):
     id = sa.Column(sa.Integer, primary_key=True)
     name = sa.Column(sa.Text, unique=True)
     active = sa.Column(sa.Boolean, default=True)
+    default = sa.Column(sa.Boolean, default=False)
     created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
     updated_at = sa.Column(sa.DateTime)
 
@@ -42,7 +43,8 @@ class AppGroup(sa.Model):
             ap = AppGroup.query.filter_by(name=p.upper().strip()).first()
             if ap is None:  # pragma: no cover
                 ap = AppGroup(name=p.upper().strip())
-                ap.id = app_group_dict[p]
+                ap.id = app_group_dict[p]['id']
+                ap.default = app_group_dict[p]['default']
                 sa.session.add(ap)
         sa.session.commit()
 

@@ -1,19 +1,23 @@
 import os, hashlib, json
 from flask import current_app, g
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy import func
 from flask_login import UserMixin, AnonymousUserMixin, current_user
 from marshmallow import fields, ValidationError
-from itsdangerous import TimedJSONWebSignatureSerializer as TimedSerializer, JSONWebSignatureSerializer as Serializer
+from itsdangerous import TimedJSONWebSignatureSerializer as TimedSerializer
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import sa, login_manager, ma
-from app.models.email_address import EmailAddress
+from app.flask_sendgrid import send_email
+from app.models.phone_number import PhoneNumberAPI
+from app.models.email_address import EmailAddress, EmailAddressAPI
+from app.models.address import AddressAPI
 from app.models.role import Role
 from app.models.address import Address, AddressSchema
 from app.models.phone_number import PhoneNumber
 from app.models.extensions import BaseExtension
 from app.models.app_group import user_app_group, AppGroup, AppGroupSchema
+from app.security import app_permission_useractivation, app_permission_userforceconfirmation, \
+    app_permission_userpasswordchange, app_permission_userrolechange, app_permission_userappgroupupdate
 from app.utils.demographics import *
 from app.utils.general import json_serial, url_for
 
@@ -22,12 +26,13 @@ from app.utils.general import json_serial, url_for
 # SQL ALCHEMY USER MODEL DEFINITION
 ##################################################################################################
 
-# UserMixin from flask_login
-# is_authenticated() - Returns True if user has login credentials, else False
-# is_active() - Returns True if useris allowed to login, else False.
-# is_anonymous() - Returns False for logged in users
-# get_id() - Returns unique identifier for user, as Unicode string
 class User(UserMixin, sa.Model):
+    # UserMixin from flask_login
+    # is_authenticated() - Returns True if user has login credentials, else False
+    # is_active() - Returns True if useris allowed to login, else False.
+    # is_anonymous() - Returns False for logged in users
+    # get_id() - Returns unique identifier for user, as Unicode string
+
     ##################################
     # MODEL ATTRIBUTES AND PROPERTIES
     ##################################
@@ -85,7 +90,7 @@ class User(UserMixin, sa.Model):
 
     def __repr__(self):  # pragma: no cover
         __doc__ = """
-        Represents user model instance as a username string"""
+        Represents User model instance as a string"""
         return '<User {}:{}>'.format(self.id, self.username)
 
     ############################################
@@ -102,6 +107,7 @@ class User(UserMixin, sa.Model):
 
     @email.setter
     def email(self, email=None):
+        """Email is read only"""
         raise AttributeError('This property is read-only.')
 
     @property
@@ -114,6 +120,7 @@ class User(UserMixin, sa.Model):
 
     @phone_number.setter
     def phone_number(self, phone=None):
+        """Phone Number is ready only"""
         raise AttributeError('This property is read-only.')
 
     @property
@@ -126,12 +133,18 @@ class User(UserMixin, sa.Model):
 
     @address.setter
     def address(self, address=None):
+        """Address is read only"""
         raise AttributeError('This property is read-only.')
 
     ####################################
     # RESOURCE URL BUILDER
     ####################################
     def get_url(self):
+        """
+        Helper method to build the api url of the user resource
+        :return:
+            Returns the absolute URL of the User resource in the User api.
+        """
         return url_for('api_v1.get_user', userid=self.id, _external=True)
 
     ####################################
@@ -312,59 +325,34 @@ class User(UserMixin, sa.Model):
         else:
             return False
 
-    @staticmethod
-    def compare_permission_level(user1, user2):
-        __doc__ = """
-        User Method:  Helper method that accepts either the userid integers
-        of two users to be compared, or the user objects of the two users.
-        The method looks up compares the permission level of first users role with
-        the permission level of the second users role.  Returns True if the user
-        specified with the parameter user2. has a higher permission level than the
-        user specified with parameter user2.  Else, the method returns False.
-
-        Used to protect access to actions performed on other users by permission
-        level as appropriate.
-
-        If an integer value is passed as either <user1> or <user2>, the corresponding
-        user with that id looked up in the database.  If the user does not exist, a validation
-        error is raised.  If <user1> or <user2> are not integers, a user object is assumed
-        to be passed to the function.
-
-        """
-        if isinstance(user1, int):
-            user1 = User.query.get(user1)
-        if isinstance(user2, int):
-            user2 = User.query.get(user2)
-        if not user1:
-            raise ValidationError('User1 does not exist.')
-        if not user2:
-            raise ValidationError('User2 does not exist.')
-        if user1.role.level > user2.role.level:
-            return True
-        else:
-            return False
-
     def is_accessible(self, requesting_user, other_permissions=[], self_permissions=[]):
         __doc__ = """
         User Method:
         Helper function that checks whether the base user object should be
-        accessible to perform operations on their own user record, or another user record.
+        accessible to another user attempting to perform operations on the record.
+        
+        Essentially answers, should the 'requesting_user' have access to this user object?
 
-        The method first checks whether the identity of the user passed in the 'user' parameter matches the current
-        supplied identity in the session and request via Flask-Principal's Permission object.  If the identities match,
-        the method then checks the param <self_permissions> for a list of Flask-Principal permission objects that are
-        required to be supplied by the base user to perform operations on their own user record. If
-        the base user object has all of the permissions listed in the param <self_permissions>, as tested by
-        performing <self_permission>.can(), the base user is determined to have access to perform the given operation
-        on their own user object and the method returns True.  If the param <self_permissions> is None, the method
-        will also return True.
+        The method first checks whether the identity of the user passed in the 'requesting_user' parameter matches the 
+         supplied identity in the param requesting user.  This is usually the identify supplied by the session 
+         cookie for logged in users, or the request after API auth.  
+        If the identities match, the method then checks the param <self_permissions> for a list of Flask-Principal 
+        permission objects that are required to be supplied by the requesting user to perform operations on their own 
+        user record. If the requesting user object has all of the permissions listed in the param <self_permissions>, 
+        as tested by performing <self_permission>.can(), the requesting user is determined to have access to perform 
+        the given operation on their own user object and the method returns True.  If the param <self_permissions> 
+        is None, the method will also return True.
 
-        If the base user object does not match the current identity, the list of permissions supplied in the param
-        <other_permissions> is checked against the current user identity.  If the base user object has all of the
-        permissions listed in the param <other_permissions>, as tested by performing <other_permission>.can(),
-        the base user is determined to have access to perform the given operation on the user object specified in the
-        param <user> and the method returns True.  If the param <other_permissions> is None, the method
+        If the base user object does not match the identify of the requesting user, the list of permissions supplied 
+        in the param <other_permissions> is checked against the current user identity.  If the requesting user object 
+        has all of the permissions listed in the param <other_permissions>, as tested by performing 
+        <other_permission>.can(),the requesting user is determined to have access to perform the given operation on 
+        the base user object and the method returns True.  If the param <other_permissions> is None, the method
         will also return True.
+        
+        In all cases, the Role security levels are compared between the base user object and the requesting user.
+        If the requesting user's Role.level <= the base user object, permission will be denied and False is 
+        returned by the function, regardless of the application permissions provided by the user.
 
         param <user>:
             Either the integer user id of the user to be compared to the base user object, or the fully
@@ -374,59 +362,55 @@ class User(UserMixin, sa.Model):
 
 
         param <self_permissions>:
-            A list of Flask-Principal permission objects that must be provided by the current identity in order
+            A list of Flask-Principal permission objects that must be provided by the requesting user in order
             to perform the protected user operation on the self-same user object.  If the list is set to None, no
             additional permissions are required.
 
             Default is: None
 
         param <other_permissions>:
-            A list of Flask-Principal permission objects that must be provided by the current identity in order
+            A list of Flask-Principal permission objects that must be provided by the requesting user in order
             to perform the protected user operation on the user specified in the param <user>.
             If the list is set to None, no additional permissions are required.
 
             Default is: None
+            
+        Returns:
+            True if requesting user has access to base user & operation
+            Fals if requestins user does not have access to base user & operation
 
         """
         if requesting_user:
             if isinstance(requesting_user, int):
                 requesting_user = User.query.get(requesting_user)
-                print('detected userid input')
                 if not requesting_user:
                     raise ValueError("User could not be found.")
         else:
             if current_user and not current_user.is_anonymous():
+                requesting_user = current_user
+            elif g.current_user:
                 requesting_user = current_user
             else:
                 raise ValueError("No user was supplied and no logged in user was detected.")
 
         # Stuff to check is user is accessing their own record
         if self.id == requesting_user.id:
-            print('user is themself!')
             # If self_permissions param is set, make sure all of those permissions are allowed
             if self_permissions:
-                print('checking self permissions')
                 for perm in self_permissions:
                     if not perm.can():
-                        print('self permission failure')
                         return False
         # Stuff to check is user is accessing another user
         else:
-            print('checking other user permissions')
             # Check for overlap between app groups.  If no shared group, deny access
             if not (set(self.app_groups) & set(requesting_user.app_groups)):
-                print('app group overlap not detected')
                 return False
             if not requesting_user.has_higher_permission(user=self):
-                print('role permission level check failure')
                 return False
             if other_permissions:
-                print('checking other permissions')
                 for perm in other_permissions:
                     if not perm.can():
-                        print('permission failure: {}'.format(perm))
                         return False
-        print('Everything passes!')
         return True
 
     #####################################
@@ -528,7 +512,13 @@ class User(UserMixin, sa.Model):
         self.addresses.append(addr)
         self.phone_numbers.append(PhoneNumber(number=demo_dict.get("mobile_phone", None), type='MOBILE', primary=True))
         self.description = random_description(max_chars=200)
-        self.app_groups.append(AppGroup.query.filter(AppGroup.name == 'DEMO GROUP').first())
+        self.app_groups.append(AppGroup.query.filter(AppGroup.default == True).first())
+        test_pw = os.environ.get('TEST_USER_PASSWORD', None)
+        if not test_pw:
+            test_pw = demo_dict.get('password', None)
+            if test_pw:
+                test_pw = str(test_pw)
+        self.password = test_pw
 
     ##############################################################################################
     # ADMIN USER CREATION METHOD
@@ -669,6 +659,15 @@ class UserSchema(ma.Schema):
 ##################################################################################################
 
 def unkani_password_hasher(password):
+    """
+    A helper function to be called to hash all Unknani passwords.  Employs pbkdf2:sha1 hashing with a
+    salt length of 9 by default.
+    :param password:
+        Type: Str
+        Contents: The password to be hashed
+    :return:
+        Returns sha1 hash of password string
+    """
     return generate_password_hash(password, method='pbkdf2:sha1', salt_length=8)
 
 
@@ -684,7 +683,7 @@ def lookup_user_by_email(email):
 
 def lookup_user_by_username(username):
     try:
-        n_username = normalize_name(name=username)
+        n_username = normalize_username(username=username)
         return sa.session.query(User).filter(User.username == n_username).first()
     except ValueError:
         return None
@@ -717,3 +716,823 @@ def load_user(user_id):
     None if no record exists.  Used by Flask-Login to set the
     current_user attribute."""
     return User.query.get(int(user_id))
+
+
+##################################################################################################
+# USER API INTERFACE - MEDIATOR OBJECT FOR USER API
+##################################################################################################
+class UserAPI:
+    """
+    UserAPI:  An object class that mediates all operations on Unkani User objects.  May be used in
+    conjunction with the Unkani API or within view functions of the Unkani App.
+
+    Core Uses:
+        1) De-serialize JSON representations of Users to SQLAlchemy.orm User model objects.
+        2) Apply normalization and validation logic to User demographic attributes
+        3) Update existing or create new SQLAlchemy.orm User model objects with normalized
+            and validated data.
+
+    Example Usage With Existing User Object:
+
+        existing_user = User.query.get_or_404(<someuserid>)
+
+        api = UserAPI()
+        api._user = existing_user
+
+        api.email = 'somenewemail@example.com'
+        api.address = {'address1':'123 Main St',
+                        'address2':'apt 101',
+                        'city':'anytown', 'state':'wi',
+                        'zipcode':'99999'}
+
+        api.run_validations()
+        if not api.errors['critical']:
+            updated_user, errors = api.make_object()
+
+            if updated_user:
+                sa.session.add(updated_user)
+
+    Example Usage With HTTP Request & JSON Payload for New User
+
+        @some_api.route('users/', methods=['POST']
+        def register_user():
+            api = UserAPI()
+            api.loads_json(request.get_json())
+            api.run_validations()
+            if not api.errors['critical']:
+                user, errors = api.make_object()
+                sa.session.add(user)
+                response = jsonify({'user':user, 'errors': errors}
+                return response
+            else:
+                response = jsonify({'user':user, 'errors':'Critical error during data validation.'})
+                response.status_code = 400
+                return response
+
+    """
+
+    def __init__(self, user=None, first_name=None, last_name=None, username=None, dob=None, sex=None, email=None,
+                 description=None, active=None, confirmed=None, password=None, role_id=None, app_groups=None,
+                 phone_number=None, address=None):
+        self.errors = {"critical": {},
+                       "warning": {}}
+        self._user = user
+        self._validation_complete = False
+
+        self.first_name = first_name
+        self.last_name = last_name
+        self.username = username
+        self.dob = dob
+        self.sex = sex
+        self.email = email
+        self.description = description
+        self.active = active
+        self.confirmed = confirmed
+        self.password = password
+        self.role_id = role_id
+        self.app_groups = app_groups
+        self.phone_number = phone_number
+        self.address = address
+
+    @property
+    def user(self):
+        """
+        Accesses the protected class attribute '_user'
+        :return:
+            If '_user' exists, returns a SQLAlchemy ORM User type object instance
+            Else returns None
+        """
+        if self._user:
+            return self._user
+        else:
+            return None
+
+    @user.setter
+    def user(self, user):
+        """
+        Setter method for the protected class attribute '_user'
+        Holds an existing User object to be updated (in application or with PUT/PATCH requests from API)
+        If new User object is created with method self.make_object(), holds the newly created User object.
+
+        :param user:
+            type: SQLAlchemy ORM User object instance
+        :return:
+            If type requirements of param:user are not met, raises TypeError
+            No return (setter method)
+        """
+        if user is None:
+            pass
+        elif isinstance(user, User):
+            self._user = user
+        else:
+            raise TypeError('Object assigned to user was not a SQL Alchemy User type object.')
+
+    def loads_json(self, data):
+        """
+        Used to load JSON formatted user data, or native python dict object.  Parses all data from the
+        source and stores in class instances corresponding attributes.  These attributes are validated, normalized
+        and ultimately dumped with other methods such as: self.run_validations() and self.make_object()
+
+        :param data:
+            type:
+                JSON encoded string with valid User object key-value pairs (from User API).
+                OR
+                Native python dict with valid User object key-value pairs
+        :return:
+            Nothing
+        """
+
+        ud = None
+        if isinstance(data, dict):  # Handle native python dicts
+            ud = data
+        else:
+            try:
+                ud = json.loads(data)  # Try loading JSON encoded string
+            except json.decoder.JSONDecodeError as e:  # Handle JSON decode error.  Store in error dict
+                self.errors['critical'][
+                    'json decode error'] = 'An error occurred when attempting to decode JSON: {}'.format(e.args[0])
+        if ud:  # Unpack user attributes and store in corresponding class attributes
+            self.first_name = ud.get('first_name', None)
+            self.last_name = ud.get('last_name', None)
+            self.username = ud.get('username', None)
+            self.dob = ud.get('dob', None)
+            self.sex = ud.get('sex', None)
+            self.email = ud.get('email', None)
+            self.description = ud.get('description', None)
+            self.active = ud.get('active', None)
+            self.confirmed = ud.get('confirmed', None)
+            self.password = ud.get('password', None)
+            self.role_id = ud.get('role_id', None)
+            self.phone_number = ud.get('phone_number', None)
+
+            self.address = ud.get('address', {})
+            self.app_groups = ud.get('app_groups', [])
+
+    def validate_first_name(self):
+        """
+        Validation method for self.first_name
+        Normalizes the case of the supplied first name and trims white space
+        :return:
+            Updates self.first_name
+        """
+        if self.first_name:
+            self.first_name = normalize_name(name=self.first_name)
+        else:
+            self.first_name = None
+
+    def validate_last_name(self):
+        """
+        Validation method for last name
+        Normalizes the case of the supplied first name and trims white space
+        :return:
+            Updates self.last_name
+        """
+        if self.last_name:
+            self.last_name = normalize_name(self.last_name)
+
+        else:
+            self.last_name = None
+
+    def validate_dob(self):
+        """
+        Validation method for self.dob
+        Uses dateutils datetime parser to handle any format of dates.
+        :return:
+            If self.dob exists and can be validated as a date, sets self.dob as a datetime.date type object
+            If self.dob cannot be parsed into a valid date, sets self.dob to None and logs a critical error
+                under the key 'dob' with detailed information about the error.
+        """
+        if self.dob:
+            try:
+                self.dob = validate_dob(self.dob)
+            except ValueError as e:
+                self.errors['warning']['dob'] = e.args[0]
+                self.dob = None
+
+    def validate_sex(self):
+        """
+        Validation method for self.sex
+        Uses the Unkani validate_sex demographic utility to normalize biological sex representations to the
+            approved set of string values, namely: 'MALE', 'FEMALE', 'OTHER', 'UNKNOWN'
+        :return:
+            If self.sex is a valid sex representation, self.sex is set with the approved sex string (see above)
+            If self.sex is a forbidden value, self.sex is set to None and an error is logged to self.errors['warning']
+        """
+        if self.sex:
+            try:
+                self.sex = validate_sex(self.sex)
+            except ValueError as e:
+                self.errors['warning']['sex'] = e.args[0]
+                self.sex = None
+
+    def validate_username(self):
+        """
+        Validation method for self.username
+        :return:
+            Performs an upper and trim on the username provided and sets resulting value to self.username
+            If no username is set, and no existing User object is assigned to self.user before validation is run,
+            a critical error is logged to self.errors as a username is required for User creation.
+
+            The validator also ensures that user.username remains unique within the database.  Any conflicts for
+            newly registered users, or updated users will be logged as critical errors.
+        """
+        if isinstance(self.username, str):
+            n_username = normalize_username(username=self.username)
+            if self.user:  # Handle username lookup in case of existing user
+                user_w_username = lookup_user_by_username(n_username)
+                if user_w_username:
+                    if self.user != user_w_username:
+                        self.errors['critical']['username'] = 'The username {} is already registered. Could not change' \
+                                                              ' the username.'.format(self.username)
+                        self.username = None
+                    else:
+                        self.username = n_username
+                else:
+                    self.username = n_username
+
+            else:
+                if lookup_user_by_username(self.username):
+                    self.errors['critical']['username'] = 'The username {} is already registered. Could not create' \
+                                                          'new user account.'.format(self.username)
+                    self.username = None
+                else:
+                    self.username = n_username
+
+        elif not self.user:  # A username must be provided for account creation
+            self.errors['critical']['username'] = 'A username string was not provided.  A username is required.'
+            self.username = None
+
+    def validate_description(self):
+        """
+        Validation method for self.description
+        :return:
+            If self.description is a string, the value is kept assigned to the class attribute.
+            If any other data type, self.description is set to None and a warning is logged to self.errors
+        """
+        if self.description:
+            if isinstance(self.description, str):
+                pass
+            else:
+                self.description = None
+                self.errors['warning']['description'] = 'A non-string value was supplied for the user description.'
+
+    def validate_active(self):
+        """
+        Validation method for self.active
+        :return:
+            If self.active is a boolean value, the value is allowed
+            Else, the value is set to None
+        """
+        if isinstance(self.active, bool):
+            pass
+        elif self.active:
+            self.active = None
+            self.errors['warning']['active'] = 'A non-null non-boolean value was supplied to the active attribute.'
+        else:
+            self.active = None
+
+    def validate_confirmed(self):
+        """
+        Validation method for self.confirmed
+        :return:
+            If self.confirmed is a boolean value, the value is allowed
+            Else, the value is set to None
+        """
+        if isinstance(self.confirmed, bool):
+            self.confirmed = self.confirmed
+        elif self.confirmed:
+            self.confirmed = None
+            self.errors['warning']['active'] = 'A non-null non-boolean value was supplied to the confirmed attribute.'
+        else:
+            self.confirmed = None
+
+    def validate_password(self):
+        """
+        Validation method for password
+        :return:
+            If a password string is provided, does nothing
+            If a pssword string is not provided and a user object does not exist before validations are run, a
+                critical error is logged to self.errors as a password is required for user registration
+        """
+        if isinstance(self.password, str):
+            pass
+        elif not self.user:
+            self.errors['critical']['password'] = 'A password was not provided.  A password is required for new users.'
+            self.password = None
+        else:
+            self.password = None
+
+    def validate_role_id(self):
+        """
+        Validation method for self.role_id
+
+        :return:
+            If self.role_id is set, validates that the role_id is an integer value and matches a Role record in the
+                database.
+            If self.role_id is set, and the validation fails, a warning is logged to self.errors.  In the case of
+                existing users, the existing role will be left unchanged.  In the case of new users, the Role
+                object will be initialized with the default role: 'User'
+        """
+        if self.role_id:
+            roles = Role.query.all()
+            role_ids = []
+            for role in roles:
+                role_ids.append(role.id)
+            if self.role_id not in role_ids:
+                self.role_id = None
+                self.errors['warning']['role'] = 'An invalid id was passed as a role_id: {}'.format(self.role_id)
+
+    def validate_app_groups(self):
+        ids = set()
+        bad_ids = set()
+        if self.app_groups:
+            if isinstance(self.app_groups, int):
+                ids.add(self.app_groups)
+            elif isinstance(self.app_groups, list):
+                for i in self.app_groups:
+                    if isinstance(i, int):
+                        ids.add(i)
+                    else:
+                        bad_ids.add(i)
+            else:
+                self.app_groups = None
+                self.errors['warning']['app_group_id'][
+                    'type error'] = 'A non integer or non-string value was supplied as ' \
+                                    'the app_group_id'
+
+        if ids:
+            valid_app_groups = []
+            for id in ids:
+                existing = AppGroup.query.get(id)
+                print('Existing app group matched')
+                print(existing)
+                if not existing:
+                    print('Existing not found')
+                    bad_ids.add(id)
+                else:
+                    valid_app_groups.append(existing)
+                    print('Appended app group to valid app agroups')
+                    print(valid_app_groups)
+            if bad_ids:
+                for id in bad_ids:
+                    ids.discard(id)
+                self.errors['warning']['bad app group ids'] = 'Some app group ids were supplied that could not match ' \
+                                                              'any app groups in the system.  They were ignored.  {}'.format(
+                    bad_ids)
+            if valid_app_groups:
+                if not self.user:
+                    self.app_groups = valid_app_groups
+                else:
+                    new_app_groups = []
+                    for ag in valid_app_groups:
+                        if ag not in self.user.app_groups:
+                            new_app_groups.append(ag)
+                    self.app_groups = new_app_groups
+
+            else:
+                self.app_groups = None
+
+        if not self.app_groups and not self.user:
+            if getattr(g, 'current_user', None):
+                print('Current user found')
+                if len(g.current_user.app_groups) == 1:
+                    self.app_groups = g.current_user.app_groups
+            if not self.app_groups:
+                print('Setting default app group now instead')
+                self.app_groups = [AppGroup.query.filter(AppGroup.default == True).first()]
+                self.errors['warning']['app group missing'] = 'No valid app group id was supplied.  ' \
+                                                              'The default was assigned: {}'.format(
+                    self.app_groups[0].name)
+
+    # Validate email, set self.email to EmailAddress object if valid, None if not.  Process errors to self.errors
+    def validate_email(self):
+        """
+        Validation method for self.email
+
+        :return:
+            If self.email is not set and self.user is not set before validations are run, a critical error is logged
+                as an email is required for user account creation.
+            If self.email is set, and a valid email can be constructed from the string value, the upper-ed and
+                trimmed email will be assigned to a SQLAlchemy ORM EmailAddress object and that object will
+                be assigned to self.email
+            If self.email is set, and an invalid email is provided, self.email is set to None and the errors
+                from the validation function are logged to self.errors.  These may either be critical or warning.
+
+            The validator also ensures that user.email remains unique within the database.  Any conflicts for
+            newly registered users, or updated users will be logged as critical errors.
+        """
+        if self.email:
+            # Initialize the EmailAddressAPI object and run email object validation and creation methods
+            api = EmailAddressAPI(email=self.email, primary=True, active=True)
+            api.run_validations()
+            email_object, errors = api.make_object()
+
+            # If email object cannot be created, process the EmailAddressAPI Errors
+            if not email_object:
+                self.email = None
+                if not self.user:
+                    self.errors['critical']['email taken'] = 'A valid email was not provided during user creation.  ' \
+                                                             'This is required for account creation.'
+
+            else:
+                email_object.primary = True
+                email_object.active = True
+                if self.user:
+                    user_w_email = lookup_user_by_email(email_object.email)
+                    if user_w_email:
+                        if user_w_email == self.user:
+                            self.email = email_object
+                        else:
+                            self.email = None
+                            self.errors['critical'][
+                                'email taken'] = 'The email {} is already registered.  The email was not updated.'.format(
+                                email_object.email)
+                else:
+                    # For new users, check for existence of email in database
+                    if lookup_user_by_email(email_object.email):
+                        self.errors['critical']['email taken'] = 'The email {} is already registered.'.format(
+                            email_object.email)
+                        self.email = None
+                    else:
+                        self.email = email_object
+
+            # Surface errors from EmailAddressAPI and log to error dict of UserAPI
+            if errors['critical']:
+                if not getattr(self.errors['critical'], 'email', None):
+                    self.errors['critical']['email'] = {}
+                for key in errors['critical']:
+                    self.errors['critical']['email'][key] = errors['critical'][key]
+
+            if errors['warning']:
+                if not getattr(self.errors['warning'], 'email', None):
+                    self.errors['warning']['email'] = {}
+                for key in errors['warning']:
+                    self.errors['warning']['email'][key] = errors['warning'][key]
+
+    # Validate phone, set self.phone_number to PhoneNumber object if valid, None if not.  Process errors to self.errors
+    def validate_phone_number(self):
+        """
+       Validation method for self.phone_nmber
+
+        :return:
+            If self.phone_number is set, and a valid phone number can be constructed from the string value,
+                the numeric digits of the phone number will be assigned to a SQLAlchemy ORM PhoneNumber object
+                and that object will be assigned to self.phone_number
+            If self.phone_number is set, and an invalid number is provided, self.phone_number is set to None
+                and the errors from the validation function are logged to self.errors.
+            A phone number is not required for user account creation or update.
+        """
+        if self.phone_number:
+            # Initialize the PhoneNumberAPI.  Run validations and make the object.
+            pn = PhoneNumberAPI(number=self.phone_number, type='MOBILE', active=True, primary=True)
+            pn.run_validations()
+            phone_number, errors = pn.make_object()
+
+            # If phone number object cannot be created, process the PhoneNumberAPI Errors
+            if not phone_number:
+                self.phone_number = None
+            elif isinstance(phone_number, PhoneNumber):
+                phone_number.active = True
+                phone_number.primary = True
+                self.phone_number = phone_number
+
+            # Surface errors from PhoneNumberAPI and log to error dict of UserAPI
+            if errors['critical']:
+                if not getattr(self.errors['warning'], 'phone_number', None):
+                    self.errors['warning']['phone_number'] = {}
+                for key in errors['critical']:
+                    self.errors['warning']['phone_number'][key] = errors['critical'][key]
+
+            if errors['warning']:
+                if not getattr(self.errors['warning'], 'phone_number', None):
+                    self.errors['warning']['phone_number'] = {}
+                for key in errors['warning']:
+                    self.errors['warning']['phone_number'][key] = errors['warning'][key]
+
+    def validate_address(self):
+        """
+        Validation method for self.address
+
+        :return:
+            Attempts to unpack a valid address dictionary with keys: address1, address2, city, state and zipcode.
+            If a dict cannot be unpacked from a non-null value, self.address is set to None and an error is logged.
+            If a dict gets unpacked, the AddressAPI is invoked to create a SQLAlchemy ORM Address object.  If the
+                object is successfully created, it is assigned to self.address.  If an object cannot be created,
+                self.address is set to None.  All errors from the AddressAPI are logged under the self.errors
+                dictionary as warnings.
+            Note: An address is NOT required to create / update an account.
+        """
+        if self.address:
+            if not isinstance(self.address, dict):
+                self.errors['warning']['address']['invalid_format'] = 'Address information was not supplied as' \
+                                                                      ' a dictionary of key value pairs.  The address' \
+                                                                      ' for the user could not be set.'
+                self.address = None
+            else:
+                addr_dict = dict(self.address)
+
+                address1 = addr_dict.get('address1', None)
+                address2 = addr_dict.get('address2', None)
+                city = addr_dict.get('city', None)
+                state = addr_dict.get('state', None)
+                zipcode = addr_dict.get('zipcode', None)
+                primary = addr_dict.get('primary', False)
+                active = addr_dict.get('active', True)
+
+                api = AddressAPI(address1=address1, address2=address2, city=city, state=state, zipcode=zipcode,
+                                 active=active, primary=primary)
+                api.run_validations()
+                a, errors = api.make_object()
+
+                if not a:
+                    self.errors['warning']['address'][
+                        'address_creation'] = 'Unable to create an address from the supplied data.'
+                    self.address = None
+
+                if isinstance(a, Address):
+                    if errors['critical'] or errors['warning']:
+                        if errors['critical']:
+                            for key in errors['critical']:
+                                self.errors['warning']['address'][key] = errors['critical'][key]
+                        if errors['warning']:
+                            for key in errors['warning']:
+                                self.errors['warning']['address'][key] = errors['warning'][key]
+
+                    a.primary = True
+                    a.active = True
+
+                    self.address = a
+
+    def permission_check_active(self):
+        """
+        Permission check for user.active.
+        :return:
+            If self.active is set to a boolean value, the requesting authenticated user must have the app-permission
+                'user activation'.  If permission check fails, self.active is set to None and an warning is logged
+                to self.errors
+        """
+        if isinstance(self.active, bool):
+            if not app_permission_useractivation.can():
+                self.active = None
+                self.errors['warning']['permission: user deactivate'] = 'Could not set user activation. ' \
+                                                                        'Permission denied. User must be activated or' \
+                                                                        ' deactivated by an admin.'
+
+    def permission_check_confirmed(self):
+        """
+        Permission check for user.confirmed.
+        :return:
+            If self.confirmed is set to a boolean value, the requesting authenticated user must have the app-permission
+                'user force confirmation'.  If permission check fails, self.confirmed is set to None and an warning is
+                logged to self.errors
+        """
+        if isinstance(self.confirmed, bool):
+            # Verify permission to force set User.confirmed
+            if not app_permission_userforceconfirmation.can():
+                # Set to None.  Will not be written to user object during de-serialization
+                self.confirmed = None
+                self.errors['warning']['permission: force confirm'] = 'Attempt to force set confirmation failed.' \
+                                                                      ' Permission not granted to user.'
+
+    def permission_check_password(self):
+        """
+        Permission check for user.password
+
+        :return:
+            If a user object already exists (is being updated) and self.password passes validation, the user must
+                have the app-permission 'user password change'.  If permission check fails, self.password is set
+                to None and a warning is logged.  The password will not be changed.
+        """
+        if self.user and self.password:
+            if not app_permission_userpasswordchange.can():
+                self.password = None
+                self.errors['warning']['password'] = 'Insufficient permissions to update another users password.'
+
+    def permission_check_role_id(self):
+        """
+        Permission check method for self.role_id
+        :return:
+            If self.role id is supplied and passes validation, the user must have the app-permission
+                'user role change'.  If this check passes, the target role's security level must also be lower
+                than that of the requesting authenticated user.
+            If permission check fails, self.role_id is set to None and either the existing
+                or default role will be assigned to the object for existing and new users, respectively.
+        """
+        if self.role_id:
+            if not app_permission_userrolechange.can():
+                self.role_id = None
+                self.errors['warning']['role'] = 'Failed setting role_id for user due to insufficient permissions.'
+            if Role.query.get(self.role_id).level > g.current_user.role.level:
+                self.role_id = None
+                self.errors['warning']['role'] = 'Could not set role to a role with a higher permission' \
+                                                 ' level than the requesting user.'
+
+    def permission_check_app_groups(self):
+        if self.app_groups:
+            if not app_permission_userappgroupupdate.can():
+                if self.user:
+                    self.app_groups = None
+                    self.errors['warning']['app group permission'] = 'The authenticated user does not have access' \
+                                                                     ' to assign app groups.  The existing users ' \
+                                                                     'app group was not updated.'
+                else:
+                    self.app_groups = [AppGroup.query.filter(AppGroup.default == True).first()]
+                    self.errors['warning']['app group permission'] = 'The authenticated user does not have access' \
+                                                                     ' to assign app groups.  The default app group' \
+                                                                     ' was assigned to the new user.'
+            elif g.current_user:
+                restricted_ags = []
+                for ag in self.app_groups:
+                    if ag not in g.current_user.app_groups and self.app_groups != AppGroup.query.filter(
+                                    AppGroup.default == True).first():
+                        restricted_ags.append(ag)
+                    if restricted_ags:
+                        for ag in restricted_ags:
+                            self.app_groups.pop(ag)
+                    if not self.app_groups:
+                        if self.user:
+                            self.app_groups = None
+                            self.errors['warning'][
+                                'app group membership'] = 'Authenticated user attempted to assign the' \
+                                                          ' existing user to one or more app groups ' \
+                                                          'of which the authenicated user is not a member.  The ' \
+                                                          'existing app group was retained.  Bad app groups: {}'.format(
+                                restricted_ags)
+                        else:
+                            self.errors['critical'][
+                                'app group membership'] = 'Authenticated user attempted to assign the' \
+                                                          ' new user to an app group that they do not' \
+                                                          'have access to. {}'.format(restricted_ags)
+                            self.app_groups = None
+
+    def run_validations(self):
+        """
+        Convenience method to run all validations.
+        """
+        self.validate_first_name()
+        self.validate_last_name()
+        self.validate_dob()
+        self.validate_sex()
+        self.validate_username()
+        self.validate_confirmed()  # Must run after email
+        self.validate_email()
+        self.validate_phone_number()
+        self.validate_active()
+        self.validate_description()
+        self.validate_password()
+        self.validate_role_id()
+        self.validate_address()
+        self.validate_app_groups()
+        self._validation_complete = True
+
+    def run_permission_checks(self):
+        """Convenience method to run all permission checks."""
+        self.permission_check_active()
+        self.permission_check_confirmed()
+        self.permission_check_role_id()
+        self.permission_check_password()
+        self.permission_check_app_groups()
+
+    def make_object(self):
+        """
+        Method to process post-validated UserAPI object.
+        Requires self.run_validations() to be called before running.
+        :return:
+            If critical errors are logged, returns the tuple (None, self.errors)
+            If self.run_validations() has not been completed, returns the tuple (None, self.errors)
+            If validations passed and an existing user is logged to self.user, returns the tuple (user, self.errors)
+                where user is the existing and now updated user object and self.errors is the error dictionary.
+            If no user exists and is assigned to self.users, creates a new user object and returns it in the tuple
+                (user, errors)
+
+        """
+        # Any critical errors?  Do not make the object.
+        if self.errors['critical']:
+            return None, self.errors
+
+        # If validation did not run, do not make the object.
+        elif not self._validation_complete:
+            raise ValidationError('Validations must be completed before object is created or updated.')
+
+        # Do the dirty work of creating the user now
+        else:
+            if isinstance(self.user, User):  # Get existing user
+                u = self.user
+            else:  # Or initialize new user
+                u = User()
+
+            if self.role_id:
+                u.role_id = self.role_id
+            if self.first_name:
+                u.first_name = self.first_name
+            if self.last_name:
+                u.last_name = self.last_name
+            if self.dob:
+                u.dob = self.dob
+            if self.sex:
+                u.sex = self.sex
+            if self.username:
+                u.username = self.username
+            if isinstance(self.email, EmailAddress):
+                update_existing = False
+                existing_addresses = u.email_addresses.all()
+                if existing_addresses:
+                    existing_primary_address = u.email
+                    if self.email.email == existing_primary_address.email:
+                        update_existing = True
+                    else:
+                        existing_primary_address.primary = False
+                        existing_primary_address.active = False
+                        for a in existing_addresses:
+                            if a == existing_primary_address:
+                                pass
+                            elif self.email.email == a.email:
+                                a.primary = True
+                                a.active = True
+                                update_existing = True
+                if update_existing:
+                    self.email = None
+
+                if self.email:
+
+                    u.email_addresses.append(self.email)
+
+                    if not isinstance(self.confirmed, bool):
+                        self.confirmed = False
+                    if self.user and not self.confirmed:
+                        self.errors['warning']['account_confirmation'] = 'Email address has been changed.  The' \
+                                                                         ' account requires confirmation.'
+                        token = u.generate_email_change_token(self.email.email.lower())
+                        send_email(subject='Unkani - Email Change', to=[self.email.email.lower()],
+                                   template='auth/email/change_email',
+                                   token=token, user=self.user)
+
+            if isinstance(self.phone_number, PhoneNumber):
+                update_existing = False
+                existing_addresses = u.phone_numbers.all()
+                if existing_addresses:
+                    existing_primary_address = u.phone_number
+                    if self.phone_number.number == existing_primary_address.number:
+                        update_existing = True
+                    else:
+                        existing_primary_address.primary = False
+                        existing_primary_address.active = False
+                        for a in existing_addresses:
+                            if a == existing_primary_address:
+                                pass
+                            elif self.phone_number.number == a.number:
+                                a.primary = True
+                                a.active = True
+                                update_existing = True
+                if update_existing:
+                    self.phone_number = None
+
+                if self.phone_number:
+                    u.phone_numbers.append(self.phone_number)
+
+            if self.description:
+                u.description = self.description
+
+            # Set password if validation and permission passes
+            if self.password:
+                u.password = self.password
+
+            # Set active is validation and permission passes
+            if isinstance(self.active, bool):
+                u.active = self.active
+
+            # Set confirmation if True / False is set and permissions are in place
+            if isinstance(self.confirmed, bool):
+                u.confirmed = self.confirmed
+
+            if isinstance(self.address, Address):
+                update_existing = False
+                existing_addresses = u.addresses.all()
+                if existing_addresses:
+                    existing_primary_address = u.address
+                    new_address_hash = self.address.generate_address_hash()
+                    if new_address_hash == existing_primary_address.address_hash:
+                        update_existing = True
+                    else:
+                        existing_primary_address.primary = False
+                        existing_primary_address.active = False
+                        for a in existing_addresses:
+                            if a == existing_primary_address:
+                                pass
+                            elif new_address_hash == a.address_hash:
+                                a.primary = True
+                                a.active = True
+                                update_existing = True
+                if update_existing:
+                    self.address = None
+
+                if self.address:
+                    u.addresses.append(self.address)
+
+                if self.app_groups:
+                    for ag in self.app_groups:
+                        u.app_groups.append(ag)
+
+            self.user = u
+
+            return self.user, self.errors

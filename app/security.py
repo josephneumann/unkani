@@ -14,7 +14,7 @@ role_permission_user = Permission(RoleNeed('User'))
 app_permission_usercreate = Permission(AppPermissionNeed('User Create'))
 app_permission_userprofileupdate = Permission(AppPermissionNeed('User Profile Update'))
 app_permission_userdelete = Permission(AppPermissionNeed('User Delete'))
-app_permission_userdeactivate = Permission(AppPermissionNeed('User Deactivate'))
+app_permission_useractivation = Permission(AppPermissionNeed('User Activation'))
 app_permission_userpasswordreset = Permission(AppPermissionNeed('User Reset Password'))
 app_permission_userpasswordchange = Permission(AppPermissionNeed('User Change Password'))
 app_permission_userresendconfirmation = Permission(AppPermissionNeed('User Resend Confirmation'))
@@ -31,7 +31,7 @@ def return_template_context_permissions():
         "role_permission_user": role_permission_user,
         "app_permission_usercreate": app_permission_usercreate,
         "app_permission_userdelete": app_permission_userdelete,
-        "app_permission_userdeactivate": app_permission_userdeactivate,
+        "app_permission_useractivation": app_permission_useractivation,
         "app_permission_userpasswordreset": app_permission_userpasswordreset,
         "app_permission_userpasswordchange": app_permission_userpasswordchange,
         "app_permission_userresendconfirmation": app_permission_userresendconfirmation,
@@ -64,7 +64,7 @@ app_permissions_dict = {
     'User Create': (1),
     'User Profile Update': (2),
     'User Delete': (3),
-    'User Deactivate': (4),
+    'User Activation': (4),
     'User Reset Password': (5),
     'User Change Password': (6),
     'User Resend Confirmation': (7),
@@ -79,7 +79,7 @@ role_dict = {
                     'permissions':
                         ['User Create',
                          'User Profile Update',
-                         'User Deactivate',
+                         'User Activation',
                          'User Reset Password',
                          'User Resend Confirmation',
                          'User Role Change',
@@ -92,7 +92,7 @@ role_dict = {
     'User': {'id': 2,
              'permissions':
                  ['User Profile Update',
-                  'User Deactivate',
+                  'User Activation',
                   'User Reset Password',
                   'User Resend Confirmation',
                   'User Change Password'],
@@ -101,11 +101,17 @@ role_dict = {
               'permissions':
                   ['User Create',
                    'User Profile Update',
-                   'User Deactivate',
+                   'User Activation',
                    'User Reset Password',
                    'User Resend Confirmation',
                    'User Role Change',
                    'User Admin'],
               'level': 500
               }
+}
+
+# App Group Initialization
+app_group_dict = {
+    'UNKANI': 1,
+    'DEMO GROUP': 2
 }

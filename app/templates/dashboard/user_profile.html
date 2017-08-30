@@ -14,7 +14,7 @@
                             <div class="content">
                                 <div class="author">
                                     <img class="avatar border-white"
-                                         src="{{ user.gravatar }}"/>
+                                         src="{{ user.gravatar_url() }}"/>
                                     <h4 class="title">{{ user.first_name.title() }} {{ user.last_name.title() }}<br/>
                                         <a href="#">
                                             <small>@{{ user.username.lower() }}</small>

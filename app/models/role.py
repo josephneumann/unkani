@@ -1,5 +1,6 @@
-from app import sa
+from app import sa, ma
 from .app_permission import AppPermission, role_app_permission
+from marshmallow import fields
 
 
 ###################################################################################################
@@ -17,7 +18,7 @@ class Role(sa.Model):
                                       back_populates='roles')
 
     def __repr__(self):  # pragma: no cover
-        return '<Role %r>' % self.name
+        return '<Role {}:{}'.format(self.id, self.name)
 
     @staticmethod
     def initialize_roles():
@@ -46,3 +47,24 @@ class Role(sa.Model):
             sa.session.commit()
 
         sa.session.commit()
+
+    def dump(self):
+        schema = RoleSchema()
+        data, x = schema.dump(self)
+        return data
+
+##################################################################################################
+# MARSHMALLOW USER SCHEMA DEFINITION FOR OBJECT SERIALIZATION
+##################################################################################################
+
+class RoleSchema(ma.Schema):
+    """Marshmallow schema, associated with SQLAlchemy Role model.  Used as a base object for
+    serialization ."""
+
+    class Meta:
+        # exclude = ()
+        ordered = False
+
+    id = fields.Int(dump_only=True)
+    name = fields.String(attribute='name', dump_only=True)
+    level = fields.Int(attribute='level', dump_only=True)

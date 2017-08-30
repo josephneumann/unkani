@@ -14,6 +14,7 @@ from app import create_app, sa, mail
 from app.models import *
 from flask_script import Manager, Shell, Command, prompt, prompt_bool
 from flask_migrate import Migrate, MigrateCommand
+from sqlalchemy import or_, and_, any_
 
 # Create app with create_app class defined in __init__.py  test
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')
@@ -24,8 +25,8 @@ migrate = Migrate(app, sa)
 # Run python shell with application context
 def make_shell_context():
     return dict(app=app, sa=sa, mail=mail, PhoneNumber=PhoneNumber, User=User, Role=Role, AppPermission=AppPermission,
-                Patient=Patient,
-                Address=Address, EmailAddress=EmailAddress)
+                Patient=Patient, Address=Address, EmailAddress=EmailAddress, AppGroup=AppGroup,
+                user_app_group=user_app_group, or_=or_, and_=and_)
 
 
 manager.add_command("shell", Shell(make_context=make_shell_context))
@@ -147,6 +148,8 @@ def deploy():
         AppPermission.initialize_app_permissions()
         print("Initializing user roles...")
         Role.initialize_roles()
+        print("Creating default App Groups")
+        AppGroup.initialize_app_groups()
         print("Creating admin user...")
         User.initialize_admin_user()
         print()

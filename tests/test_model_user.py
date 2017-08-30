@@ -104,7 +104,7 @@ class UserModelTestCase(BaseClientTestCase):
         sa.session.commit()
         self.assertTrue(user is not None)
         self.assertTrue(user.email is not None)
-        self.assertTrue(user.phone.number is not None)
+        self.assertTrue(user.phone_number.number is not None)
         self.assertTrue(user.first_name is not None)
         self.assertTrue(user.last_name is not None)
         self.assertTrue(user.dob is not None)

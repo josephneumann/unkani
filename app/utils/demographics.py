@@ -7,8 +7,15 @@ from uszipcode import ZipcodeSearchEngine
 from faker import Faker
 from entropy import shannon_entropy
 
+# Regex utilities
+non_digits_re = re.compile('[^0-9]')
+non_alpha_re = re.compile('[^a-zA-Z]')
+paren_re = re.compile(r'\([^()]*(\)|$)')
+punc_re = re.compile("[-,.']")
+white_space_re = re.compile('\s+')
 
-def normalize_phone(phone):
+
+def validate_phone(phone):
     """
     Utility function to normalize phone numbers.  
 
@@ -25,9 +32,30 @@ def normalize_phone(phone):
     ph = re.compile(r'.*1?.*([1-9][0-9]{2}).*([0-9]{3}).*([0-9]{4}).*')
     n_phone = ph.match(phone)
     if not n_phone:
-        return None
+        raise ValueError('An invalid value was provided as a phone number: {}'.format(phone))
     else:
         return str('{}{}{}'.format(n_phone.group(1), n_phone.group(2), n_phone.group(3)))
+
+
+def validate_contact_type(type):
+    type_dict = {"HOME": frozenset(["H", "HOME", "HOME PHONE", "HOUSE", "HOUSE PHONE", "LAND LINE"]),
+                 "MOBILE": frozenset(["C", "CELL", "MOBILE", "M", "CELL PHONE", "MOBILE PHONE"]),
+                 "WORK": frozenset(["W", "WORK", "WORK PHONE", "B", "BUSINESS", "BUSINESS PHONE"]),
+                 "TEMP": frozenset(["T", "TEMP", "TEMPORARY"]),
+                 }
+    if not type:
+        raise ValueError(
+            "No contact type provided. A value in the allowed set must be provided.")
+
+    type = str(type).upper().strip()
+    n_type = None
+
+    for key in type_dict:
+        if type in type_dict[key]:
+            n_type = key
+    if not n_type:
+        raise ValueError("Contact type was not in the allowed set of values.")
+    return n_type
 
 
 def random_phone():
@@ -70,12 +98,12 @@ def format_phone(phone=None):
     ph = re.compile(r'.*1?.*([1-9][0-9]{2}).*([0-9]{3}).*([0-9]{4}).*')
     n_phone = ph.match(phone)
     if not n_phone:
-        return None
+        raise ValueError('An invalid value was supplied as phone number: {}'.format(phone))
     else:
         return str('({}) {}-{}'.format(n_phone.group(1), n_phone.group(2), n_phone.group(3)))
 
 
-def normalize_ssn(ssn):
+def validate_ssn(ssn):
     """
     Utility function to normalize social security numbers (SSN)
 
@@ -104,7 +132,7 @@ def normalize_ssn(ssn):
     ssn_digits = numeric_digits.sub('', ssn)
     if len(ssn_digits) != 9:
         ssn_digits = None
-        return None
+        raise ValueError('The value passed as an SSN was not nine numeric digits in length: {}'.format(ssn))
     elif ssn_digits:
         ssn_compile = re.compile(r'.*([0-8][0-9]{2}).*([0-9]{2}).*([0-9]{4}).*')
         n_ssn = ssn_compile.match(ssn_digits)
@@ -112,9 +140,10 @@ def normalize_ssn(ssn):
             n_ssn_digits = str('{}{}{}'.format(n_ssn.group(1), n_ssn.group(2), n_ssn.group(3)))
             if (n_ssn_digits in bad_ssns) or (n_ssn.group(1) in ['666', '000']) or (n_ssn.group(2) in ['00']) or (
                         n_ssn.group(3) in ['0000']):
-                return None
+                raise ValueError('An invalid value was supplied as an SSN: '.format(ssn))
             elif shannon_entropy(n_ssn_digits) < .16:
-                return None
+                raise ValueError(
+                    'The value supplied as an SSN does not pass shannon entropy requirements: '.format(ssn))
             else:
                 return str('{}{}{}'.format(n_ssn.group(1), n_ssn.group(2), n_ssn.group(3)))
 
@@ -146,6 +175,8 @@ def format_ssn(ssn=None):
     n_ssn = ssn_compile.match(ssn)
     if n_ssn:
         return str('{}-{}-{}'.format(n_ssn.group(1), n_ssn.group(2), n_ssn.group(3)))
+    else:
+        raise ValueError('The value supplied as SSN is invalid: {}'.format(ssn))
 
 
 def normalize_city_state(city=None, state=None):
@@ -180,12 +211,12 @@ def normalize_city_state(city=None, state=None):
                     single_zipcode = zip_object.Zipcode
                 return zip_object.City, zip_object.State, single_zipcode
         except ValueError:
-            return None, lookup_state(state), None
+            return city, validate_state(state), None
     elif state:
-        return None, lookup_state(state), None
+        return None, validate_state(state), None
 
 
-def lookup_state(state=None):
+def validate_state(state):
     """
     Utility function that accepts any valid string representation of a US state and returns a normalized two
     character abbreviation of the state.
@@ -197,7 +228,7 @@ def lookup_state(state=None):
     
     :return:
         If a valid US state is found, the two character state abbreviation is returned.
-        Otherwise, None is returned
+        Otherwise, a ValueError is raised
     """
     zipcode_search = ZipcodeSearchEngine()
     try:
@@ -206,9 +237,9 @@ def lookup_state(state=None):
             state = state_zips[0]
             return state.State
         else:
-            return None
+            raise ValueError('Could not find a valid US state with the given input: {}'.format(state))
     except TypeError:
-        print("Invalid data type provided to lookup state function.")
+        raise ValueError('Could not find a valid US state with the given input: {}'.format(state))
 
 
 def lookup_zipcode_object(zipcode):
@@ -231,7 +262,7 @@ def lookup_zipcode_object(zipcode):
     return zipcode
 
 
-def normalize_zipcode(zipcode):
+def validate_zipcode(zipcode):
     """
     A utility function used to validate an normalize a zipcode.  Returns a zipcode as a string
     
@@ -242,10 +273,13 @@ def normalize_zipcode(zipcode):
         
     :return
         If a valid zipcode is matched, the zipcode is returned as a string
-        Otherwise, None is returned
+        Otherwise, a ValueError is raised
     """
     n_zipcode = lookup_zipcode_object(zipcode)
-    return n_zipcode.Zipcode
+    if n_zipcode:
+        return n_zipcode.Zipcode
+    else:
+        raise ValueError('Could not validate the zipcode {}'.format(zipcode))
 
 
 def random_zipcode(number=1, potential_matches=1000, string_only=True):
@@ -461,9 +495,9 @@ def random_first_name(sex=None):
     """
     Utility function to generate a random first name string
     :param sex: 
-        Type: char(1) from set ['M','F']
+        Type: char(1) from set ['MALE','FEMAILE']
         Default: None
-        Description: Either None, 'M' or 'F'.  Determines sex of name to return
+        Description: Either None, 'MALE' or 'FEMAILE'.  Determines sex of name to return
     :return: 
         If no sex is supplied, a random sex is chosen and corresponding gender's random first name is returned
         If a sex is supplied, a first name appropriate for that gender is returned
@@ -471,8 +505,8 @@ def random_first_name(sex=None):
     """
     fake = Faker()
     if not sex:
-        sex = random.choice(["M", "F"])
-    if sex == "M":
+        sex = random.choice(["MALE", "FEMALE"])
+    if sex == "MALE":
         return str(fake.first_name_male()).upper()
     else:
         return str(fake.first_name_female()).upper()
@@ -512,7 +546,7 @@ def normalize_lastname_suffix(last_name=None, suffix=None):
         if not (lastname or suffix):
             return lastname, suffix
         suffix_dict = {'JR': 'JR', 'JUNIOR': 'JR', 'SR': 'SR', 'SENIOR': 'SR', 'I': 'I', 'II': 'II',
-                       'III': 'III', 'IV': 'IV', '1ST': 'I', '2ND': 'II', '3RD': 'III', '4TH': 'IV',}
+                       'III': 'III', 'IV': 'IV', '1ST': 'I', '2ND': 'II', '3RD': 'III', '4TH': 'IV', }
         if suffix:
             suffix = suffix_dict.get(suffix, None)
 
@@ -564,7 +598,7 @@ def random_password():
     return str(password)
 
 
-def normalize_email(email=None):
+def validate_email(email):
     """
     Utility function to validate whether a given string input is an email address and normalize the output by trimming
     leading and trailing whitespaces and converting the resulting string to upper case.
@@ -573,16 +607,16 @@ def normalize_email(email=None):
         Default: None
         A string representation of an email address.  This is the email address to be validated / normalized
     :return:
-        If email is None, returns None
-        If email exists and does not pass regex validation, returns None
+        If email is None, raises ValueError
+        If email exists and does not pass regex validation, raises ValueError
         If email exists and passes regex validation, rerturns email in uppercase and trimmed
     """
     if not email:
-        return None
+        raise ValueError('An NoneType value as supplied as an email.')
     email_re = re.compile(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")
     validated_email = re.match(email_re, email)
     if not validated_email:
-        return None
+        raise ValueError('An invalid value was supplied as an email: {}'.format(email))
     else:
         return str(email).strip().upper()
 
@@ -598,7 +632,7 @@ def random_email():
     return str(fake.safe_email()).upper()
 
 
-def normalize_dob(dob=None, max_age=130):
+def validate_dob(dob, max_age=130):
     """
     Utility function to normalize a person's date of birth (DOB).  Uses dateutil library to parse all possible
     date values into a datetime.date object.
@@ -616,27 +650,26 @@ def normalize_dob(dob=None, max_age=130):
         If dateutil.parser can extract a Datetime from param 'dob' and that datetime value is within the past 
         'year_lookback' years, then a datetime.Date object is returned
         
-        Otherwise, None is returned
+        Otherwise, a ValueError is raised
     """
     n_dob = None
     if not dob:
-        return None
+        raise ValueError('A NoneType value was passed as a dob')
     else:
         dob = str(dob)
     if isinstance(dob, str):
         try:
             n_dob = dateparser.parse(dob, ignoretz=True)
         except ValueError:
-            n_dob = None
-    if n_dob:
-        today = datetime.today()
-        lower_limit = today + relativedelta(years=-max_age)
-        if lower_limit <= n_dob <= today:
-            return n_dob
-        else:
-            return None
+            raise ValueError('An invalid value was supplied as a DOB: {}'.format(dob))
+    today = datetime.today()
+    lower_limit = today + relativedelta(years=-max_age)
+    if not lower_limit <= n_dob:
+        raise ValueError('The DOB {} is too far in the past to be a valid DOB'.format(n_dob))
+    elif not n_dob <= today:
+        raise ValueError('The DOB {} is an invalid future date.'.format(n_dob))
     else:
-        return None
+        return n_dob
 
 
 def random_dob():
@@ -655,7 +688,7 @@ def random_dob():
     return dob
 
 
-def normalize_race(race=None):
+def validate_race(race):
     """
     Utility function to normalize string representations of race to the CDC Race Category codeset.  
     Value set OID == 2.16.840.1.114222.4.11.836
@@ -671,7 +704,7 @@ def normalize_race(race=None):
         If 'race' is not None and lookup in 'race_dict' fails, returns None
     """
     if not race:
-        return None
+        raise ValueError('A NoneType value as supplied as race.')
 
     race = str(race).strip().upper()
     race_values = {"1002-5", "2028-9", "2054-5", "2076-8", "2131-1", "2106-3"}
@@ -693,7 +726,7 @@ def normalize_race(race=None):
     if race in race_values:
         return race
     else:
-        return None
+        raise ValueError('The value supplied as race ({})could not be validated.'.format(race))
 
 
 def random_race():
@@ -705,7 +738,7 @@ def random_race():
     return random.choice(race_values)
 
 
-def normalize_ethnicity(ethnicity=None):
+def validate_ethnicity(ethnicity):
     """
     Utility function to normalize string representations of ethnicity categories
     Uses CDC ethnicity category value set OID == 2.16.840.1.114222.4.11.837
@@ -720,8 +753,8 @@ def normalize_ethnicity(ethnicity=None):
         If 'ethnicity' is type String and input exists in CDC Ethnicity codeset, returns ethnicity code
         If 'ethnicity' is type String and lookup succeeds in 'ethnicity_dict', returns top level key of dict
         If 'ethnicity' is type Boolean, if True returns code for Hisp/Lat, if False, returns code for Not Hisp/Lat
-        If 'ethnicity' is none, returns None
-        If 'ethnicity' is not type Bool, and String lookup fails, returns None
+        If 'ethnicity' is none, raise ValueError
+        If 'ethnicity' is not type Bool, and String lookup fails, raises ValueError
     """
     if isinstance(ethnicity, bool):
         if ethnicity:
@@ -729,7 +762,7 @@ def normalize_ethnicity(ethnicity=None):
         else:
             return "2186-5"
     if not ethnicity:
-        return None
+        raise ValueError('A NoneType value was supplied as ethnicity.')
     ethnicity = str(ethnicity).strip().upper()
     ethnicity_values = {"2135-2", "2186-5"}
     ethnicity_dict = {
@@ -747,7 +780,7 @@ def normalize_ethnicity(ethnicity=None):
         return ethnicity
 
     else:
-        return None
+        raise ValueError('The value supplied for ethnicity ({}) could not be validated.'.format(ethnicity))
 
 
 def random_ethnicity():
@@ -761,15 +794,15 @@ def random_ethnicity():
     return random.choice(ethnicity_values)
 
 
-def normalize_marital_status(status=None):
+def validate_marital_status(status):
     """
-    Utility function to normalize a string representation of marital status to the HL7 Marital Status codeset.
-    Value set OID == 2.16.840.1.114222.4.11.809
+    Utility function to normalize a string representation of marital status to the HL7 FHIR R3 Marital Status codeset.
+    Value set: Expansion based on http://hl7.org/fhir/v3/MaritalStatus version 2016-11-11
     
     :param status: 
         Type: String
         Default: None
-        Description:  String representation of marital status.  May contain Hl7 Marital Status code or string
+        Description:  String representation of marital status.  May contain Hl7 FHIR R3 Marital Status code or string
             representation of a marital status category
     :return: 
         If 'status' is char(1) and in the HL7 codeset, the same Hl7 code is returned
@@ -778,37 +811,34 @@ def normalize_marital_status(status=None):
         If 'status' is None, returns None
     """
     if not status:
-        return None
+        raise ValueError('A NoneType value was supplied as a marital status.')
     status = str(status).strip().upper()
-    status_values = {"N", "C", "D", "P", "I", "E", "G", "M", "O", "R", "A", "S", "U", "B", "T"}
-    status_dict = {"N": {"ANNULLED", "ANNULL"},
-                   "C": {"COMMON LAW", "CL"},
-                   "D": {"DIVORCED", "DIV", "DVC"},
-                   "P": {"DOMESTIC PARTNER", "DP"},
-                   "I": {"INTERLOCUTORY"},
-                   "E": {"LEGALLY SEPARATED", "LS"},
-                   "G": {"LIVING TOGETHER", "LT"},
-                   "M": {"MARRIED", "MAR", "M."},
-                   "O": {"OTHER", "OTH"},
-                   "R": {"REGISTERED DOMESTIC PARNTER", "RDP"},
-                   "A": {"SEPARATED", "SEP"},
-                   "S": {"SINGLE", "SIN", "SING", "S"},
-                   "U": {"UNKNOWN", "UNK", "N/A"},
-                   "B": {"UNMARRIED"},
-                   "T": {"UNREPORTED"},
+    n_status = None
+    status_dict = {"A": {"ANNULLED", "ANNULL"},  # Marriage contract has been declared null and to not have existed
+                   "D": {"DIVORCED", "DIV", "DVC"},  # Marriage contract has been declared dissolved and inactive
+                   "I": {"INTERLOCUTORY"},  # Subject to an Interlocutory Decree.
+                   "L": {"LEGALLY SEPARATED", "LS"},  # Legally Separated
+                   "M": {"MARRIED", "MAR", "M."},  # A current marriage contract is active
+                   "P": {"POLYGAMOUS", "POLY"},  # More than 1 current spouse
+                   "S": {"NEVER MARRIED", "SINGLE", "SIN", "SING", "S"},  # No marriage contract has ever been entered
+                   "T": {"REGISTERED DOMESTIC PARNTER", "RDP", "DOMESTIC PARTNER"},
+                   # Person declares that a domestic partner relationship exists.
+                   "U": {"UNMARRIED", "UN-MARRIED"},  # Currently not in a marriage contract.
+                   "UNK": {"UNKNOWN", "N/A"},  # Description:A proper value is applicable, but not known.
+                   "W": {"WIDOWED", "WID"}  # The spouse has died
                    }
-    if status in status_values:
-        return status
+    if status in status_dict:
+        n_status = status
 
     for key in status_dict:
         if status in status_dict[key]:
             status = key
 
-    if status in status_values:
-        return status
+    if n_status:
+        return n_status
 
     else:
-        return None
+        raise ValueError('The value supplied for marital status ({}) could not be validated.'.format(status))
 
 
 def random_marital_status():
@@ -868,13 +898,14 @@ def random_deceased():
         return True
 
 
-def normalize_sex(sex=None):
+def validate_sex(sex):
     """
-    Utility function to normalize a string representation of a person's gender to the approved char(1) representation
-    listed below:
-        "F" - Female
-        "M" - Male
-        "O" - Other
+    Utility function to normalize a string representation of a person's gender to the approved representation
+    listed below from the HL7 FHIR R3 Administrative Gender Value Set:
+        "female"
+        "male"
+        "other"
+        "unknown"
         
     A None / Null status is used to represent unknown genders rather than a designator "U"
     
@@ -885,24 +916,27 @@ def normalize_sex(sex=None):
         
     :return: 
         If 'sex' is not type String, returns None
-        If 'sex' is in approved sets of female, male or other values, returns "F", "M" or "O", respectively
+        If 'sex' is in approved sets of female, male or other values, returns "F", "M" or "U", respectively
         If 'sex' is type string and not in approved sets of values, returns None
     """
     if not isinstance(sex, str):
-        return None
+        raise TypeError('A non-string value was passed as sex')
     else:
         female_values = {"F", "FEMALE", "WOMAN", "GIRL"}
         male_values = {"M", "MALE", "MAN", "BOY"}
-        other_values = {"O", "OTHER", "N/A"}
+        other_values = {"OTHER", "O"}
+        unknown_values = {"U", "UNSPECIFIED"}
         sex = str(sex).upper().strip()
         if sex in female_values:
-            return 'F'
+            return 'FEMALE'
         if sex in male_values:
-            return 'M'
+            return 'MALE'
         if sex in other_values:
-            return 'O'
+            return 'OTHER'
+        if sex in unknown_values:
+            return 'UNKNOWN'
         else:
-            return None
+            raise ValueError('An invalid value ({}) was supplied as sex.'.format(sex))
 
 
 def random_sex():
@@ -910,12 +944,102 @@ def random_sex():
     A simple utility function to randomly return either "M" or "F" for gender
     
     :return: 
-        "M" or "F"
+        "MALE" or "FEMALE"
     """
     if random.randint(0, 1):
-        return "M"
+        return "MALE"
     else:
-        return "F"
+        return "FEMALE"
+
+
+def validate_language(language):
+    """
+    A utility function to normalize language values to the HL7 FHIR R3 Common Language Set
+
+    :param language:
+        Type: String
+        Value: String description of language to validate
+    :return:
+        If language value can be validated, returns string representation of language from HL7 FHIR R3 Common Language
+        If language value cannont be validated, raises ValueError
+    """
+    language_dict = {"ar": ["ARABIC"],
+                     "bn": ["BENGALI"],
+                     "cs": ["CZECH"],
+                     "da": ["DANISH"],
+                     "de": ["GERMAN"],
+                     "de - AT": ["GERMAN(AUSTRIA)"],
+                     "de - CH": ["GERMAN(SWITZERLAND)"],
+                     "de - DE": ["GERMAN(GERMANY)"],
+                     "el": ["GREEK"],
+                     "en": ["ENGLISH", "ENG"],
+                     "en - AU": ["ENGLISH(AUSTRALIA)"],
+                     "en - CA": ["ENGLISH(CANADA)"],
+                     "en - GB": ["ENGLISH(GREAT BRITAIN"],
+                     "en - IN": ["ENGLISH(INDIA)"],
+                     "en - NZ": ["ENGLISH(NEW ZELAND)"],
+                     "en - SG": ["ENGLISH(SINGAPORE)"],
+                     "en - US": ["ENGLISH(UNITED STATES)"],
+                     "es": ["SPANISH"],
+                     "es - AR": ["SPANISH(ARGENTINA)"],
+                     "es - ES": ["SPANISH(SPAIN)"],
+                     "es - UY": ["SPANISH(URUGUAY)"],
+                     "fi": ["FINNISH"],
+                     "fr": ["FRENCH"],
+                     "fr - BE": ["FRENCH(BELGIUM)"],
+                     "fr - CH": ["FRENCH(SWITZERLAND)"],
+                     "fr - FR": ["FRENCH(FRANCE)"],
+                     "fy": ["FRYSIAN"],
+                     "fy - NL": ["FRYSIAN(NETHERLANDS)"],
+                     "hi": ["HINDI"],
+                     "hr": ["CROATIAN"],
+                     "it": ["ITALIAN"],
+                     "it - CH": ["ITALIAN(SWITZERLAND)"],
+                     "it - IT": ["ITALIAN(ITALY)"],
+                     "ja": ["JAPANESE"],
+                     "ko": ["KOREAN"],
+                     "nl": ["DUTCH"],
+                     "nl - BE": ["DUTCH(BELGIUM)"],
+                     "nl - NL": ["DUTCH(NETHERLANDS)"],
+                     "no": ["NORWEIGAN"],
+                     "no - NO": ["NORWEGIAN(NORWAY)"],
+                     "pa": ["PUNJABI"],
+                     "pt": ["PORTUGUESE"],
+                     "pt - BR": ["PORTUGUESE(BRAZIL)"],
+                     "ru": ["RUSSIAN"],
+                     "ru - RU": ["RUSSIAN(RUSSIA)"],
+                     "sr": ["SERBIAN"],
+                     "sr - SP": ["SERBIAN(SERBIA)"],
+                     "sv": ["SWEDISH"],
+                     "sv - SE": ["SWEDISH(SWEDEN)"],
+                     "te": ["Telegu"],
+                     "zh": ["CHINESE"],
+                     "zh - CN": ["CHINESE(CHINA)"],
+                     "zh - SG": ["CHINESE(SINGAPORE)"],
+                     "zh - TW": ["CHINESE(TAIWAIN)"]
+                     }
+    n_language = None
+    for lang in language_dict:
+        formatted_language = language.upper().strip()
+        if formatted_language == str(lang).upper().strip() or formatted_language in language_dict[lang]:
+            n_language = lang
+
+    if n_language:
+        return n_language
+    else:
+        raise ValueError("The language supplied ({}) could not be validated".format(language))
+
+
+def random_language():
+    """
+    Utility function to generate a random language code.
+
+    :return:
+        Type: String
+        Value: A language code
+    """
+    lang_list = ['en', 'en', 'es', 'en - US']
+    return random.choice(lang_list)
 
 
 def random_description(max_chars=200):
@@ -956,10 +1080,10 @@ def random_demographics(number=1):
         Demographic dictionaries contain key-value pairs of demographic elements.
         
         Example Demographic Dict:
-        {'address1': '2389 FORD KEYS', 'ssn': '163-98-2131', 'cell_phone': '5421141524', 'race': '1002-5',
+        {'address1': '2389 FORD KEYS', 'ssn': '163-98-2131', 'mobile_phone': '5421141524', 'race': '1002-5',
         'suffix': None, 'first_name': 'EDUARDO', 'deceased': False, 'address2': None, 'last_name': 'TAYLOR',
         'home_phone': '2686516100', 'ethnicity': '2135-2', 'dob': datetime.date(1945, 5, 3),
-        'middle_name': 'ALEXANDER', 'zipcode': '78660', 'sex': 'M', 'work_phone': '1013348306',
+        'middle_name': 'ALEXANDER', 'zipcode': '78660', 'sex': 'MALE', 'work_phone': '1013348306',
         'state': 'TX', 'email': 'LORI58@EXAMPLE.NET', 'city': 'PFLUGERVILLE', 'marital_status': 'D'}
         
     """
@@ -984,9 +1108,10 @@ def random_demographics(number=1):
         suffix = random_suffix()
         ssn = random_ssn()
         home_phone = random_phone()
-        cell_phone = random_phone()
+        mobile_phone = random_phone()
         work_phone = random_phone()
-        email = random_email()
+        username = (first_name + "." + last_name + str(random.randint(0, 1000)))
+        email = username + '@EXAMPLE.COM'
         dob = random_dob()
         deceased = random_deceased()
         marital_status = random_marital_status()
@@ -994,10 +1119,10 @@ def random_demographics(number=1):
         ethnicity = random_ethnicity()
 
         demo_dict = {"first_name": first_name, "last_name": last_name, "middle_name": middle_name, "dob": dob,
-                     "sex": sex, "ssn": ssn, "home_phone": home_phone, "cell_phone": cell_phone,
+                     "sex": sex, "ssn": ssn, "home_phone": home_phone, "mobile_phone": mobile_phone,
                      "work_phone": work_phone, "email": email, "deceased": deceased,
                      "suffix": suffix, "marital_status": marital_status, "race": race,
-                     "ethnicity": ethnicity}
+                     "ethnicity": ethnicity, "username": username}
         demo_dict.update(address_list.pop(0))
         result.append(demo_dict)
         print("{}".format(int(number) - len(result)), end='...', flush=True)

@@ -8,7 +8,8 @@ from app.models import AnonymousUser
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from .. import sa
-from ..models import User, Role, EmailAddress, PhoneNumber
+from ..models import Role, EmailAddress, PhoneNumber
+from app.models.user import User, lookup_user_by_email
 
 
 @auth.before_app_request
@@ -32,9 +33,8 @@ def auth_context_processor():
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        email = form.email.data.upper()
-        user = sa.session.query(User).join(EmailAddress).filter(EmailAddress._email == email).filter(
-            EmailAddress._active == True).first()
+        email = form.email.data
+        user = lookup_user_by_email(email=email)
         if user is None:
             flash('A user account with the email address {} was not found.'.format(form.email.data), 'danger')
         elif user.verify_password(form.password.data):
@@ -73,7 +73,7 @@ def register():
     form = RegistrationForm()
     if form.validate_on_submit():
         entered_email = form.email.data.upper().strip()
-        if EmailAddress.query.join(User).filter(EmailAddress._email == entered_email).first():
+        if EmailAddress.query.join(User).filter(EmailAddress.email == entered_email).first():
             flash('The email {} is already registered to another user. Please enter a different email address.'.format(
                 form.email.data),
                 'danger')
@@ -150,7 +150,7 @@ def reset_password_request():
     form = ResetPasswordRequestForm()
     if form.validate_on_submit():
         user = sa.session.query(User).join(EmailAddress).filter(
-            EmailAddress._email == form.email.data.upper().strip()).first()
+            EmailAddress.email == form.email.data.upper().strip()).first()
         if user:
             if user.active:
                 token = user.generate_reset_token()
@@ -176,7 +176,7 @@ def reset_password(token):
     form = ResetPasswordForm()
     if form.validate_on_submit():
         user = sa.session.query(User).join(EmailAddress).filter(
-            EmailAddress._email == form.email.data.upper().strip()).first()
+            EmailAddress.email == form.email.data.upper().strip()).first()
         if user is None:
             flash('That does not appear to be an active primary email for an unkani account.', 'danger')
             return redirect(url_for('main.landing'))

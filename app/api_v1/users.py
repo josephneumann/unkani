@@ -1,5 +1,6 @@
 from flask import request, jsonify, g, url_for
 from sqlalchemy import or_, and_
+from sqlalchemy.orm import aliased
 import json
 
 from app import sa
@@ -37,14 +38,21 @@ def get_users():
     level = g.current_user.role.level
     id = g.current_user.id
 
+    # Create a User model alias to be used with existence test in subquery
+    ua = aliased(User, name='ua')
+
     # Return un-executed query that is pre-filtered for security
     query = User.query\
         .join(Role)\
         .filter(or_(Role.level < level, User.id == id))\
         .join(EmailAddress)\
         .filter(and_(EmailAddress.primary == True, EmailAddress.active == True))\
-        .join(AppGroup, User.app_groups)\
-        .filter(AppGroup.id.in_(app_group_ids))
+        .filter(sa.session.query(ua) \
+                .join(AppGroup, ua.app_groups) \
+                .filter(AppGroup.id.in_(app_group_ids)) \
+                .filter(User.id == ua.id).distinct().exists()
+                )
+
 
     # initialize error list of dicts
     error_list = []
@@ -167,9 +175,6 @@ def get_users():
             elif hasattr(User, s[0]):
                 column = getattr(User, s[0])
                 if s[0] == 'id' and direction == 'asc':
-                    # For some reason, sorting by id.asc() screws up first page in pagination
-                    # Todo: debug this so sorting is done appropriately.  The query.limit() method is not behaving
-                    #       as expected when joining the AppGroup to the User model (many to many)
                     continue
             else:
                 error_list.append(register_arg_error(arg=s[0], type='invalid sort argument'))
@@ -179,7 +184,8 @@ def get_users():
             if column:
                 query = query.order_by(getattr(column, direction)())
     else:
-        query = query.order_by(User.id.desc())
+        query = query.order_by(User.id.asc())
+
     response = paginate_query(query=query, name='users', error_list=error_list, max_per_page=50)
     return response
 

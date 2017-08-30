@@ -94,14 +94,14 @@ def not_modified(message='The resource was not modified.',
 
 
 @api.errorhandler(400)
-def bad_request(message='The request is invalid or inconsistent.', type='bad request', level='critical'):
+def bad_request(_error, message='The request is invalid or inconsistent.', type='bad request', level='critical'):
     error_dict = {'message': message, 'type': type, 'level': level}
     response = generate_error_response(errors=error_dict, code=400)
     return response
 
 
 @api.errorhandler(401)
-def unauthorized(message='The request does not include authentication information.', type='not authorized',
+def unauthorized(_error, message='The request does not include authentication information.', type='not authorized',
                  level='critical'):
     error_dict = {'message': message, 'type': type, 'level': level}
     response = generate_error_response(errors=error_dict, code=401)
@@ -109,7 +109,7 @@ def unauthorized(message='The request does not include authentication informatio
 
 
 @api.errorhandler(403)
-def forbidden(message='The authentication credentials sent with the request are insufficient for the request.',
+def forbidden(_error, message='The authentication credentials sent with the request are insufficient for the request.',
               type='forbidden', level='critical'):
     error_dict = {'message': message, 'type': type, 'level': level}
     response = generate_error_response(errors=error_dict, code=403)
@@ -117,31 +117,34 @@ def forbidden(message='The authentication credentials sent with the request are 
 
 
 @api.errorhandler(404)
-def not_found(message='The resource requested was not found.', type='not found', level='critical'):
+def not_found(_error, message='The resource requested was not found.', type='not found', level='critical'):
     error_dict = {'message': message, 'type': type, 'level': level}
     response = generate_error_response(errors=error_dict, code=404)
     return response
 
 
 @api.errorhandler(405)
-def method_not_allowed(message='The attempted method is not allowed.', type='method not allowed', level='critical'):
+def method_not_allowed(_error, message='The attempted method is not allowed.', type='method not allowed', level='critical'):
     error_dict = {'message': message, 'type': type, 'level': level}
     response = generate_error_response(errors=error_dict, code=405)
     return response
+
 
 def precondition_failed(message='Precondition failed.', type='precondition failed', level='critical'):
     error_dict = {'message': message, 'type': type, 'level': level}
     response = generate_error_response(errors=error_dict, code=412)
     return response
 
-def too_many_requests(message='You have exceeded your allowed request rate', type='too many requests', level='critical'):
+
+def too_many_requests(message='You have exceeded your allowed request rate', type='too many requests',
+                      level='critical'):
     error_dict = {'message': message, 'type': type, 'level': level}
     response = generate_error_response(errors=error_dict, code=429)
     return response
 
 
 @api.errorhandler(500)
-def internal_server_error(message='An unexpected error has occurred while processing the request.',
+def internal_server_error(_error, message='An unexpected error has occurred while processing the request.',
                           type='internal server error', level='critical'):
     error_dict = {'message': message, 'type': type, 'level': level}
     response = generate_error_response(errors=error_dict, code=500)

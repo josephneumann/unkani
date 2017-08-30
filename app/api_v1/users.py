@@ -28,7 +28,7 @@ from app.flask_sendgrid import send_email
 @rate_limit(limit=5, period=15)
 @etag
 def get_users():
-    #TODO: Add filtering by app group info
+    # TODO: Add filtering by app group info
 
     # Set variables for query to execute
     app_groups = g.current_user.app_groups
@@ -42,17 +42,16 @@ def get_users():
     ua = aliased(User, name='ua')
 
     # Return un-executed query that is pre-filtered for security
-    query = User.query\
-        .join(Role)\
-        .filter(or_(Role.level < level, User.id == id))\
-        .join(EmailAddress)\
-        .filter(and_(EmailAddress.primary == True, EmailAddress.active == True))\
+    query = User.query \
+        .join(Role) \
+        .filter(or_(Role.level < level, User.id == id)) \
+        .join(EmailAddress) \
+        .filter(and_(EmailAddress.primary == True, EmailAddress.active == True)) \
         .filter(sa.session.query(ua) \
                 .join(AppGroup, ua.app_groups) \
                 .filter(AppGroup.id.in_(app_group_ids)) \
                 .filter(User.id == ua.id).distinct().exists()
                 )
-
 
     # initialize error list of dicts
     error_list = []
@@ -143,7 +142,7 @@ def get_users():
                     else:
                         # Otherwise upper and trim argument for convenience
                         f[2] = str(f[2]).upper().strip()
-                    query = query.join(Address).filter(Address.primary==True).filter(Address.active==True)
+                    query = query.join(Address).filter(Address.primary == True).filter(Address.active == True)
                     query = query.filter(getattr(column, op)(f[2]))
 
                 # Otherwise assume filter on User model attribute.  Attempt column lookup
@@ -214,7 +213,7 @@ def get_user(userid):
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def new_user():
-    #TODO: Default app group to that of requesting user when creating.  Might need to set a default on assoc. table.
+    # TODO: Default app group to that of requesting user when creating.  Might need to set a default on assoc. table.
     """
     Register a new user
     """

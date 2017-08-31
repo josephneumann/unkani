@@ -4,10 +4,12 @@ from flask_login import login_required, current_user
 from app.auth.views import complete_logout
 from app.flask_sendgrid import send_email
 from app.security import *
+from sqlalchemy import or_, and_
+from sqlalchemy.orm import aliased
 from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
 from .. import sa
-from app.models import User, EmailAddress, Patient, UserAPI, EmailAddressAPI
+from app.models import User, EmailAddress, Patient, UserAPI, EmailAddressAPI, Role, AppGroup
 from app.models.user import lookup_user_by_email, lookup_user_by_username
 
 
@@ -26,7 +28,7 @@ def dashboard_context_processor():
 @dashboard.route('/user/<userid>/change_password', methods=['GET', 'POST'])
 def change_password(userid):
     form = ChangePasswordForm()
-    user = User.query.filter_by(id=userid).first_or_404()
+    user = User.query.get_or_404(userid)
     if not user.is_accessible(requesting_user=current_user, other_permissions=[app_permission_userpasswordchange],
                               self_permissions=[app_permission_userpasswordchange]):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
@@ -49,7 +51,7 @@ def change_password(userid):
 @dashboard.route('/user/<userid>/change_email', methods=['GET', 'POST'])
 def change_email_request(userid):
     form = ChangeEmailForm()
-    user = User.query.filter_by(id=userid).first_or_404()
+    user = User.query.get_or_404(userid)
     if not user.is_accessible(requesting_user=current_user, other_permissions=[app_permission_userprofileupdate],
                               self_permissions=[app_permission_userprofileupdate]):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
@@ -119,7 +121,7 @@ def dashboard_main():
 @dashboard.route('/user/<int:userid>', methods=['GET', 'POST'])
 def user_profile(userid):
     form = UpdateUserProfileForm()
-    user = User.query.filter_by(id=userid).first_or_404()
+    user = User.query.get_or_404(userid)
     if not user.is_accessible(requesting_user=current_user, other_permissions=[app_permission_userprofileupdate],
                               self_permissions=[app_permission_userprofileupdate]):
         flash('You do not have access to this user profile.  You were re-directed to your own profile instead.',
@@ -202,10 +204,22 @@ def deactivate_user(userid):
 def admin_user_list():
     if not (app_permission_useradmin.can() or role_permission_superadmin.can()):
         abort(403)
-    userlist = User.query.order_by(User.id).all()
-    for user in userlist:
-        if not user.is_accessible(requesting_user=current_user):
-            userlist.pop(userlist.index(user))
+    ua = aliased(User, name='ua')
+
+    app_group_ids = []
+    for i in current_user.app_groups:
+        app_group_ids.append(i.id)
+
+    userlist = User.query \
+        .join(Role) \
+        .filter(or_(Role.level < current_user.role.level, User.id == current_user.id)) \
+        .join(EmailAddress) \
+        .filter(and_(EmailAddress.primary == True, EmailAddress.active == True)) \
+        .filter(sa.session.query(ua) \
+                .join(AppGroup, ua.app_groups) \
+                .filter(AppGroup.id.in_(app_group_ids)) \
+                .filter(User.id == ua.id).distinct().exists()
+                )
     return render_template('dashboard/admin_user_list.html', userlist=userlist)
 
 

@@ -8,8 +8,8 @@ from app.models.app_group import AppGroup
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from .. import sa
-from ..models import Role, EmailAddress, PhoneNumber
-from app.models.user import User, lookup_user_by_email
+from ..models import Role, EmailAddress
+from app.models.user import User, lookup_user_by_email, lookup_user_by_username, UserAPI
 
 
 @auth.before_app_request
@@ -72,23 +72,24 @@ def logout():
 def register():
     form = RegistrationForm()
     if form.validate_on_submit():
-        entered_email = form.email.data.upper().strip()
-        if EmailAddress.query.join(User).filter(EmailAddress.email == entered_email).first():
+        entered_email = form.email.data
+        if lookup_user_by_email(email=entered_email):
             flash('The email {} is already registered to another user. Please enter a different email address.'.format(
                 form.email.data),
                 'danger')
 
-        if User.query.filter_by(_username=form.username.data.upper().strip()).first():
+        if lookup_user_by_username(username=form.username.data):
             flash(
                 'The username {} is already registered to another user.  Please enter a different username.'.format(
                     form.username.data),
                 'danger')
 
         else:
-            user = User(email=entered_email, first_name=form.first_name.data, last_name=form.last_name.data,
-                        username=form.username.data, password=form.password.data)
+            api = UserAPI(email=entered_email, first_name=form.first_name.data, last_name=form.last_name.data,
+                          password=form.password.data, username=form.username.data)
+            api.run_validations()
+            user, errors = api.make_object()
             # For now, new users are associated with the default app group
-            user.app_groups.append(AppGroup.query.filter(AppGroup.default == True).first())
             sa.session.add(user)
             sa.session.commit()
             token = user.generate_confirmation_token()
@@ -151,8 +152,7 @@ def reset_password_request():
         return redirect(url_for('main.landing'))
     form = ResetPasswordRequestForm()
     if form.validate_on_submit():
-        user = sa.session.query(User).join(EmailAddress).filter(
-            EmailAddress.email == form.email.data.upper().strip()).first()
+        user = lookup_user_by_email(email=form.email.data)
         if user:
             if user.active:
                 token = user.generate_reset_token()
@@ -177,8 +177,7 @@ def reset_password(token):
         return redirect(url_for('main.landing'))
     form = ResetPasswordForm()
     if form.validate_on_submit():
-        user = sa.session.query(User).join(EmailAddress).filter(
-            EmailAddress.email == form.email.data.upper().strip()).first()
+        user = lookup_user_by_email(email=form.email.data)
         if user is None:
             flash('That does not appear to be an active primary email for an unkani account.', 'danger')
             return redirect(url_for('main.landing'))
@@ -204,7 +203,8 @@ def on_identity_loaded(sender, identity):
         identity.provides.add(UserNeed(identity.user.id))
     # Update the identity with the roles that the user provides
     if hasattr(identity.user, 'role_id'):
-        role = Role.query.filter_by(id=identity.user.role_id).first()
+        role = Role.query.join(User).filter(User.id == identity.user.id).first()
+        # role = Role.query.filter_by(id=identity.user.role_id).first()
         identity.provides.add(RoleNeed(role.name))
         app_permissions = role.app_permissions
         for perm in app_permissions:

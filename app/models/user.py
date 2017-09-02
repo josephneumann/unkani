@@ -564,8 +564,15 @@ class User(UserMixin, sa.Model):
     ##############################################################################################
 
     def generate_row_hash(self):
+        """Generates a sha1 hash of the user attributes.  Used to track whether changes are made
+        from one version of the user to the next.  Compiles related child object attributes in the user
+        record hash for ease of use."""
         data = {"username": self.username, "first_name": self.first_name, "last_name": self.last_name,
-                "dob": self.dob_string, "sex": self.sex, "role_id": self.role_id, "password_hash": self.password_hash,
+                "dob": self.dob_string, "sex": self.sex, "app_group_ids": [x.id for x in self.app_groups],
+                "email_address": self.email.email if self.email else None,
+                "phone_number": self.phone_number.number if self.phone_number else None,
+                "address_hash": self.address.address_hash if self.address else None,
+                "role_id": self.role_id, "password_hash": self.password_hash,
                 "last_password_hash": self.last_password_hash, "password_timestamp": self.password_timestamp,
                 "description": self.description, "confirmed": self.confirmed, "active": self.active,
                 "last_seen": self.last_seen, "created_at": self.created_at, "updated_at": self.updated_at}
@@ -584,6 +591,9 @@ class User(UserMixin, sa.Model):
     ##############################################################################################
 
     def dump(self):
+        """Uses Marshmallows marshaller to dump the default serialized version of the user
+        object as a python native dictionary.  Used to make serializing the object as easy
+        as calling the object method."""
         schema = UserSchema()
         user = schema.dump(self).data
         return user
@@ -672,6 +682,8 @@ def unkani_password_hasher(password):
 
 
 def lookup_user_by_email(email):
+    """Function to facilitate conformity for user lookup by email.  Applies universal email validation function and
+    queries the user based on the existence of the primary / active email joined to the User."""
     if isinstance(email, EmailAddress):
         email = email.email
     try:
@@ -682,6 +694,8 @@ def lookup_user_by_email(email):
 
 
 def lookup_user_by_username(username):
+    """Function to facilitate conformity for user lookup by username.  Applies universal username validation function
+    and queries the user based on a match to the username."""
     try:
         n_username = normalize_username(username=username)
         return sa.session.query(User).filter(User.username == n_username).first()
@@ -706,7 +720,6 @@ login_manager.anonymous_user = AnonymousUser
 # Flask Login - User Loader Function
 ###################################################
 # Callback function, receives a user identifier and
-# returns either user object or None
 # Used by Flask-Login to set current_user()
 @login_manager.user_loader
 def load_user(user_id):
@@ -1056,23 +1069,17 @@ class UserAPI:
                         bad_ids.add(i)
             else:
                 self.app_groups = None
-                self.errors['warning']['app_group_id'][
-                    'type error'] = 'A non integer or non-string value was supplied as ' \
-                                    'the app_group_id'
+                self.errors['warning']['app_group_id type'] = 'A non integer or non-string value was supplied as ' \
+                                                              'the app_group_id'
 
         if ids:
             valid_app_groups = []
             for id in ids:
                 existing = AppGroup.query.get(id)
-                print('Existing app group matched')
-                print(existing)
                 if not existing:
-                    print('Existing not found')
                     bad_ids.add(id)
                 else:
                     valid_app_groups.append(existing)
-                    print('Appended app group to valid app agroups')
-                    print(valid_app_groups)
             if bad_ids:
                 for id in bad_ids:
                     ids.discard(id)
@@ -1080,25 +1087,15 @@ class UserAPI:
                                                               'any app groups in the system.  They were ignored.  {}'.format(
                     bad_ids)
             if valid_app_groups:
-                if not self.user:
-                    self.app_groups = valid_app_groups
-                else:
-                    new_app_groups = []
-                    for ag in valid_app_groups:
-                        if ag not in self.user.app_groups:
-                            new_app_groups.append(ag)
-                    self.app_groups = new_app_groups
-
+                self.app_groups = valid_app_groups
             else:
                 self.app_groups = None
 
         if not self.app_groups and not self.user:
             if getattr(g, 'current_user', None):
-                print('Current user found')
                 if len(g.current_user.app_groups) == 1:
                     self.app_groups = g.current_user.app_groups
             if not self.app_groups:
-                print('Setting default app group now instead')
                 self.app_groups = [AppGroup.query.filter(AppGroup.default == True).first()]
                 self.errors['warning']['app group missing'] = 'No valid app group id was supplied.  ' \
                                                               'The default was assigned: {}'.format(
@@ -1348,7 +1345,7 @@ class UserAPI:
                         restricted_ags.append(ag)
                     if restricted_ags:
                         for ag in restricted_ags:
-                            self.app_groups.pop(ag)
+                            self.app_groups.pop(self.app_groups.index(ag))
                     if not self.app_groups:
                         if self.user:
                             self.app_groups = None
@@ -1422,41 +1419,42 @@ class UserAPI:
                 u = User()
 
             if self.role_id:
-                u.role_id = self.role_id
+                u.role_id = self.role_id  # Set user role
             if self.first_name:
-                u.first_name = self.first_name
+                u.first_name = self.first_name  # Set first_name
             if self.last_name:
-                u.last_name = self.last_name
+                u.last_name = self.last_name  # Set last_name
             if self.dob:
-                u.dob = self.dob
+                u.dob = self.dob  # Set dob
             if self.sex:
-                u.sex = self.sex
+                u.sex = self.sex  # Set sex
             if self.username:
-                u.username = self.username
+                u.username = self.username  # Set username
+
+            # Handle updating the associated object EmailAddress
+            # Only one EmailAddress object for a user may be set to primary and true
             if isinstance(self.email, EmailAddress):
-                update_existing = False
-                existing_addresses = u.email_addresses.all()
-                if existing_addresses:
-                    existing_primary_address = u.email
+                existing_primary_address = u.email
+                if existing_primary_address:
+                    # If new address is same as existing primary, ignore
                     if self.email.email == existing_primary_address.email:
-                        update_existing = True
+                        self.email = None
+                    # Otherwise mark the existing primary as inactive / non primary
                     else:
                         existing_primary_address.primary = False
                         existing_primary_address.active = False
-                        for a in existing_addresses:
-                            if a == existing_primary_address:
-                                pass
-                            elif self.email.email == a.email:
-                                a.primary = True
-                                a.active = True
-                                update_existing = True
-                if update_existing:
-                    self.email = None
-
+                        # If other inactive emails exist, see if one of them matches the supplied email
+                        # so it can be updated, rather than inserted in duplicate
+                        other_addresses = u.email.filter(EmailAddress.id != existing_primary_address.id).all()
+                        if other_addresses:
+                            for a in other_addresses:
+                                if self.email.email == a.email:
+                                    a.primary = True
+                                    a.active = True
+                                    self.email = None
+                # If the new email does not match an existing email
                 if self.email:
-
                     u.email_addresses.append(self.email)
-
                     if not isinstance(self.confirmed, bool):
                         self.confirmed = False
                     if self.user and not self.confirmed:
@@ -1467,72 +1465,65 @@ class UserAPI:
                                    template='auth/email/change_email',
                                    token=token, user=self.user)
 
+            # Handle updating the PhoneNumber related object
+            # Each User object may only have one active / primary PhoneNumber associated
             if isinstance(self.phone_number, PhoneNumber):
-                update_existing = False
                 existing_addresses = u.phone_numbers.all()
+                # Check the existing addresses and see if they should be updated in place
                 if existing_addresses:
                     existing_primary_address = u.phone_number
-                    if self.phone_number.number == existing_primary_address.number:
-                        update_existing = True
-                    else:
-                        existing_primary_address.primary = False
-                        existing_primary_address.active = False
-                        for a in existing_addresses:
-                            if a == existing_primary_address:
-                                pass
-                            elif self.phone_number.number == a.number:
-                                a.primary = True
-                                a.active = True
-                                update_existing = True
-                if update_existing:
-                    self.phone_number = None
-
+                    if existing_primary_address:
+                        if self.phone_number.number == existing_primary_address.number:
+                            self.phone_number = None
+                        else:
+                            existing_primary_address.primary = False
+                            existing_primary_address.active = False
+                            for a in existing_addresses:
+                                if self.phone_number.number == a.number:
+                                    a.primary = True
+                                    a.active = True
+                                    self.phone_number = None
                 if self.phone_number:
                     u.phone_numbers.append(self.phone_number)
 
             if self.description:
-                u.description = self.description
+                u.description = self.description  # Update user description
 
-            # Set password if validation and permission passes
             if self.password:
-                u.password = self.password
+                u.password = self.password  # Update user password
 
-            # Set active is validation and permission passes
             if isinstance(self.active, bool):
-                u.active = self.active
+                u.active = self.active  # Update active boolean
 
-            # Set confirmation if True / False is set and permissions are in place
             if isinstance(self.confirmed, bool):
-                u.confirmed = self.confirmed
+                u.confirmed = self.confirmed  # update user confirmation
 
+            # Handle updating user addresses
+            # only one active / primary address can exist per user
             if isinstance(self.address, Address):
-                update_existing = False
                 existing_addresses = u.addresses.all()
                 if existing_addresses:
                     existing_primary_address = u.address
                     new_address_hash = self.address.generate_address_hash()
                     if new_address_hash == existing_primary_address.address_hash:
-                        update_existing = True
+                        self.address = None
                     else:
                         existing_primary_address.primary = False
                         existing_primary_address.active = False
                         for a in existing_addresses:
-                            if a == existing_primary_address:
-                                pass
-                            elif new_address_hash == a.address_hash:
+                            if new_address_hash == a.address_hash:
                                 a.primary = True
                                 a.active = True
-                                update_existing = True
-                if update_existing:
-                    self.address = None
-
-                if self.address:
+                                self.address = None
+                if self.address:  # Add the address to the user
                     u.addresses.append(self.address)
 
-                if self.app_groups:
-                    for ag in self.app_groups:
-                        u.app_groups.append(ag)
+                if self.app_groups:  # Overwrite app groups if new ones are supplied
+                    if u.app_groups:
+                        del u.app_groups
+                    u.app_groups = self.app_groups
 
+            # Set user attribute to new / updated user object
             self.user = u
-
+            # Return the user and the error dict
             return self.user, self.errors

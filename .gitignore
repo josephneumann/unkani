@@ -104,3 +104,4 @@ app/static/img/logo/.DS_Store
 app/static/sass/.sass-cache/
 app/static/sass/ct-paper/.sass-cache/
 tmp/
+/venv36/

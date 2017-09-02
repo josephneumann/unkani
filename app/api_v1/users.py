@@ -234,7 +234,7 @@ def new_user():
         return response
 
 
-@api.route('/users/<int:userid>', methods=['PUT', 'PATCH'])
+@api.route('/users/<int:userid>', methods=['PATCH'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def update_user(userid):
@@ -293,7 +293,7 @@ def delete_user(userid):
     user = User.query.get(userid)
     if not user:
         return not_found(message='The user that was attempted to be deleted could not be found.')
-    if not g.current_user.is_accessible(requesting_user=user, other_permissions=[app_permission_userdelete]):
+    if not user.is_accessible(requesting_user=g.current_user, other_permissions=[app_permission_userdelete]):
         return forbidden(message="You do not have permission to delete user with id {}".format(user.id))
     user_id = user.id
     sa.session.delete(user)

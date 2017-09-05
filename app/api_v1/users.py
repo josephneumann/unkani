@@ -185,8 +185,6 @@ def get_users():
 @rate_limit(limit=5, period=15)
 @etag
 def get_user(userid):
-    # Todo, add filtering for version number
-    # Todo: add versions in response
     """
     Return a user.
     This endpoint requires token auth and will return a JSON user object requested by ID.

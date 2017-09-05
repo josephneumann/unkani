@@ -65,6 +65,8 @@ def verify_token(token):
     if not user.confirmed:
         raise AuthenticationError("User account is unconfirmed.")
     # Set global request context g.current_user variable which is used in API routes
+    # Since sessions are not used in RESTapi, there should not be any authentication info stored in session with
+    # flask-login's login_user function
     setattr(g, 'current_user', user)
     identity_changed.send(current_app._get_current_object(),
                           identity=Identity(user.id))

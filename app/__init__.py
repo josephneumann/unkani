@@ -4,6 +4,7 @@ import os
 
 from celery import Celery
 from flask import Flask
+from flask_session import Session
 from flask_bootstrap import Bootstrap
 from flask_login import LoginManager
 from flask_mail import Mail
@@ -33,6 +34,7 @@ celery = Celery(__name__, broker=os.environ.get('CELERY_BROKER_URL', 'redis://')
                 backend=os.environ.get('CELERY_BROKER_URL', 'redis://'))
 ma = Marshmallow()
 
+
 from app.flask_sendgrid import send_async_email
 
 
@@ -44,6 +46,15 @@ from app.flask_sendgrid import send_async_email
 def create_app(config_name):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
+
+    # Check app config to see if SERVER_SESSION is set to True
+    # If so, initialize flask-session.Session which defaults to session type set in
+    # SESSION_TYPE config, which is for Unkan, 'redis'.  Sessions are stored on redis default port.
+    if app.config['SERVER_SESSION']:
+        server_sess = Session()
+    # Else set var sess = None
+    else:
+        server_sess = None
     config[config_name].init_app(app)
 
     if not app.config['SSL_DISABLE']:  # pragma: no cover
@@ -60,6 +71,8 @@ def create_app(config_name):
     celery.conf.update(app.config)
     Principal(app, use_sessions=True)
     ma.init_app(app)
+    if server_sess:
+        server_sess.init_app(app)
 
     # Register blueprint objects with application object
     # These MUST be imported last, to avoid circular dependencies in the blueprint

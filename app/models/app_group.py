@@ -9,16 +9,15 @@ from marshmallow import fields
 
 user_app_group = sa.Table('user_app_group',
                           sa.Column('user_id', sa.Integer, sa.ForeignKey('user.id'), primary_key=True),
-                          sa.Column('app_group_id', sa.Integer, sa.ForeignKey('app_group.id'),
-                                    primary_key=True))
+                          sa.Column('app_group_id', sa.Integer, sa.ForeignKey('app_group.id'), primary_key=True))
 
 
 ###################################################################################################
 # APP PERMISSION SQL ALCHEMY MODEL DEFINITION
 ###################################################################################################
 class AppGroup(sa.Model):
-    __tablename__ = 'app_group'
     __mapper_args__ = {'extension': BaseExtension()}
+    __versioned__ = {}
     id = sa.Column(sa.Integer, primary_key=True)
     name = sa.Column(sa.Text, unique=True)
     active = sa.Column(sa.Boolean, default=True)

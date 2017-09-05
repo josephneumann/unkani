@@ -11,6 +11,7 @@ import hashlib, json
 
 class Patient(sa.Model):
     __tablename__ = 'patient'
+    __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
 
     id = sa.Column(sa.Integer, primary_key=True)

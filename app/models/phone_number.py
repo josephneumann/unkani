@@ -12,6 +12,7 @@ import hashlib, json
 ##################################################################################################
 class PhoneNumber(sa.Model):
     __tablename__ = 'phone_number'
+    __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
 
     id = sa.Column(sa.Integer, primary_key=True)

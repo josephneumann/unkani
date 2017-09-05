@@ -2,9 +2,9 @@ from flask import request, g, url_for
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import aliased
 
-from app import sa
-from app.models import UserAPI, Address, AppGroup, PhoneNumber, Role, EmailAddress
-from app.models.user import User, lookup_user_by_email, lookup_user_by_username
+from app import sa, ma
+from app.models import Address, AppGroup, PhoneNumber, Role, EmailAddress
+from app.models.user import User, UserAPI, UserVersionSchema
 from app.security import *
 from app.utils.demographics import *
 from .authentication import token_auth
@@ -19,7 +19,7 @@ from .utils import paginate_query, filter_ops, register_arg_error, etag
 @rate_limit(limit=5, period=15)
 @etag
 def get_users():
-    # TODO: Add filtering by app group info
+    # TODO: Fix error that arises when passing filter=version_number,eq,1
 
     # Set variables for query to execute
     app_groups = g.current_user.app_groups
@@ -185,6 +185,8 @@ def get_users():
 @rate_limit(limit=5, period=15)
 @etag
 def get_user(userid):
+    # Todo, add filtering for version number
+    # Todo: add versions in response
     """
     Return a user.
     This endpoint requires token auth and will return a JSON user object requested by ID.
@@ -204,7 +206,6 @@ def get_user(userid):
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def new_user():
-    # TODO: Default app group to that of requesting user when creating.  Might need to set a default on assoc. table.
     """
     Register a new user
     """
@@ -300,3 +301,61 @@ def delete_user(userid):
     sa.session.commit()
     json_response = jsonify({"user": user_id, "errors": []})
     return json_response, 200
+
+
+def invalid_version_number(version_number, object):
+    return bad_request(message='The version number supplied ({}) was invalid.  '
+                               'Please supply a user version between 1 and {}'.format(version_number,
+                                                                                      len(object.versions.all())))
+
+
+@api.route('/users/<int:userid>/version/<int:version_number>', methods=['GET'])
+@token_auth.login_required
+@rate_limit(limit=5, period=15)
+def get_user_version(userid, version_number):
+    user = User.query.get_or_404(userid)
+    if not user.is_accessible(requesting_user=g.current_user):
+        return forbidden(message="You do not have permission to view user with id {}".format(user.id))
+
+    # Handle version numbers less than 1 with an error not found w/ custom error dict
+    if version_number < 1:
+        return invalid_version_number(version_number=version_number, object=user)
+
+    # Check if positive version number exists
+    try:
+        uv = user.versions[version_number - 1]
+    except IndexError:
+        return invalid_version_number(version_number=version_number, object=user)
+
+    # Dump data using Marshmallow shcema
+    schema = UserVersionSchema()
+    data, _ = schema.dump(uv)
+    self_url = url_for('api_v1.get_user_version', userid=user.id, version_number=version_number, _external=True)
+
+    # Add data not easily accessible from Marshmallow schema
+    data['version_number'] = version_number
+    data['self_url'] = self_url
+
+    # Define data for meta dictionary
+    first_url = url_for('api_v1.get_user_version', userid=user.id, version_number=1, _external=True)
+    last_url = url_for('api_v1.get_user_version', userid=user.id, version_number=len(user.versions.all()),
+                       _external=True)
+
+    if uv.next:
+        next_url = url_for('api_v1.get_user_version', userid=user.id, version_number=version_number + 1, _external=True)
+    else:
+        next_url = None
+
+    if uv.previous:
+        previous_url = url_for('api_v1.get_user_version', userid=user.id, version_number=version_number - 1,
+                               _external=True)
+    else:
+        previous_url = None
+
+    meta = {'previous_url': previous_url, 'next_url': next_url, 'first_url': first_url, 'last_url': last_url}
+
+    # Build response
+    response = jsonify({'user_version': data, 'meta': meta, 'errors': []})
+    response.headers['Location'] = self_url
+    response.status_code = 200
+    return response

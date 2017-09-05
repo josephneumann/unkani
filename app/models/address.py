@@ -10,6 +10,7 @@ import hashlib, json, re
 
 class Address(sa.Model):
     _tablename__ = 'address'
+    __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
     id = sa.Column(sa.Integer, primary_key=True)
     address1 = sa.Column("address1", sa.Text)

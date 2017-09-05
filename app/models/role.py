@@ -18,7 +18,7 @@ class Role(sa.Model):
                                       back_populates='roles')
 
     def __repr__(self):  # pragma: no cover
-        return '<Role {}:{}'.format(self.id, self.name)
+        return '<Role {}:{}>'.format(self.id, self.name)
 
     @staticmethod
     def initialize_roles():

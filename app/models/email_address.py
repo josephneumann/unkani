@@ -15,6 +15,7 @@ import hashlib, json
 
 class EmailAddress(sa.Model):
     __tablename__ = 'email_address'
+    __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
 
     id = sa.Column(sa.Integer, primary_key=True, index=True)

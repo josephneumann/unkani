@@ -1,8 +1,8 @@
 from app import sa, ma
 from marshmallow import fields
+from datetime import datetime
 
-from app.utils import validate_phone, validate_contact_type
-from app.utils.demographics import *
+from app.utils.demographics import validate_phone, validate_contact_type, format_phone
 from app.models.extensions import BaseExtension
 import hashlib, json
 

@@ -1,4 +1,4 @@
-from app import sa, ma
+from app import db, ma
 from marshmallow import fields, ValidationError, post_load, validates
 
 from app.utils import validate_email
@@ -13,22 +13,23 @@ import hashlib, json
 # SQL ALCHEMY EMAIL ADDRESS MODEL DEFINITION
 ##################################################################################################
 
-class EmailAddress(sa.Model):
+class EmailAddress(db.Model):
     __tablename__ = 'email_address'
+    __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
 
-    id = sa.Column(sa.Integer, primary_key=True, index=True)
-    email = sa.Column("email", sa.Text, index=True)
-    primary = sa.Column("primary", sa.Boolean, default=False)
-    active = sa.Column("active", sa.Boolean, default=False)
-    patient_id = sa.Column(sa.Integer, sa.ForeignKey('patient.id'), index=True)
-    patient = sa.relationship("Patient", back_populates="email_addresses")
-    user_id = sa.Column(sa.Integer, sa.ForeignKey('user.id'), index=True)
-    user = sa.relationship("User", back_populates="email_addresses")
-    avatar_hash = sa.Column(sa.Text)
-    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
-    updated_at = sa.Column(sa.DateTime)
-    row_hash = sa.Column(sa.Text, index=True)
+    id = db.Column(db.Integer, primary_key=True, index=True)
+    email = db.Column("email", db.Text, index=True)
+    primary = db.Column("primary", db.Boolean, default=False)
+    active = db.Column("active", db.Boolean, default=False)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), index=True)
+    patient = db.relationship("Patient", back_populates="email_addresses")
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
+    user = db.relationship("User", back_populates="email_addresses")
+    avatar_hash = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow())
+    updated_at = db.Column(db.DateTime)
+    row_hash = db.Column(db.Text, index=True)
 
     def __init__(self, email=None, primary=False, active=True):
         self.email = email
@@ -55,7 +56,7 @@ class EmailAddress(sa.Model):
         url = 'https://secure.gravatar.com/avatar'
         if not self.avatar_hash:
             self.generate_avatar_hash()
-            sa.session.add(self)
+            db.session.add(self)
         return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
             url=url, hash=self.avatar_hash, size=size, default=default, rating=rating)
 

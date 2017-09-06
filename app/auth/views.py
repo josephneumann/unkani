@@ -7,7 +7,7 @@ from app.security import AppPermissionNeed, create_user_permission, app_permissi
 from app.models.app_group import AppGroup
 from . import auth
 from .forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
-from .. import sa
+from .. import db
 from ..models import Role, EmailAddress
 from app.models.user import User, lookup_user_by_email, lookup_user_by_username, UserAPI
 
@@ -90,8 +90,8 @@ def register():
             api.run_validations()
             user, errors = api.make_object()
             # For now, new users are associated with the default app group
-            sa.session.add(user)
-            sa.session.commit()
+            db.session.add(user)
+            db.session.commit()
             token = user.generate_confirmation_token()
             send_email(to=[user.email.email], user=user, token=token,
                        subject='Confirm Your Account', template='auth/email/confirm')
@@ -101,8 +101,8 @@ def register():
 
 
 @auth.route('/confirm/<token>')
-@login_required
 def confirm(token):
+    #TODO: Debug why a message requiring login is popping up when accessing this route
     if current_user.confirmed:
         flash('Your account has already been confirmed.', 'success')
         return redirect(url_for('main.landing'))

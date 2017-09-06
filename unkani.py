@@ -1,7 +1,9 @@
-#!/usr/bin/env python3
 import os
+import click
 import subprocess
 import sys
+from sqlalchemy import or_, and_, any_
+from flask_migrate import Migrate
 
 COV = None
 if os.environ.get('FLASK_COVERAGE'):
@@ -10,96 +12,32 @@ if os.environ.get('FLASK_COVERAGE'):
     COV = coverage.coverage(branch=True, include=['app/*'], omit=['app/flask_sendgrid.py'])
     COV.start()
 
-from app import create_app, sa, mail
-from app.models import *
-from flask_script import Manager, Shell, Command, prompt, prompt_bool
-from flask_migrate import Migrate, MigrateCommand
-from sqlalchemy import or_, and_, any_
+from app import create_app, db, mail
+from app.models.user import User, UserAPI
+from app.models.role import Role
+from app.models.patient import Patient
+from app.models.app_permission import AppPermission, role_app_permission
+from app.models.address import Address, AddressAPI
+from app.models.email_address import EmailAddress, EmailAddressAPI
+from app.models.app_group import AppGroup, user_app_group
+from app.models.phone_number import PhoneNumber, PhoneNumberAPI
+from app.utils.demographics import random_demographics
 
-# Create app with create_app class defined in __init__.py  test
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')
-manager = Manager(app)
-migrate = Migrate(app, sa)
+migrate = Migrate(app, db)
 
 
-# Run python shell with application context
+@app.shell_context_processor
 def make_shell_context():
-    return dict(app=app, sa=sa, mail=mail, PhoneNumber=PhoneNumber, User=User, Role=Role, AppPermission=AppPermission,
-                Patient=Patient, Address=Address, EmailAddress=EmailAddress, AppGroup=AppGroup,
-                user_app_group=user_app_group, or_=or_, and_=and_)
+    return dict(app=app, db=db, mail=mail, PhoneNumber=PhoneNumber, User=User, Role=Role, AppPermission=AppPermission,
+                Patient=Patient, Address=Address, EmailAddress=EmailAddress, AppGroup=AppGroup, UserAPI=UserAPI,
+                user_app_group=user_app_group, EmailAddressAPI=EmailAddressAPI, PhoneNumberAPI=PhoneNumberAPI,
+                role_app_permission=role_app_permission, AddressAPI=AddressAPI, or_=or_, and_=and_, any_=any_)
 
 
-manager.add_command("shell", Shell(make_context=make_shell_context))
-
-# To create/upgrade the databases:
-# $ python manage.py alembic migrate --m "Commit comment"
-# $ python manage.py alembic upgrade
-manager.add_command('alembic', MigrateCommand)
-
-
-class CeleryWorkerStart(Command):
-    """Starts the celery worker."""
-    name = 'celery'
-    capture_all_args = True
-
-    def run(self, argv):
-        ret = subprocess.call(
-            ['celery', 'multi', 'start', 'worker1', '-A', 'celery_worker.celery'
-                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid', '--logfile=/var/log/celery/%n%I.log'] + argv)
-        sys.exit(ret)
-
-
-manager.add_command("celery-start", CeleryWorkerStart())
-
-
-class CeleryWorkerStop(Command):
-    """Starts the celery worker."""
-    name = 'celery'
-    capture_all_args = True
-
-    def run(self, argv):
-        ret = subprocess.call(
-            ['celery', 'multi', 'stopwait', 'worker1', '-A', 'celery_worker.celery'
-                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid', '--logfile=/var/log/celery/%n%I.log'] + argv)
-        sys.exit(ret)
-
-
-manager.add_command("celery-stop", CeleryWorkerStop())
-
-
-class CeleryWorkerRestart(Command):
-    """Starts the celery worker."""
-    name = 'celery'
-    capture_all_args = True
-
-    def run(self, argv):
-        ret = subprocess.call(
-            ['celery', 'multi', 'restart', 'worker1', '-A', 'celery_worker.celery'
-                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid', '--logfile=/var/log/celery/%n%I.log'] + argv)
-        sys.exit(ret)
-
-
-manager.add_command("celery-restart", CeleryWorkerRestart())
-
-
-class GunicornRunserver(Command):
-    """Starts the application with the Gunicorn
-    webserver on the localhost bound to port 5000"""
-
-    name = 'gunicorn'
-    capture_all_args = True
-
-    def run(self, argv):
-        ret = subprocess.call(
-            ['gunicorn', '--bind', '0.0.0.0:5000', 'manage:app'] + argv)
-        sys.exit(ret)
-
-
-manager.add_command("gunicorn", GunicornRunserver())
-
-
-@manager.command
-def test(coverage=False):
+@app.cli.command
+@click.option('--coverage/--no-coverage', default=False, help='Enable code coverage')
+def test(coverage):
     """
     Run the unit tests.
     Run with '--coverage' command to run coverage and
@@ -128,7 +66,7 @@ def test(coverage=False):
         COV.erase()
 
 
-@manager.command
+@app.cli.command()
 def deploy():
     """Command line utility to complete deployment tasks:
      1) Drop all tables (optional)
@@ -136,8 +74,8 @@ def deploy():
      3) Create new tables if introduced in revision
      4) Initialize app permisions, user roles and admin user
      5) Create random users (optional) """
-    if prompt_bool("Are you sure you want to proceed?", default=False):
-        if prompt_bool("Upgrade to latest Alembic revision?", default=True):
+    if click.confirm(text='Are you sure you want to proceed?', default=False, show_default=True):
+        if click.confirm('Upgrade t latest Alembic revision?', default=True, show_default=True):
             print()
             print("Upgrading to Alembic head revision if needed...")
             from flask_migrate import upgrade
@@ -154,8 +92,9 @@ def deploy():
         User.initialize_admin_user()
         print()
 
-        if prompt_bool("Create randomly generated users?", default=True):
-            user_create_number = prompt("How many random users do you want to create?: ", default=10)
+        if click.confirm('Create randomly generated users?', default=True, show_default=True):
+            user_create_number = click.prompt(text="How many random users do you want to create?: ", default=99,
+                                              type=int)
             if not user_create_number:
                 user_create_number = 10
             print("Creating " + str(user_create_number) + " random user(s)...")
@@ -171,16 +110,15 @@ def deploy():
                 print("{}".format(int(user_create_number) - len(user_list)), end='...', flush=True)
             print()
             print("Persisting objects to the database...")
-            sa.session.add_all(user_list)
-            sa.session.commit()
+            db.session.add_all(user_list)
+            db.session.commit()
             total_users = str(len(user_list))
             print()
             print("Total random users created: " + total_users)
 
-        if prompt_bool("Create randomly generated patients?", default=True):
-            patient_create_number = prompt("How many random patients do you want to create?: ", default=10)
-            if not patient_create_number:
-                patient_create_number = 10
+        if click.prompt('Create randomly generated patients?', default=True, show_default=True):
+            patient_create_number = click.prompt(text="How many random patients do you want to create?: ", default=100,
+                                                 type=int)
             print("Creating " + str(patient_create_number) + " random patient(s)...")
             patient_list = []
             print("Generating a library of random demographics to use...")
@@ -194,8 +132,8 @@ def deploy():
                 print("{}".format(int(patient_create_number) - len(patient_list)), end='...', flush=True)
             print()
             print("Persisting objects to the database...")
-            sa.session.add_all(patient_list)
-            sa.session.commit()
+            db.session.add_all(patient_list)
+            db.session.commit()
             total_patients = str(len(patient_list))
             print()
             print("Total random users created: " + total_patients)
@@ -206,5 +144,28 @@ def deploy():
         print("That was a close call!")
 
 
-if __name__ == '__main__':
-    manager.run()
+@app.cli.command()
+def gunicorn():
+    """Starts the application with the Gunicorn
+    webserver on the localhost bound to port 5000"""
+
+    ret = subprocess.call(
+        ['gunicorn', '--bind', '0.0.0.0:5000', 'unkani:app'])
+    sys.exit(ret)
+
+
+@app.cli.command()
+@click.option('--start/--stop', default=True, help='start or stop')
+def celery(start):
+    """Starts a celery worker as a separate flask application"""
+    if not start:
+        ret = subprocess.call(
+            ['celery', 'multi', 'stop', 'worker1', '-A', 'celery_worker.celery'
+                , '--loglevel=info'])
+        sys.exit(ret)
+
+    else:
+        ret = subprocess.call(
+            ['celery', 'multi', 'start', 'worker1', '-A', 'celery_worker.celery'
+                , '--loglevel=info'])
+        sys.exit(ret)

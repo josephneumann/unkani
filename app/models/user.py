@@ -6,12 +6,12 @@ from marshmallow import fields, ValidationError
 from itsdangerous import TimedJSONWebSignatureSerializer as TimedSerializer
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app import sa, login_manager, ma
+from app import db, login_manager, ma
 from app.flask_sendgrid import send_email
 from app.models.phone_number import PhoneNumberAPI
 from app.models.email_address import EmailAddress, EmailAddressAPI
 from app.models.address import AddressAPI
-from app.models.role import Role
+from app.models.role import Role, RoleSchema
 from app.models.address import Address, AddressSchema
 from app.models.phone_number import PhoneNumber
 from app.models.extensions import BaseExtension
@@ -20,13 +20,14 @@ from app.security import app_permission_useractivation, app_permission_userforce
     app_permission_userpasswordchange, app_permission_userrolechange, app_permission_userappgroupupdate
 from app.utils.demographics import *
 from app.utils.general import json_serial, url_for
+from sqlalchemy_continuum import version_class
 
 
 ##################################################################################################
 # SQL ALCHEMY USER MODEL DEFINITION
 ##################################################################################################
 
-class User(UserMixin, sa.Model):
+class User(UserMixin, db.Model):
     # UserMixin from flask_login
     # is_authenticated() - Returns True if user has login credentials, else False
     # is_active() - Returns True if useris allowed to login, else False.
@@ -37,35 +38,36 @@ class User(UserMixin, sa.Model):
     # MODEL ATTRIBUTES AND PROPERTIES
     ##################################
     __tablename__ = 'user'
+    __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
 
-    id = sa.Column(sa.Integer, primary_key=True)
-    username = sa.Column("username", sa.Text, unique=True, index=True)
-    role_id = sa.Column(sa.Integer, sa.ForeignKey('role.id'), index=True)
-    first_name = sa.Column("first_name", sa.Text, index=True)
-    last_name = sa.Column("last_name", sa.Text, index=True)
-    dob = sa.Column("dob", sa.Date, index=True)
-    sex = sa.Column("sex", sa.Text())
-    description = sa.Column(sa.Text)
-    confirmed = sa.Column(sa.Boolean, default=False)
-    active = sa.Column(sa.Boolean, default=True)
-    password_hash = sa.Column(sa.Text)
-    last_password_hash = sa.Column(sa.Text)
-    password_timestamp = sa.Column(sa.DateTime)
-    email_addresses = sa.relationship("EmailAddress", back_populates="user", lazy="dynamic",
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column("username", db.Text, unique=True, index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), index=True)
+    first_name = db.Column("first_name", db.Text, index=True)
+    last_name = db.Column("last_name", db.Text, index=True)
+    dob = db.Column("dob", db.Date, index=True)
+    sex = db.Column("sex", db.Text())
+    description = db.Column(db.Text)
+    confirmed = db.Column(db.Boolean, default=False)
+    active = db.Column(db.Boolean, default=True)
+    password_hash = db.Column(db.Text)
+    last_password_hash = db.Column(db.Text)
+    password_timestamp = db.Column(db.DateTime)
+    email_addresses = db.relationship("EmailAddress", back_populates="user", lazy="dynamic",
                                       cascade="all, delete, delete-orphan")
-    phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
+    phone_numbers = db.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
                                     lazy="dynamic",
                                     cascade="all, delete, delete-orphan")
-    addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="user",
+    addresses = db.relationship("Address", order_by=Address.id.desc(), back_populates="user",
                                 lazy="dynamic", cascade="all, delete, delete-orphan")
-    app_groups = sa.relationship('AppGroup',
+    app_groups = db.relationship('AppGroup',
                                  secondary=user_app_group,
                                  back_populates='users')
-    last_seen = sa.Column(sa.DateTime)
-    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
-    updated_at = sa.Column(sa.DateTime)
-    row_hash = sa.Column(sa.Text, index=True)
+    last_seen = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow())
+    updated_at = db.Column(db.DateTime)
+    row_hash = db.Column(db.Text, index=True)
 
     def __init__(self, username=None, first_name=None, last_name=None, dob=None, description=None,
                  password=None, sex=None, role_id=None, confirmed=False, active=True, **kwargs):
@@ -177,12 +179,18 @@ class User(UserMixin, sa.Model):
     def verify_password(self, password):
         __doc__ = """
         Compare inputted password hash with user's hashed password."""
-        return check_password_hash(self.password_hash, password)
+        if self.password_hash and password:
+            return check_password_hash(self.password_hash, password)
+        else:
+            return False
 
     def verify_last_password(self, password):
         __doc__ = """
         Compare inputted password hash with user's last hashed password."""
-        return check_password_hash(self.last_password_hash, password)
+        if self.last_password_hash and password:
+            return check_password_hash(self.last_password_hash, password)
+        else:
+            return False
 
     def generate_confirmation_token(self, expiration=3600):
         __doc__ = """
@@ -204,7 +212,7 @@ class User(UserMixin, sa.Model):
         if data.get('confirm') != self.id:
             return False
         self.confirmed = True
-        sa.session.add(self)
+        db.session.add(self)
         return True
 
     def generate_reset_token(self, expiration=3600):
@@ -227,7 +235,7 @@ class User(UserMixin, sa.Model):
         if data.get('reset') != self.id:
             return False
         self.password = new_password
-        sa.session.add(self)
+        db.session.add(self)
         return True
 
     def generate_email_change_token(self, new_email, expiration=3600):
@@ -253,11 +261,11 @@ class User(UserMixin, sa.Model):
         new_email = data.get('new_email', None)
         if not new_email:
             raise ValueError("An email address was not included in the change email request token.")
-        matching_email = sa.session.query(EmailAddress).filter(EmailAddress.user_id == self.id).filter(
+        matching_email = db.session.query(EmailAddress).filter(EmailAddress.user_id == self.id).filter(
             EmailAddress.email == new_email).first()
         if matching_email:
             self.email = matching_email
-            sa.session.add(self)
+            db.session.add(self)
         else:
             raise ValueError("A matching email for the logged-in user could not be found.")
 
@@ -282,7 +290,7 @@ class User(UserMixin, sa.Model):
         Helper method to compare a supplied email with the user's previous email.  Returns True
         if email matches, False if not."""
         email = str(email).strip().upper()
-        previous_email = sa.session.query(EmailAddress).join(User).filter(EmailAddress.user == self).filter(
+        previous_email = db.session.query(EmailAddress).join(User).filter(EmailAddress.user == self).filter(
             EmailAddress.primary == False).order_by(EmailAddress.updated_at.desc()).first()
         if previous_email and previous_email.email == email:
             return True
@@ -422,6 +430,40 @@ class User(UserMixin, sa.Model):
         if primary_email:
             return primary_email.gravatar_url(size=size)
 
+    ############################################
+    # VERSIONING UTILITY PROPERTIES AND METHODS
+    ############################################
+    def latest_version(self):
+        if self.versions:
+            return self.versions[len(self.versions.all()) - 1]
+        raise ValueError('No versions exist for the user object.')
+
+    def previous_version(self):
+        try:
+            lv = self.latest_version()
+            return lv.previous
+        except:
+            raise ValueError('No versions exist for the user object.')
+
+    def first_version(self):
+        if self.versions:
+            return self.versions[0]
+        raise ValueError('No versions exist for the user object.')
+
+    @property
+    def version_number(self):
+        if self.versions:
+            return len(self.versions.all())
+        raise ValueError('No versions exist for the user object.')
+
+    @property
+    def previous_version_url(self):
+        if self.versions and self.version_number > 1:
+            return url_for('api_v1.get_user_version', userid=self.id, version_number=self.version_number - 1,
+                           _external=True)
+        else:
+            return None
+
     #####################################
     # MISC UTILITY PROPERTIES AND METHODS
     #####################################
@@ -440,7 +482,7 @@ class User(UserMixin, sa.Model):
         Ping function called before each request initiated by authenticated user.
         Stores timestamp of last request for the user in the 'last_seen' attribute."""
         self.last_seen = datetime.utcnow()
-        sa.session.add(self)
+        db.session.add(self)
 
     @property
     def dob_string(self):
@@ -556,8 +598,8 @@ class User(UserMixin, sa.Model):
                 except:
                     pass
             user.confirmed = True
-            sa.session.add(user)
-            sa.session.commit()
+            db.session.add(user)
+            db.session.commit()
 
     ##############################################################################################
     # OBJECT HASHING METHODS
@@ -600,7 +642,7 @@ class User(UserMixin, sa.Model):
 
 
 ##################################################################################################
-# MARSHMALLOW USER SCHEMA DEFINITION FOR OBJECT SERIALIZATION
+# MARSHMALLOW USER SCHEMA DEFINITION FOR USER OBJECT SERIALIZATION
 ##################################################################################################
 
 class UserSchema(ma.Schema):
@@ -632,6 +674,8 @@ class UserSchema(ma.Schema):
     row_hash = fields.String(attribute='row_hash', dump_only=True)
     app_groups = fields.Method('get_app_groups', dump_only=True)
     self_url = fields.Method('get_self_url', dump_only=True)
+    version_number = fields.Integer(attribute='version_number', dump_only=True)
+    previous_version_url = fields.Method('get_previous_version_url', dump_only=True)
 
     def get_role(self, user):
         """Returns a dict representing the user's role"""
@@ -663,6 +707,105 @@ class UserSchema(ma.Schema):
     def get_self_url(self, user):
         return user.get_url()
 
+    def get_previous_version_url(self, user):
+        return user.previous_version_url
+
+##################################################################################################
+# MARSHMALLOW SCHEMA DEFINITION FOR USER VERSION OBJECT SERIALIZATION
+##################################################################################################
+
+class UserVersionSchema(ma.Schema):
+    """Marshmallow schema, associated with SQLAlchemy User Version model.  Used as a base object for
+    serialization.  Modifies the default versioned User model to define attributes needed to mimic
+    the default user object serialization.  Note, the UserVersion model does not inherit the methods
+    of the parent User class, so some of them are replicated with new methods below."""
+
+    class Meta:
+        # exclude = ()
+        ordered = False
+
+    user_id = fields.Int(attribute='id', dump_only=True)
+    first_name = fields.String(attribute='first_name', dump_only=True)
+    last_name = fields.String(attribute='last_name', dump_only=True)
+    username = fields.String(attribute='username', dump_only=True)
+    dob = fields.Date(attribute='dob', dump_only=True)
+    sex = fields.String(attribute='sex', dump_only=True)
+    description = fields.String(attribute='description', dump_only=True)
+    confirmed = fields.Boolean(attribute='confirmed', dump_only=True)
+    active = fields.Boolean(attribute='active', dump_only=True)
+    role = fields.Method('get_role', dump_only=True)
+    email_address = fields.Method('get_email', dump_only=True)
+    gravatar_url = fields.Url(attribute='gravatar', dump_only=True)
+    phone_number = fields.Method('get_phone', dump_only=True)
+    address = fields.Method('get_address', dump_only=True)
+    created_at = fields.DateTime(attribute='created_at', dump_only=True)
+    updated_at = fields.DateTime(attribute='updated_at', dump_only=True)
+    last_seen = fields.DateTime(attribute='last_seen', dump_only=True)
+    row_hash = fields.String(attribute='row_hash', dump_only=True)
+    app_groups = fields.Method('get_app_groups', dump_only=True)
+    transaction = fields.Method('get_transaction_data', dump_only=True)
+    user_url = fields.Method('get_user_url', dump_only=True)
+
+    def get_role(self, user_version):
+        """Returns a dict representing the user's role"""
+        return user_version.role.dump()
+
+    def get_email(self, user_version):
+        EmailAddressVersion = version_class(EmailAddress)
+        email_obj = user_version.email_addresses. \
+            filter(EmailAddressVersion.primary == True). \
+            filter(EmailAddressVersion.active == True).first()
+        if email_obj:
+            return email_obj.email
+
+    def get_phone(self, user_version):
+        PhoneNumberVersion = version_class(PhoneNumber)
+        phone_obj = user_version.phone_numbers \
+            .filter(PhoneNumberVersion.primary == True) \
+            .filter(PhoneNumberVersion.active == True).first()
+        if phone_obj:
+            return format_phone(phone_obj.number)
+
+    def get_address(self, user_version):
+        AddressVersion = version_class(Address)
+        address_obj = user_version.addresses.filter(AddressVersion.primary == True).filter(
+            AddressVersion.active == True).first()
+        if address_obj:
+            schema = AddressSchema(only=('address1', 'address2', 'city', 'state', 'zipcode'))
+            address_data, x = schema.dump(address_obj)
+            return address_data
+
+    def get_app_groups(self, user_version):
+        schema = AppGroupSchema(only=('id', 'name'))
+        app_groups = []
+        for x in user_version.app_groups:
+            data, _ = schema.dump(x)
+            app_groups.append(data)
+        return app_groups
+
+    def get_gravatar_url(self, user_version):
+        EmailAddressVersion = version_class(EmailAddress)
+        email_obj = user_version.email_addresses. \
+            filter(EmailAddressVersion.primary == True). \
+            filter(EmailAddressVersion.active == True).first()
+        if email_obj:
+            url = 'https://secure.gravatar.com/avatar'
+            if email_obj.avatar_hash:
+                return '{url}/{hash}?s={size}&d={default}&r={rating}'.format(
+                    url=url, hash=self.avatar_hash, size=100, default='identicon', rating='g')
+
+    def get_transaction_data(self, user_version):
+        tx_id = user_version.transaction_id
+        tx_userid = user_version.transaction.user_id
+        if tx_userid:
+            tx_user_url = url_for('api_v1.get_user', userid=tx_userid, _external=True)
+        else:
+            tx_user_url=None
+        return {'transaction_id': tx_id, 'user_id': tx_userid, 'user_url': tx_user_url}
+
+    def get_user_url(self, user_version):
+        return url_for('api_v1.get_user', userid=user_version.id, _external=True)
+
 
 ##################################################################################################
 # USER-RELATED UTILITY FUNCTIONS
@@ -688,7 +831,7 @@ def lookup_user_by_email(email):
         email = email.email
     try:
         n_email = validate_email(email=email)
-        return sa.session.query(User).join(EmailAddress).filter(EmailAddress.email == n_email).first()
+        return db.session.query(User).join(EmailAddress).filter(EmailAddress.email == n_email).first()
     except ValueError:
         return None
 
@@ -698,7 +841,7 @@ def lookup_user_by_username(username):
     and queries the user based on a match to the username."""
     try:
         n_username = normalize_username(username=username)
-        return sa.session.query(User).filter(User.username == n_username).first()
+        return db.session.query(User).filter(User.username == n_username).first()
     except ValueError:
         return None
 
@@ -1144,6 +1287,8 @@ class UserAPI:
                             self.errors['critical'][
                                 'email taken'] = 'The email {} is already registered.  The email was not updated.'.format(
                                 email_object.email)
+                    else:
+                        self.email = email_object
                 else:
                     # For new users, check for existence of email in database
                     if lookup_user_by_email(email_object.email):
@@ -1418,17 +1563,21 @@ class UserAPI:
             else:  # Or initialize new user
                 u = User()
 
-            if self.role_id:
+            if self.role_id and self.role_id != u.role_id:
                 u.role_id = self.role_id  # Set user role
-            if self.first_name:
+            if self.first_name and self.first_name != u.first_name:
                 u.first_name = self.first_name  # Set first_name
-            if self.last_name:
+            if self.last_name and self.last_name != u.last_name:
                 u.last_name = self.last_name  # Set last_name
-            if self.dob:
+            if self.dob and self.dob != u.dob:
+                new_dob = self.dob
+                type_n = type(new_dob)
+                old_dob = u.dob
+                type_o = type(old_dob)
                 u.dob = self.dob  # Set dob
-            if self.sex:
+            if self.sex and self.sex != u.sex:
                 u.sex = self.sex  # Set sex
-            if self.username:
+            if self.username and self.username != u.username:
                 u.username = self.username  # Set username
 
             # Handle updating the associated object EmailAddress
@@ -1445,7 +1594,7 @@ class UserAPI:
                         existing_primary_address.active = False
                         # If other inactive emails exist, see if one of them matches the supplied email
                         # so it can be updated, rather than inserted in duplicate
-                        other_addresses = u.email.filter(EmailAddress.id != existing_primary_address.id).all()
+                        other_addresses = u.email_addresses.filter(EmailAddress.id != existing_primary_address.id).all()
                         if other_addresses:
                             for a in other_addresses:
                                 if self.email.email == a.email:
@@ -1486,16 +1635,16 @@ class UserAPI:
                 if self.phone_number:
                     u.phone_numbers.append(self.phone_number)
 
-            if self.description:
+            if self.description and self.description != u.description:
                 u.description = self.description  # Update user description
 
-            if self.password:
+            if self.password and not u.verify_password(password=self.password):
                 u.password = self.password  # Update user password
 
-            if isinstance(self.active, bool):
+            if isinstance(self.active, bool) and self.active != u.active:
                 u.active = self.active  # Update active boolean
 
-            if isinstance(self.confirmed, bool):
+            if isinstance(self.confirmed, bool) and self.confirmed != u.confirmed:
                 u.confirmed = self.confirmed  # update user confirmation
 
             # Handle updating user addresses
@@ -1519,8 +1668,6 @@ class UserAPI:
                     u.addresses.append(self.address)
 
                 if self.app_groups:  # Overwrite app groups if new ones are supplied
-                    if u.app_groups:
-                        del u.app_groups
                     u.app_groups = self.app_groups
 
             # Set user attribute to new / updated user object

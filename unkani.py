@@ -4,7 +4,6 @@ import subprocess
 import sys
 from sqlalchemy import or_, and_, any_
 from flask_migrate import Migrate
-from flask_script import prompt, prompt_bool
 
 COV = None
 if os.environ.get('FLASK_COVERAGE'):
@@ -75,8 +74,8 @@ def deploy():
      3) Create new tables if introduced in revision
      4) Initialize app permisions, user roles and admin user
      5) Create random users (optional) """
-    if prompt_bool("Are you sure you want to proceed?", default=False):
-        if prompt_bool("Upgrade to latest Alembic revision?", default=True):
+    if click.confirm(text='Are you sure you want to proceed?', default=False, show_default=True):
+        if click.confirm('Upgrade t latest Alembic revision?', default=True, show_default=True):
             print()
             print("Upgrading to Alembic head revision if needed...")
             from flask_migrate import upgrade
@@ -93,8 +92,9 @@ def deploy():
         User.initialize_admin_user()
         print()
 
-        if prompt_bool("Create randomly generated users?", default=True):
-            user_create_number = prompt("How many random users do you want to create?: ", default=10)
+        if click.confirm('Create randomly generated users?', default=True, show_default=True):
+            user_create_number = click.prompt(text="How many random users do you want to create?: ", default=99,
+                                              type=int)
             if not user_create_number:
                 user_create_number = 10
             print("Creating " + str(user_create_number) + " random user(s)...")
@@ -116,10 +116,9 @@ def deploy():
             print()
             print("Total random users created: " + total_users)
 
-        if prompt_bool("Create randomly generated patients?", default=True):
-            patient_create_number = prompt("How many random patients do you want to create?: ", default=10)
-            if not patient_create_number:
-                patient_create_number = 10
+        if click.prompt('Create randomly generated patients?', default=True, show_default=True):
+            patient_create_number = click.prompt(text="How many random patients do you want to create?: ", default=100,
+                                                 type=int)
             print("Creating " + str(patient_create_number) + " random patient(s)...")
             patient_list = []
             print("Generating a library of random demographics to use...")
@@ -153,6 +152,7 @@ def gunicorn():
     ret = subprocess.call(
         ['gunicorn', '--bind', '0.0.0.0:5000', 'unkani:app'])
     sys.exit(ret)
+
 
 @app.cli.command()
 @click.option('--start/--stop', default=True, help='start or stop')

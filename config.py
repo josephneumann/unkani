@@ -17,6 +17,7 @@ class Config:
     SENDGRID_DEFAULT_FROM = 'admin@unkani.com'
     SERVER_SESSION = True
     SESSION_TYPE = 'redis'
+    REDIS_URL = os.environ.get('REDIS_URL', default='redis://localhost:6379')
 
     # Define an init_app class method that allows for config specific initialization
     @staticmethod
@@ -48,7 +49,6 @@ class TestingConfig(Config):
     USE_RATE_LIMITS = False
 
 
-
 class StagingConfig(Config):
     DEBUG = False
     TESTING = False
@@ -59,7 +59,6 @@ class StagingConfig(Config):
     USE_RATE_LIMITS = False
 
 
-
 class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
@@ -68,7 +67,6 @@ class ProductionConfig(Config):
     SSL_DISABLE = False
     SENTRY_DISABLE = False
     USE_RATE_LIMITS = True
-
 
     @classmethod
     def init_app(cls, app):

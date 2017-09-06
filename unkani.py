@@ -1,4 +1,3 @@
-#!venv/bin/python
 import os
 import click
 import subprocess
@@ -154,3 +153,19 @@ def gunicorn():
     ret = subprocess.call(
         ['gunicorn', '--bind', '0.0.0.0:5000', 'unkani:app'])
     sys.exit(ret)
+
+@app.cli.command()
+@click.option('--start/--stop', default=True, help='start or stop')
+def celery(start):
+    """Starts a celery worker as a separate flask application"""
+    if not start:
+        ret = subprocess.call(
+            ['celery', 'multi', 'stop', 'worker1', '-A', 'celery_worker.celery'
+                , '--loglevel=info'])
+        sys.exit(ret)
+
+    else:
+        ret = subprocess.call(
+            ['celery', 'multi', 'start', 'worker1', '-A', 'celery_worker.celery'
+                , '--loglevel=info'])
+        sys.exit(ret)

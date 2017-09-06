@@ -2,7 +2,7 @@
 import logging
 import os
 
-from celery import Celery
+# from celery import Celery
 from flask import Flask
 from flask_session import Session
 from flask_bootstrap import Bootstrap
@@ -30,8 +30,8 @@ login_manager.login_view = 'auth.login'
 login_manager.login_message = 'You must log in to view this page.'
 login_manager.login_message_category = 'info'
 sentry = Sentry()
-celery = Celery(__name__, broker=os.environ.get('CELERY_BROKER_URL', 'redis://'),
-                backend=os.environ.get('CELERY_BROKER_URL', 'redis://'))
+# celery = Celery(__name__, broker=os.environ.get('CELERY_BROKER_URL', 'redis://'),
+#                 backend=os.environ.get('CELERY_BROKER_URL', 'redis://'))
 ma = Marshmallow()
 
 
@@ -68,7 +68,7 @@ def create_app(config_name):
     db.init_app(app)
     login_manager.init_app(app)
     sentry.init_app(app, logging=True, level=logging.ERROR)
-    celery.conf.update(app.config)
+    # celery.conf.update(app.config)
     Principal(app, use_sessions=True)
     ma.init_app(app)
     if server_sess:

@@ -101,8 +101,8 @@ def register():
 
 
 @auth.route('/confirm/<token>')
-@login_required
 def confirm(token):
+    #TODO: Debug why a message requiring login is popping up when accessing this route
     if current_user.confirmed:
         flash('Your account has already been confirmed.', 'success')
         return redirect(url_for('main.landing'))

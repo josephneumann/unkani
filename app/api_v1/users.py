@@ -2,7 +2,7 @@ from flask import request, g, url_for
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import aliased
 
-from app import sa, ma
+from app import db, ma
 from app.models import Address, AppGroup, PhoneNumber, Role, EmailAddress
 from app.models.user import User, UserAPI, UserVersionSchema
 from app.security import *
@@ -38,7 +38,7 @@ def get_users():
         .filter(or_(Role.level < level, User.id == id)) \
         .join(EmailAddress) \
         .filter(and_(EmailAddress.primary == True, EmailAddress.active == True)) \
-        .filter(sa.session.query(ua) \
+        .filter(db.session.query(ua) \
                 .join(AppGroup, ua.app_groups) \
                 .filter(AppGroup.id.in_(app_group_ids)) \
                 .filter(User.id == ua.id).distinct().exists()
@@ -219,8 +219,8 @@ def new_user():
         model_errors = process_model_errors(uv.errors)
         return generate_error_response(errors=model_errors, code=400)
     elif isinstance(user, User):
-        sa.session.add(user)
-        sa.session.commit()
+        db.session.add(user)
+        db.session.commit()
         model_errors = process_model_errors(uv.errors)
         data = {"user": user.dump(), "errors": model_errors}
         response = jsonify(data)
@@ -267,8 +267,8 @@ def update_user(userid):
     user, errors = uv.make_object()
 
     if user:
-        sa.session.add(user)
-        sa.session.commit()
+        db.session.add(user)
+        db.session.commit()
         model_errors = process_model_errors(uv.errors)
         response = jsonify({'user': user.dump(), 'errors': model_errors})
         response.headers['Location'] = url_for('api_v1.get_user', userid=user.id)
@@ -295,8 +295,8 @@ def delete_user(userid):
     if not user.is_accessible(requesting_user=g.current_user, other_permissions=[app_permission_userdelete]):
         return forbidden(message="You do not have permission to delete user with id {}".format(user.id))
     user_id = user.id
-    sa.session.delete(user)
-    sa.session.commit()
+    db.session.delete(user)
+    db.session.commit()
     json_response = jsonify({"user": user_id, "errors": []})
     return json_response, 200
 

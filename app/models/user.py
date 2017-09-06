@@ -6,7 +6,7 @@ from marshmallow import fields, ValidationError
 from itsdangerous import TimedJSONWebSignatureSerializer as TimedSerializer
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app import sa, login_manager, ma
+from app import db, login_manager, ma
 from app.flask_sendgrid import send_email
 from app.models.phone_number import PhoneNumberAPI
 from app.models.email_address import EmailAddress, EmailAddressAPI
@@ -27,7 +27,7 @@ from sqlalchemy_continuum import version_class
 # SQL ALCHEMY USER MODEL DEFINITION
 ##################################################################################################
 
-class User(UserMixin, sa.Model):
+class User(UserMixin, db.Model):
     # UserMixin from flask_login
     # is_authenticated() - Returns True if user has login credentials, else False
     # is_active() - Returns True if useris allowed to login, else False.
@@ -41,33 +41,33 @@ class User(UserMixin, sa.Model):
     __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
 
-    id = sa.Column(sa.Integer, primary_key=True)
-    username = sa.Column("username", sa.Text, unique=True, index=True)
-    role_id = sa.Column(sa.Integer, sa.ForeignKey('role.id'), index=True)
-    first_name = sa.Column("first_name", sa.Text, index=True)
-    last_name = sa.Column("last_name", sa.Text, index=True)
-    dob = sa.Column("dob", sa.Date, index=True)
-    sex = sa.Column("sex", sa.Text())
-    description = sa.Column(sa.Text)
-    confirmed = sa.Column(sa.Boolean, default=False)
-    active = sa.Column(sa.Boolean, default=True)
-    password_hash = sa.Column(sa.Text)
-    last_password_hash = sa.Column(sa.Text)
-    password_timestamp = sa.Column(sa.DateTime)
-    email_addresses = sa.relationship("EmailAddress", back_populates="user", lazy="dynamic",
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column("username", db.Text, unique=True, index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), index=True)
+    first_name = db.Column("first_name", db.Text, index=True)
+    last_name = db.Column("last_name", db.Text, index=True)
+    dob = db.Column("dob", db.Date, index=True)
+    sex = db.Column("sex", db.Text())
+    description = db.Column(db.Text)
+    confirmed = db.Column(db.Boolean, default=False)
+    active = db.Column(db.Boolean, default=True)
+    password_hash = db.Column(db.Text)
+    last_password_hash = db.Column(db.Text)
+    password_timestamp = db.Column(db.DateTime)
+    email_addresses = db.relationship("EmailAddress", back_populates="user", lazy="dynamic",
                                       cascade="all, delete, delete-orphan")
-    phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
+    phone_numbers = db.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
                                     lazy="dynamic",
                                     cascade="all, delete, delete-orphan")
-    addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="user",
+    addresses = db.relationship("Address", order_by=Address.id.desc(), back_populates="user",
                                 lazy="dynamic", cascade="all, delete, delete-orphan")
-    app_groups = sa.relationship('AppGroup',
+    app_groups = db.relationship('AppGroup',
                                  secondary=user_app_group,
                                  back_populates='users')
-    last_seen = sa.Column(sa.DateTime)
-    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
-    updated_at = sa.Column(sa.DateTime)
-    row_hash = sa.Column(sa.Text, index=True)
+    last_seen = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow())
+    updated_at = db.Column(db.DateTime)
+    row_hash = db.Column(db.Text, index=True)
 
     def __init__(self, username=None, first_name=None, last_name=None, dob=None, description=None,
                  password=None, sex=None, role_id=None, confirmed=False, active=True, **kwargs):
@@ -212,7 +212,7 @@ class User(UserMixin, sa.Model):
         if data.get('confirm') != self.id:
             return False
         self.confirmed = True
-        sa.session.add(self)
+        db.session.add(self)
         return True
 
     def generate_reset_token(self, expiration=3600):
@@ -235,7 +235,7 @@ class User(UserMixin, sa.Model):
         if data.get('reset') != self.id:
             return False
         self.password = new_password
-        sa.session.add(self)
+        db.session.add(self)
         return True
 
     def generate_email_change_token(self, new_email, expiration=3600):
@@ -261,11 +261,11 @@ class User(UserMixin, sa.Model):
         new_email = data.get('new_email', None)
         if not new_email:
             raise ValueError("An email address was not included in the change email request token.")
-        matching_email = sa.session.query(EmailAddress).filter(EmailAddress.user_id == self.id).filter(
+        matching_email = db.session.query(EmailAddress).filter(EmailAddress.user_id == self.id).filter(
             EmailAddress.email == new_email).first()
         if matching_email:
             self.email = matching_email
-            sa.session.add(self)
+            db.session.add(self)
         else:
             raise ValueError("A matching email for the logged-in user could not be found.")
 
@@ -290,7 +290,7 @@ class User(UserMixin, sa.Model):
         Helper method to compare a supplied email with the user's previous email.  Returns True
         if email matches, False if not."""
         email = str(email).strip().upper()
-        previous_email = sa.session.query(EmailAddress).join(User).filter(EmailAddress.user == self).filter(
+        previous_email = db.session.query(EmailAddress).join(User).filter(EmailAddress.user == self).filter(
             EmailAddress.primary == False).order_by(EmailAddress.updated_at.desc()).first()
         if previous_email and previous_email.email == email:
             return True
@@ -482,7 +482,7 @@ class User(UserMixin, sa.Model):
         Ping function called before each request initiated by authenticated user.
         Stores timestamp of last request for the user in the 'last_seen' attribute."""
         self.last_seen = datetime.utcnow()
-        sa.session.add(self)
+        db.session.add(self)
 
     @property
     def dob_string(self):
@@ -598,8 +598,8 @@ class User(UserMixin, sa.Model):
                 except:
                     pass
             user.confirmed = True
-            sa.session.add(user)
-            sa.session.commit()
+            db.session.add(user)
+            db.session.commit()
 
     ##############################################################################################
     # OBJECT HASHING METHODS
@@ -831,7 +831,7 @@ def lookup_user_by_email(email):
         email = email.email
     try:
         n_email = validate_email(email=email)
-        return sa.session.query(User).join(EmailAddress).filter(EmailAddress.email == n_email).first()
+        return db.session.query(User).join(EmailAddress).filter(EmailAddress.email == n_email).first()
     except ValueError:
         return None
 
@@ -841,7 +841,7 @@ def lookup_user_by_username(username):
     and queries the user based on a match to the username."""
     try:
         n_username = normalize_username(username=username)
-        return sa.session.query(User).filter(User.username == n_username).first()
+        return db.session.query(User).filter(User.username == n_username).first()
     except ValueError:
         return None
 

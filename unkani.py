@@ -1,7 +1,11 @@
-#!/usr/bin/env python3
+#!venv/bin/python
 import os
+import click
 import subprocess
 import sys
+from sqlalchemy import or_, and_, any_
+from flask_migrate import Migrate
+from flask_script import prompt, prompt_bool
 
 COV = None
 if os.environ.get('FLASK_COVERAGE'):
@@ -11,95 +15,31 @@ if os.environ.get('FLASK_COVERAGE'):
     COV.start()
 
 from app import create_app, db, mail
-from app.models import *
-from flask_script import Manager, Shell, Command, prompt, prompt_bool
-from flask_migrate import Migrate, MigrateCommand
-from sqlalchemy import or_, and_, any_
+from app.models.user import User, UserAPI
+from app.models.role import Role
+from app.models.patient import Patient
+from app.models.app_permission import AppPermission, role_app_permission
+from app.models.address import Address, AddressAPI
+from app.models.email_address import EmailAddress, EmailAddressAPI
+from app.models.app_group import AppGroup, user_app_group
+from app.models.phone_number import PhoneNumber, PhoneNumberAPI
+from app.utils.demographics import random_demographics
 
-# Create app with create_app class defined in __init__.py  test
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')
-manager = Manager(app)
 migrate = Migrate(app, db)
 
 
-# Run python shell with application context
+@app.shell_context_processor
 def make_shell_context():
     return dict(app=app, db=db, mail=mail, PhoneNumber=PhoneNumber, User=User, Role=Role, AppPermission=AppPermission,
-                Patient=Patient, Address=Address, EmailAddress=EmailAddress, AppGroup=AppGroup,
-                user_app_group=user_app_group, or_=or_, and_=and_)
+                Patient=Patient, Address=Address, EmailAddress=EmailAddress, AppGroup=AppGroup, UserAPI=UserAPI,
+                user_app_group=user_app_group, EmailAddressAPI=EmailAddressAPI, PhoneNumberAPI=PhoneNumberAPI,
+                role_app_permission=role_app_permission, AddressAPI=AddressAPI, or_=or_, and_=and_, any_=any_)
 
 
-manager.add_command("shell", Shell(make_context=make_shell_context))
-
-# To create/upgrade the databases:
-# $ python manage.py alembic migrate --m "Commit comment"
-# $ python manage.py alembic upgrade
-manager.add_command('alembic', MigrateCommand)
-
-
-class CeleryWorkerStart(Command):
-    """Starts the celery worker."""
-    name = 'celery'
-    capture_all_args = True
-
-    def run(self, argv):
-        ret = subprocess.call(
-            ['celery', 'multi', 'start', 'worker1', '-A', 'celery_worker.celery'
-                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid', '--logfile=/var/log/celery/%n%I.log'] + argv)
-        sys.exit(ret)
-
-
-manager.add_command("celery-start", CeleryWorkerStart())
-
-
-class CeleryWorkerStop(Command):
-    """Starts the celery worker."""
-    name = 'celery'
-    capture_all_args = True
-
-    def run(self, argv):
-        ret = subprocess.call(
-            ['celery', 'multi', 'stopwait', 'worker1', '-A', 'celery_worker.celery'
-                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid', '--logfile=/var/log/celery/%n%I.log'] + argv)
-        sys.exit(ret)
-
-
-manager.add_command("celery-stop", CeleryWorkerStop())
-
-
-class CeleryWorkerRestart(Command):
-    """Starts the celery worker."""
-    name = 'celery'
-    capture_all_args = True
-
-    def run(self, argv):
-        ret = subprocess.call(
-            ['celery', 'multi', 'restart', 'worker1', '-A', 'celery_worker.celery'
-                , '--loglevel=info', '--pidfile=/var/run/celery/%n.pid', '--logfile=/var/log/celery/%n%I.log'] + argv)
-        sys.exit(ret)
-
-
-manager.add_command("celery-restart", CeleryWorkerRestart())
-
-
-class GunicornRunserver(Command):
-    """Starts the application with the Gunicorn
-    webserver on the localhost bound to port 5000"""
-
-    name = 'gunicorn'
-    capture_all_args = True
-
-    def run(self, argv):
-        ret = subprocess.call(
-            ['gunicorn', '--bind', '0.0.0.0:5000', 'manage:app'] + argv)
-        sys.exit(ret)
-
-
-manager.add_command("gunicorn", GunicornRunserver())
-
-
-@manager.command
-def test(coverage=False):
+@app.cli.command
+@click.option('--coverage/--no-coverage', default=False, help='Enable code coverage')
+def test(coverage):
     """
     Run the unit tests.
     Run with '--coverage' command to run coverage and
@@ -128,7 +68,7 @@ def test(coverage=False):
         COV.erase()
 
 
-@manager.command
+@app.cli.command()
 def deploy():
     """Command line utility to complete deployment tasks:
      1) Drop all tables (optional)
@@ -206,5 +146,11 @@ def deploy():
         print("That was a close call!")
 
 
-if __name__ == '__main__':
-    app.run()
+@app.cli.command()
+def gunicorn():
+    """Starts the application with the Gunicorn
+    webserver on the localhost bound to port 5000"""
+
+    ret = subprocess.call(
+        ['gunicorn', '--bind', '0.0.0.0:5000', 'unkani:app'])
+    sys.exit(ret)

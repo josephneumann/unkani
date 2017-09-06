@@ -1,4 +1,4 @@
-from app import sa, ma
+from app import db, ma
 from app.models.extensions import BaseExtension
 from datetime import datetime
 from marshmallow import fields
@@ -7,25 +7,25 @@ from marshmallow import fields
 # USER -> APP GROUP ASSOCIATION TABLE
 ##################################################################################################
 
-user_app_group = sa.Table('user_app_group',
-                          sa.Column('user_id', sa.Integer, sa.ForeignKey('user.id'), primary_key=True),
-                          sa.Column('app_group_id', sa.Integer, sa.ForeignKey('app_group.id'), primary_key=True))
+user_app_group = db.Table('user_app_group',
+                          db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+                          db.Column('app_group_id', db.Integer, db.ForeignKey('app_group.id'), primary_key=True))
 
 
 ###################################################################################################
 # APP PERMISSION SQL ALCHEMY MODEL DEFINITION
 ###################################################################################################
-class AppGroup(sa.Model):
+class AppGroup(db.Model):
     __mapper_args__ = {'extension': BaseExtension()}
     __versioned__ = {}
-    id = sa.Column(sa.Integer, primary_key=True)
-    name = sa.Column(sa.Text, unique=True)
-    active = sa.Column(sa.Boolean, default=True)
-    default = sa.Column(sa.Boolean, default=False)
-    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
-    updated_at = sa.Column(sa.DateTime)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Text, unique=True)
+    active = db.Column(db.Boolean, default=True)
+    default = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow())
+    updated_at = db.Column(db.DateTime)
 
-    users = sa.relationship('User', secondary=user_app_group, back_populates='app_groups', lazy='dynamic')
+    users = db.relationship('User', secondary=user_app_group, back_populates='app_groups', lazy='dynamic')
 
     def __repr__(self):
         return '<AppGroup {}:{}>'.format(self.id, self.name)
@@ -44,8 +44,8 @@ class AppGroup(sa.Model):
                 ap = AppGroup(name=p.upper().strip())
                 ap.id = app_group_dict[p]['id']
                 ap.default = app_group_dict[p]['default']
-                sa.session.add(ap)
-        sa.session.commit()
+                db.session.add(ap)
+        db.session.commit()
 
     def before_insert(self):
         pass

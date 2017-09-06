@@ -1,8 +1,8 @@
-from app import sa
+from app import db
 from datetime import datetime
 
 
-class BaseExtension(sa.MapperExtension):
+class BaseExtension(db.MapperExtension):
     __doc__ = """Base extension class for all sa model entities"""
 
     def before_insert(self, mapper, connection, target):

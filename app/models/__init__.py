@@ -1,4 +1,4 @@
-from app import sa
+from app import db
 from flask import _app_ctx_stack, _request_ctx_stack, g
 from sqlalchemy.orm import configure_mappers
 from sqlalchemy_continuum import make_versioned

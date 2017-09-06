@@ -1,6 +1,6 @@
 from flask import url_for, g
 from flask_login import current_user
-from app import sa
+from app import db
 from app.models import User
 from tests.test_client_utils import BaseClientTestCase, user_dict
 from datetime import datetime

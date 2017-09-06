@@ -1,4 +1,4 @@
-from app import sa, ma
+from app import db, ma
 from marshmallow import fields, ValidationError, post_load, validates
 
 from app.utils import normalize_address
@@ -8,26 +8,26 @@ from app.models.extensions import BaseExtension
 import hashlib, json, re
 
 
-class Address(sa.Model):
+class Address(db.Model):
     _tablename__ = 'address'
     __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
-    id = sa.Column(sa.Integer, primary_key=True)
-    address1 = sa.Column("address1", sa.Text)
-    address2 = sa.Column("address2", sa.Text)
-    city = sa.Column("city", sa.Text)
-    state = sa.Column("state", sa.String(2))
-    zipcode = sa.Column("zipcode", sa.Text, index=True)
-    primary = sa.Column("primary", sa.Boolean)
-    active = sa.Column("active", sa.Boolean, default=True)
-    patient_id = sa.Column(sa.Integer, sa.ForeignKey('patient.id'), index=True)
-    patient = sa.relationship("Patient", back_populates="addresses")
-    user_id = sa.Column(sa.Integer, sa.ForeignKey('user.id'), index=True)
-    user = sa.relationship("User", back_populates="addresses")
-    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
-    updated_at = sa.Column(sa.DateTime)
-    address_hash = sa.Column(sa.Text)
-    row_hash = sa.Column(sa.Text)
+    id = db.Column(db.Integer, primary_key=True)
+    address1 = db.Column("address1", db.Text)
+    address2 = db.Column("address2", db.Text)
+    city = db.Column("city", db.Text)
+    state = db.Column("state", db.String(2))
+    zipcode = db.Column("zipcode", db.Text, index=True)
+    primary = db.Column("primary", db.Boolean)
+    active = db.Column("active", db.Boolean, default=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), index=True)
+    patient = db.relationship("Patient", back_populates="addresses")
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
+    user = db.relationship("User", back_populates="addresses")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow())
+    updated_at = db.Column(db.DateTime)
+    address_hash = db.Column(db.Text)
+    row_hash = db.Column(db.Text)
 
     def __init__(self, address1=None, address2=None, city=None, state=None, zipcode=None, active=True, primary=False,
                  user_id=None, patient_id=None, **kwargs):

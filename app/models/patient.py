@@ -1,4 +1,4 @@
-from app import sa, ma
+from app import db, ma
 from marshmallow import fields, post_load
 from app.utils.demographics import *
 from app.utils.general import json_serial
@@ -9,36 +9,36 @@ from app.models.extensions import BaseExtension
 import hashlib, json
 
 
-class Patient(sa.Model):
+class Patient(db.Model):
     __tablename__ = 'patient'
     __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
 
-    id = sa.Column(sa.Integer, primary_key=True)
-    first_name = sa.Column(sa.Text, index=True)
-    last_name = sa.Column(sa.Text, index=True)
-    middle_name = sa.Column(sa.Text)
-    prefix = sa.Column(sa.Text)
-    suffix = sa.Column(sa.Text)
-    sex = sa.Column(sa.String)
-    dob = sa.Column(sa.Date, index=True)
-    ssn = sa.Column(sa.Text)
-    race = sa.Column(sa.Text)
-    ethnicity = sa.Column(sa.Text)
-    marital_status = sa.Column(sa.String(3))
-    deceased = sa.Column(sa.Boolean, default=False)
-    deceased_date = sa.Column(sa.Date)
-    multiple_birth = sa.Column(sa.Boolean, default=False)
-    preferred_language = sa.Column(sa.Text)
-    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
-    updated_at = sa.Column(sa.DateTime)
-    row_hash = sa.Column(sa.Text, index=True)
-    addresses = sa.relationship("Address", order_by=Address.id.desc(), back_populates="patient", lazy="dynamic",
+    id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.Text, index=True)
+    last_name = db.Column(db.Text, index=True)
+    middle_name = db.Column(db.Text)
+    prefix = db.Column(db.Text)
+    suffix = db.Column(db.Text)
+    sex = db.Column(db.String)
+    dob = db.Column(db.Date, index=True)
+    ssn = db.Column(db.Text)
+    race = db.Column(db.Text)
+    ethnicity = db.Column(db.Text)
+    marital_status = db.Column(db.String(3))
+    deceased = db.Column(db.Boolean, default=False)
+    deceased_date = db.Column(db.Date)
+    multiple_birth = db.Column(db.Boolean, default=False)
+    preferred_language = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow())
+    updated_at = db.Column(db.DateTime)
+    row_hash = db.Column(db.Text, index=True)
+    addresses = db.relationship("Address", order_by=Address.id.desc(), back_populates="patient", lazy="dynamic",
                                 cascade="all, delete, delete-orphan")
-    email_addresses = sa.relationship("EmailAddress", order_by=EmailAddress.id.desc(), back_populates="patient",
+    email_addresses = db.relationship("EmailAddress", order_by=EmailAddress.id.desc(), back_populates="patient",
                                       lazy="dynamic",
                                       cascade="all, delete, delete-orphan")
-    phone_numbers = sa.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="patient",
+    phone_numbers = db.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="patient",
                                     lazy="dynamic",
                                     cascade="all, delete, delete-orphan")
 

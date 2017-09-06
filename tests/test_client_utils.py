@@ -1,6 +1,6 @@
 from flask import url_for
 from flask_testing import TestCase
-from app import sa, create_app as create_application
+from app import db, create_app as create_application
 from app.models import User, Role, AppPermission
 
 # Default user information for testing authentication
@@ -23,16 +23,16 @@ class BaseClientTestCase(TestCase):
         return app
 
     def setUp(self):
-        sa.drop_all()
-        sa.create_all()
+        db.drop_all()
+        db.create_all()
         AppPermission.initialize_app_permissions()
         Role.initialize_roles()
         self.client = self.app.test_client(use_cookies=True)
 
     def tearDown(self):
-        sa.session.remove()
-        sa.drop_all()
-        sa.create_all()
+        db.session.remove()
+        db.drop_all()
+        db.create_all()
 
     def login(self, email=user_dict.get("email"), password=user_dict.get("password")):
         return self.client.post(url_for('auth.login'), data={
@@ -52,8 +52,8 @@ class BaseClientTestCase(TestCase):
                          ):
         u = User(username=username, email=email, password=password, confirmed=confirmed, first_name=first_name,
                  last_name=last_name)
-        sa.session.add(u)
-        sa.session.commit()
+        db.session.add(u)
+        db.session.commit()
 
     def get_test_user(self, username=user_dict.get("username")):
         return User.query.filter_by(_username=username.upper()).first()

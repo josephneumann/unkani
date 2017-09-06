@@ -16,13 +16,13 @@ from sendgrid import *
 from sendgrid.helpers.mail import *
 from flask import render_template, current_app
 from celery_worker import celery
-import re
+import re, os
 
 
 @celery.task()
 def send_async_email(data):
     app = current_app._get_current_object()
-    api_key = app.config['SENDGRID_API_KEY']
+    api_key = os.environ.get('SENDGRID_API_KEY')
     sg = SendGridAPIClient(apikey=api_key)
     response = sg.client.mail.send.post(request_body=data)
 

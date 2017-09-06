@@ -66,7 +66,7 @@ class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SSL_DISABLE = False
     SENTRY_DISABLE = False
-    USE_RATE_LIMITS = True
+    USE_RATE_LIMITS = False
 
     @classmethod
     def init_app(cls, app):

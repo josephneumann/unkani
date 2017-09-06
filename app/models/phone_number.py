@@ -1,8 +1,8 @@
-from app import sa, ma
+from app import db, ma
 from marshmallow import fields
+from datetime import datetime
 
-from app.utils import validate_phone, validate_contact_type
-from app.utils.demographics import *
+from app.utils.demographics import validate_phone, validate_contact_type, format_phone
 from app.models.extensions import BaseExtension
 import hashlib, json
 
@@ -10,23 +10,24 @@ import hashlib, json
 ##################################################################################################
 # Phone Number SQL Alchemy Model
 ##################################################################################################
-class PhoneNumber(sa.Model):
+class PhoneNumber(db.Model):
     __tablename__ = 'phone_number'
+    __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
 
-    id = sa.Column(sa.Integer, primary_key=True)
-    number = sa.Column("number", sa.Text)
-    type = sa.Column("type", sa.Text)
-    active = sa.Column(sa.Boolean, default=True)
-    primary = sa.Column(sa.Boolean, default=False)
+    id = db.Column(db.Integer, primary_key=True)
+    number = db.Column("number", db.Text)
+    type = db.Column("type", db.Text)
+    active = db.Column(db.Boolean, default=True)
+    primary = db.Column(db.Boolean, default=False)
 
-    patient_id = sa.Column(sa.Integer, sa.ForeignKey('patient.id'), index=True)
-    patient = sa.relationship("Patient", back_populates="phone_numbers")
-    user_id = sa.Column(sa.Integer, sa.ForeignKey('user.id'), index=True)
-    user = sa.relationship("User", back_populates="phone_numbers")
-    created_at = sa.Column(sa.DateTime, default=datetime.utcnow())
-    updated_at = sa.Column(sa.DateTime)
-    row_hash = sa.Column(sa.Text, index=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), index=True)
+    patient = db.relationship("Patient", back_populates="phone_numbers")
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
+    user = db.relationship("User", back_populates="phone_numbers")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow())
+    updated_at = db.Column(db.DateTime)
+    row_hash = db.Column(db.Text, index=True)
 
     def __init__(self, number=None, type=None, active=True, primary=False, user_id=None, patient_id=None, **kwargs):
         self.number = number

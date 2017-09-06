@@ -1,7 +1,7 @@
 from flask import g, jsonify, url_for, current_app
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
 from flask_principal import Identity, identity_changed
-from app import sa
+from app import db
 from ..models import User, EmailAddress
 from . import api
 from app.api_v1.errors import unauthorized, AuthenticationError
@@ -21,7 +21,7 @@ def before_request():  # pragma: no cover
 def verify_password(email, password):
     if not email:
         raise AuthenticationError("No email address provided for login.")
-    user = sa.session.query(User).join(EmailAddress).filter(EmailAddress.active == True).filter(
+    user = db.session.query(User).join(EmailAddress).filter(EmailAddress.active == True).filter(
         EmailAddress.email == str(email).upper().strip()).first()
     if user is None:
         raise AuthenticationError("Email provided does not match an active account")
@@ -65,6 +65,8 @@ def verify_token(token):
     if not user.confirmed:
         raise AuthenticationError("User account is unconfirmed.")
     # Set global request context g.current_user variable which is used in API routes
+    # Since sessions are not used in RESTapi, there should not be any authentication info stored in session with
+    # flask-login's login_user function
     setattr(g, 'current_user', user)
     identity_changed.send(current_app._get_current_object(),
                           identity=Identity(user.id))

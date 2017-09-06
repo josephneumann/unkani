@@ -15,14 +15,8 @@ class Config:
     SENDGRID_PASSWORD = os.environ.get('SENDGRID_PASSWORD')
     SENDGRID_USERNAME = os.environ.get('SENDGRID_USERNAME')
     SENDGRID_DEFAULT_FROM = 'admin@unkani.com'
-    CELERY_BROKER_URL = os.environ.get('REDIS_URL')
-    BROKER_URL = CELERY_BROKER_URL
-    CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL')
-    CELERY_TASK_SERIALIZER = 'json'
-    CELERY_RESULT_SERIALIZER = 'json'
-    CELERY_ACCEPT_CONTENT = ['json']
-    BROKER_TRANSPORT = 'redis'
-    CELERY_IMPORTS = ['app.flask_sendgrid']
+    SERVER_SESSION = True
+    SESSION_TYPE = 'redis'
 
     # Define an init_app class method that allows for config specific initialization
     @staticmethod
@@ -38,7 +32,7 @@ class DevelopmentConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SSL_DISABLE = True
     SENTRY_DISABLE = True
-    USE_RATE_LIMITS = True
+    USE_RATE_LIMITS = False
 
 
 class TestingConfig(Config):
@@ -48,7 +42,7 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False
     PRESERVE_CONTEXT_ON_EXCEPTION = False
     EMAIL_OFF = True
-    CELERY_ALWAYS_EAGER = True
+    # CELERY_ALWAYS_EAGER = True
     SSL_DISABLE = True
     SENTRY_DISABLE = True
     USE_RATE_LIMITS = False

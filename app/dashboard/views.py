@@ -8,7 +8,7 @@ from sqlalchemy import or_, and_
 from sqlalchemy.orm import aliased
 from . import dashboard
 from .forms import ChangePasswordForm, ChangeEmailForm, UpdateUserProfileForm
-from .. import sa
+from .. import db
 from app.models import User, EmailAddress, Patient, UserAPI, EmailAddressAPI, Role, AppGroup
 from app.models.user import lookup_user_by_email, lookup_user_by_username
 
@@ -39,8 +39,8 @@ def change_password(userid):
             flash('Password entries did not match.', category='danger')
         if user.verify_password(form.old_password.data):
             user.password = form.password.data
-            sa.session.add(user)
-            sa.session.commit()
+            db.session.add(user)
+            db.session.commit()
             flash('Your password has been changed.', 'success')
             return redirect(url_for('dashboard.user_profile', userid=user.id))
         else:
@@ -165,7 +165,7 @@ def user_profile(userid):
         if not api.errors['critical']:
             updated_user, errors = api.make_object()
             if updated_user:
-                sa.session.add(updated_user)
+                db.session.add(updated_user)
                 flash('User profile has been updated.', 'success')
 
     form.username.data = user.username.lower()
@@ -188,14 +188,14 @@ def deactivate_user(userid):
     if user.id == current_user.id:
         complete_logout()
         user.active = False
-        sa.session.add(user)
-        sa.session.commit()
+        db.session.add(user)
+        db.session.commit()
         flash("Your account has been deactivated and you have been logged out.", "info")
         return redirect(url_for('main.landing'))
     else:
         user.active = False
-        sa.session.add(user)
-        sa.session.commit()
+        db.session.add(user)
+        db.session.commit()
         flash("The account with email {} was successfully deactivated".format(user.email.email), "info")
         return redirect(url_for('dashboard.dashboard_main'))
 
@@ -215,7 +215,7 @@ def admin_user_list():
         .filter(or_(Role.level < current_user.role.level, User.id == current_user.id)) \
         .join(EmailAddress) \
         .filter(and_(EmailAddress.primary == True, EmailAddress.active == True)) \
-        .filter(sa.session.query(ua) \
+        .filter(db.session.query(ua) \
                 .join(AppGroup, ua.app_groups) \
                 .filter(AppGroup.id.in_(app_group_ids)) \
                 .filter(User.id == ua.id).distinct().exists()
@@ -243,8 +243,8 @@ def force_confirm_user(userid):
         flash("The user {} is already confirmed.".format(user.email.email), 'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     user.confirmed = True
-    sa.session.add(user)
-    sa.session.commit()
+    db.session.add(user)
+    db.session.commit()
     flash("User account {} has been confirmed manually.".format(user.email.email), 'success')
     return redirect(url_for('dashboard.user_profile', userid=userid))
 
@@ -261,8 +261,8 @@ def revoke_user_confirmation(userid):
         flash("The user {} is already un-confirmed.".format(user.email.email), 'danger')
         return redirect(url_for('dashboard.user_profile', userid=current_user.id))
     user.confirmed = False
-    sa.session.add(user)
-    sa.session.commit()
+    db.session.add(user)
+    db.session.commit()
     flash("User account {} has had their confirmed status revoked manually.".format(user.email.email), 'success')
     return redirect(url_for('dashboard.user_profile', userid=userid))
 

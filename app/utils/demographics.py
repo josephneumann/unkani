@@ -690,10 +690,10 @@ def validate_dob(dob, max_age=130):
         dob = str(dob)
     if isinstance(dob, str):
         try:
-            n_dob = dateparser.parse(dob, ignoretz=True)
+            n_dob = dateparser.parse(dob, ignoretz=True).date()
         except ValueError:
             raise ValueError('An invalid value was supplied as a DOB: {}'.format(dob))
-    today = datetime.today()
+    today = datetime.today().date()
     lower_limit = today + relativedelta(years=-max_age)
     if not lower_limit <= n_dob:
         raise ValueError('The DOB {} is too far in the past to be a valid DOB'.format(n_dob))

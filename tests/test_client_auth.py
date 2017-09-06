@@ -1,6 +1,6 @@
 from flask import url_for, g, session
 from flask_login import current_user
-from app import sa
+from app import db
 from app.models import User
 from app.security import *
 from tests.test_client_utils import BaseClientTestCase, user_dict
@@ -164,8 +164,8 @@ class AuthViewsFormsTestCase(BaseClientTestCase):
 
             # Text that resend confirmation route redirects if user is already confirmed
             user.confirmed = True
-            sa.session.add(user)
-            sa.session.commit()
+            db.session.add(user)
+            db.session.commit()
 
             response = self.client.get(url_for('auth.resend_confirmation', userid=user.id), follow_redirects=False)
             self.assertRedirects(response=response, location=url_for('main.landing'))
@@ -210,8 +210,8 @@ class AuthViewsFormsTestCase(BaseClientTestCase):
             self.create_test_user()
             user = self.get_test_user()
             user.active = False
-            sa.session.add(user)
-            sa.session.commit()
+            db.session.add(user)
+            db.session.commit()
             response = self.client.post(url_for('auth.reset_password_request'), data={
                 'email': user_dict.get('email')}, follow_redirects=True)
             self.assertMessageFlashed('That user account is no longer active.', 'danger')
@@ -290,8 +290,8 @@ class AuthViewsFormsTestCase(BaseClientTestCase):
         self.create_test_user()
         user = self.get_test_user()
         user.active = False
-        sa.session.add(user)
-        sa.session.commit()
+        db.session.add(user)
+        db.session.commit()
 
         with self.client:
             response = self.login()

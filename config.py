@@ -17,7 +17,7 @@ class Config:
     SENDGRID_DEFAULT_FROM = 'admin@unkani.com'
     SERVER_SESSION = True
     SESSION_TYPE = 'redis'
-    REDIS_URL = os.environ.get('REDIS_URL', default='redis://localhost:6379')
+    REDIS_URL = os.environ.get('REDIS_URL')
 
     # Define an init_app class method that allows for config specific initialization
     @staticmethod
@@ -77,7 +77,7 @@ class ProductionConfig(Config):
         app.wsgi_app = ProxyFix(app.wsgi_app)
 
 
-# Configuration objects are assigned to a dict for access in intitialization script from objects
+# Configuration objects are assigned to a dict for access in initialization script from objects
 config = {
     'development': DevelopmentConfig,
     'testing': TestingConfig,

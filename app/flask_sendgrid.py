@@ -56,7 +56,7 @@ def send_email(**kwargs):
     message.add_personalization(personalization)
 
     for email in to_emails:
-        if re.search(r'(@example)+', email):
+        if re.search(r'(@EXAMPLE)+', email):
             dummy_email = True
 
     if current_app.config['EMAIL_OFF']:

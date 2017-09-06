@@ -67,6 +67,7 @@ class ProductionConfig(Config):
     SSL_DISABLE = False
     SENTRY_DISABLE = False
     USE_RATE_LIMITS = False
+    SERVER_SESSION = False
 
     @classmethod
     def init_app(cls, app):

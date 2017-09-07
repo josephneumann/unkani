@@ -3,7 +3,7 @@ from flask import request, url_for, make_response
 from app.utils.general import json_serial
 from app.api_v1.errors import *
 import time
-from redis import Redis
+from app import redis
 from flask import current_app, g
 from app.api_v1.errors import too_many_requests
 
@@ -44,9 +44,6 @@ def rate_limit(limit, period):
     return decorator
 
 
-redis = None
-
-
 class FakeRedis(object):
     """Redis mock used for testing."""
 
@@ -78,14 +75,8 @@ class RateLimit(object):
         if redis is None and current_app.config['USE_RATE_LIMITS']:
             if current_app.config['TESTING']:
                 redis = FakeRedis()
-            host = os.environ.get('REDIS_HOST')
-            pw = os.environ.get('REDIS_PASSWORD')
-            port = os.environ.get('REDIS_PORT')
-            if host and pw and port:
-                redis = Redis(host=host, password=pw, port=port)
             else:
-                #Otherwise defaults to localhost
-                redis = Redis()
+                redis = redis
 
         self.reset = (int(time.time()) // period) * period + period
         self.key = key_prefix + str(self.reset)

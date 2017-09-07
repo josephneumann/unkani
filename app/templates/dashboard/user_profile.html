@@ -124,7 +124,7 @@
                                         </div>
                                     </div>
                                     <div class="card-footer">
-                                        {% if (app_permission_userdelete.can()or test_user_permission(user.id)) %}
+                                        {% if app_permission_userdelete.can() %}
                                             <div class="form-group pull-left">
                                                 <a href="{{ url_for('dashboard.deactivate_user', userid=user.id) }}"
                                                    class="btn btn-wd btn-danger btn-move-left">

@@ -15,16 +15,7 @@ send_email(
 from sendgrid import *
 from sendgrid.helpers.mail import *
 from flask import render_template, current_app
-from celery_worker import celery
 import re, os
-
-
-@celery.task()
-def send_async_email(data):
-    app = current_app._get_current_object()
-    api_key = os.environ.get('SENDGRID_API_KEY')
-    sg = SendGridAPIClient(apikey=api_key)
-    response = sg.client.mail.send.post(request_body=data)
 
 
 def send_email(**kwargs):
@@ -59,10 +50,13 @@ def send_email(**kwargs):
         if re.search(r'(@EXAMPLE)+', email):
             dummy_email = True
 
-    if current_app.config['EMAIL_OFF']:
+    if app.config['EMAIL_OFF']:
         pass
     elif dummy_email:
         pass
     else:
         data = message.get()
-        send_async_email.delay(data=data)
+        api_key = os.environ.get('SENDGRID_API_KEY')
+        sg = SendGridAPIClient(apikey=api_key)
+        response = sg.client.mail.send.post(request_body=data)
+        print(response)

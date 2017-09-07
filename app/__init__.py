@@ -2,7 +2,6 @@
 import logging
 import os
 
-# from celery import Celery
 from flask import Flask
 from flask_session import Session
 from flask_bootstrap import Bootstrap
@@ -13,6 +12,7 @@ from flask_moment import Moment
 from flask_principal import Principal
 from flask_sqlalchemy import SQLAlchemy
 from raven.contrib.flask import Sentry
+from redis import Redis
 
 # Import config object [which is itself a dict of config objects] from config package
 from config import config
@@ -32,8 +32,8 @@ login_manager.login_message_category = 'info'
 sentry = Sentry()
 ma = Marshmallow()
 
-
-from app.flask_sendgrid import send_async_email
+default_redis_url = 'redis://localhost:6379'
+redis = Redis.from_url(url=os.environ.get('REDIS_URL', default_redis_url))
 
 
 # Application factory function
@@ -44,15 +44,12 @@ from app.flask_sendgrid import send_async_email
 def create_app(config_name):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
+    app.config.update(SESSION_REDIS=redis)
 
     # Check app config to see if SERVER_SESSION is set to True
     # If so, initialize flask-session.Session which defaults to session type set in
-    # SESSION_TYPE config, which is for Unkan, 'redis'.  Sessions are stored on redis default port.
-    if app.config['SERVER_SESSION']:
-        server_sess = Session()
-    # Else set var sess = None
-    else:
-        server_sess = None
+    # SESSION_TYPE config, which is for Unkani, 'redis'.  Sessions are stored on redis default port.
+
     config[config_name].init_app(app)
 
     if not app.config['SSL_DISABLE']:  # pragma: no cover
@@ -68,8 +65,8 @@ def create_app(config_name):
     sentry.init_app(app, logging=True, level=logging.ERROR)
     Principal(app, use_sessions=True)
     ma.init_app(app)
-    if server_sess:
-        server_sess.init_app(app)
+    if app.config.get('SERVER_SESSION'):
+        Session(app)
 
     # Register blueprint objects with application object
     # These MUST be imported last, to avoid circular dependencies in the blueprint

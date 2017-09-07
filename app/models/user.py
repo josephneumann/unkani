@@ -572,8 +572,7 @@ class User(UserMixin, db.Model):
         attributes stored as environment variables specified as 'UNKANI_ADMIN_*.
         Executed on deployment and db creation.  Checks for existing user with admin's
         email before attempting to create a new one."""
-        admin_user_username = os.environ.get('UNKANI_ADMIN_USERNAME')
-        user = User.query.filter(User.username == str(admin_user_username).upper()).first()
+        user = User.query.get(1)
         if user is None:
             user = User()
             email = validate_email(os.environ.get('UNKANI_ADMIN_EMAIL'))

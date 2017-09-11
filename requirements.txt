@@ -11,6 +11,7 @@ coverage==4.2
 dominate==2.2.1
 entropy==0.9
 Faker==0.7.12
+fhirclient==3.0.0
 Flask==0.12
 Flask-Bootstrap==3.3.7.0
 Flask-HTTPAuth==3.2.1
@@ -29,6 +30,7 @@ Flask-Testing==0.6.1
 Flask-WTF==0.13.1
 gunicorn==19.6.0
 haversine==0.4.5
+isodate==0.5.4
 itsdangerous==0.24
 jellyfish==0.5.1
 Jinja2==2.8.1

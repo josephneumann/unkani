@@ -22,8 +22,7 @@ app_permission_userforceconfirmation = Permission(AppPermissionNeed('User Force 
 app_permission_userrolechange = Permission(AppPermissionNeed('User Role Change'))
 app_permission_patientadmin = Permission(AppPermissionNeed('Patient Admin'))
 app_permission_useradmin = Permission(AppPermissionNeed('User Admin'))
-app_permission_userappgroupupdate= Permission(AppPermissionNeed('User App Group Update'))
-
+app_permission_userappgroupupdate = Permission(AppPermissionNeed('User App Group Update'))
 
 
 def return_template_context_permissions():
@@ -117,6 +116,6 @@ role_dict = {
 
 # App Group Initialization
 app_group_dict = {
-    'UNKANI': {'id':1, 'default': False},
-    'DEMO GROUP': {'id':2, 'default': True}
+    'UNKANI': {'id': 1, 'default': False},
+    'DEMO GROUP': {'id': 2, 'default': True}
 }

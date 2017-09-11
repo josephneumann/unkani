@@ -169,7 +169,7 @@ def internal_server_error(message='An unexpected error has occurred while proces
 @api.errorhandler(500)
 def internal_server_error_handler(e):
     error_dict = {'message': 'Internal server error occurred', 'type': 'internal server error', 'level': 'critical'}
-    response = generate_error_response(errors=error_dict, code=404)
+    response = generate_error_response(errors=error_dict, code=500)
     return response
 
 

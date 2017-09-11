@@ -1,5 +1,4 @@
-from app import db
-from flask import _app_ctx_stack, _request_ctx_stack, g
+from flask import _app_ctx_stack, _request_ctx_stack
 from sqlalchemy.orm import configure_mappers
 from sqlalchemy_continuum import make_versioned
 from sqlalchemy_continuum.plugins import FlaskPlugin, PropertyModTrackerPlugin
@@ -28,7 +27,9 @@ from .app_permission import *
 from .address import *
 from .phone_number import *
 from .email_address import *
-from .patient import *
+from app.models.fhir.Patient import *
 from .app_group import *
+from .source_data import *
+from app.models.fhir import *
 
 configure_mappers()

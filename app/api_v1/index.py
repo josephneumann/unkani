@@ -1,4 +1,4 @@
-from flask import request, jsonify, g, url_for
+from flask import request, jsonify, g, url_for, abort
 from . import api
 from .utils import etag
 from .authentication import token_auth
@@ -9,9 +9,13 @@ from .authentication import token_auth
 @etag
 def index():
     response = jsonify({'versions':
-                            {'v1':
-                                 {'users': url_for('api_v1.get_users', _external=True)}
-                             }
-                        })
+        {'v1':
+            {
+                'fhir': {'CodeSystem': url_for('api_v1.get_codesystems', _external=True),
+                         'ValueSet': url_for('api_v1.get_valuesets', _external=True)},
+                'resources': {'User': url_for('api_v1.get_users', _external=True)}
+            }
+        }
+    })
     response.status_code = 200
     return response

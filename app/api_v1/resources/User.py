@@ -7,13 +7,13 @@ from app.models import Address, AppGroup, PhoneNumber, Role, EmailAddress
 from app.models.user import User, UserAPI, UserVersionSchema
 from app.security import *
 from app.utils.demographics import *
-from .authentication import token_auth
-from .errors import *
-from .rate_limit import rate_limit
-from .utils import paginate_query, filter_ops, register_arg_error, etag
+from app.api_v1.authentication import token_auth
+from app.api_v1.errors import *
+from app.api_v1.rate_limit import rate_limit
+from app.api_v1.utils import paginate_query, filter_ops, register_arg_error, etag
 
 
-@api.route('/users', methods=['GET'])
+@api.route('/User', methods=['GET'])
 @token_auth.login_required
 @app_permission_userprofileupdate.require(http_exception=403)
 @rate_limit(limit=5, period=15)
@@ -176,11 +176,11 @@ def get_users():
     else:
         query = query.order_by(User.id.asc())
 
-    response = paginate_query(query=query, name='users', error_list=error_list, max_per_page=50)
+    response = paginate_query(query=query, name='Users', error_list=error_list, max_per_page=50)
     return response
 
 
-@api.route('/users/<int:userid>', methods=['GET'])
+@api.route('/User/<int:userid>', methods=['GET'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 @etag
@@ -194,13 +194,13 @@ def get_user(userid):
         return not_found()
     else:
         data = user.dump()
-        response = jsonify({'user': data, 'errors': []})
+        response = jsonify({'User': data, 'errors': []})
         response.headers['Location'] = url_for('api_v1.get_user', userid=user.id)
         response.status_code = 200
         return response
 
 
-@api.route('/users', methods=['POST'])
+@api.route('/User', methods=['POST'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def new_user():
@@ -228,12 +228,12 @@ def new_user():
         response.status_code = 201
         return response
     else:
-        response = jsonify({"user": None, "errors": {'critical': {'user creation': 'failed to create user'}}})
+        response = jsonify({'User': None, 'errors': {'critical': {'user creation': 'failed to create user'}}})
         response.status_code = 400
         return response
 
 
-@api.route('/users/<int:userid>', methods=['PATCH'])
+@api.route('/User/<int:userid>', methods=['PATCH'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def update_user(userid):
@@ -277,12 +277,12 @@ def update_user(userid):
 
     else:
         model_errors = process_model_errors(uv.errors)
-        response = jsonify({'user': None, 'errors': model_errors})
+        response = jsonify({'User': None, 'errors': model_errors})
         response.status_code = 400
         return response
 
 
-@api.route('/users/<int:userid>', methods=['DELETE'])
+@api.route('/User/<int:userid>', methods=['DELETE'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def delete_user(userid):
@@ -297,7 +297,7 @@ def delete_user(userid):
     user_id = user.id
     db.session.delete(user)
     db.session.commit()
-    json_response = jsonify({"user": user_id, "errors": []})
+    json_response = jsonify({'User': user_id, 'errors': []})
     return json_response, 200
 
 
@@ -307,7 +307,7 @@ def invalid_version_number(version_number, object):
                                                                                       len(object.versions.all())))
 
 
-@api.route('/users/<int:userid>/version/<int:version_number>', methods=['GET'])
+@api.route('/User/<int:userid>/version/<int:version_number>', methods=['GET'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def get_user_version(userid, version_number):
@@ -353,7 +353,7 @@ def get_user_version(userid, version_number):
     meta = {'previous_url': previous_url, 'next_url': next_url, 'first_url': first_url, 'last_url': last_url}
 
     # Build response
-    response = jsonify({'user_version': data, 'meta': meta, 'errors': []})
+    response = jsonify({'UserVersion': data, 'meta': meta, 'errors': []})
     response.headers['Location'] = self_url
     response.status_code = 200
     return response

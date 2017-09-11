@@ -1,9 +1,10 @@
 import os
-import click
 import subprocess
 import sys
-from sqlalchemy import or_, and_, any_
+
+import click
 from flask_migrate import Migrate
+from sqlalchemy import or_, and_, any_
 
 COV = None
 if os.environ.get('FLASK_COVERAGE'):
@@ -12,15 +13,19 @@ if os.environ.get('FLASK_COVERAGE'):
     COV = coverage.coverage(branch=True, include=['app/*'], omit=['app/flask_sendgrid.py'])
     COV.start()
 
+from flask import current_app
 from app import create_app, db, mail
 from app.models.user import User, UserAPI
 from app.models.role import Role
-from app.models.patient import Patient
+from app.models.fhir.Patient import Patient
 from app.models.app_permission import AppPermission, role_app_permission
 from app.models.address import Address, AddressAPI
 from app.models.email_address import EmailAddress, EmailAddressAPI
 from app.models.app_group import AppGroup, user_app_group
 from app.models.phone_number import PhoneNumber, PhoneNumberAPI
+from app.models.fhir.Organization import Organization
+from app.models.source_data import SourceData
+from app.models.fhir.codesets import CodeSystem, ValueSet, get_fhir_codeset, process_fhir_codeset
 from app.utils.demographics import random_demographics
 
 app = create_app(os.getenv('FLASK_CONFIG') or 'default')
@@ -32,7 +37,9 @@ def make_shell_context():
     return dict(app=app, db=db, mail=mail, PhoneNumber=PhoneNumber, User=User, Role=Role, AppPermission=AppPermission,
                 Patient=Patient, Address=Address, EmailAddress=EmailAddress, AppGroup=AppGroup, UserAPI=UserAPI,
                 user_app_group=user_app_group, EmailAddressAPI=EmailAddressAPI, PhoneNumberAPI=PhoneNumberAPI,
-                role_app_permission=role_app_permission, AddressAPI=AddressAPI, or_=or_, and_=and_, any_=any_)
+                role_app_permission=role_app_permission, AddressAPI=AddressAPI, Organization=Organization,
+                SourceData=SourceData, CodeSystem=CodeSystem, ValueSet=ValueSet,
+                or_=or_, and_=and_, any_=any_)
 
 
 @app.cli.command
@@ -75,13 +82,40 @@ def deploy():
      4) Initialize app permisions, user roles and admin user
      5) Create random users (optional) """
     if click.confirm(text='Are you sure you want to proceed?', default=False, show_default=True):
-        if click.confirm('Upgrade t latest Alembic revision?', default=True, show_default=True):
+        if click.confirm('Upgrade to latest Alembic revision?', default=True, show_default=True):
             print()
             print("Upgrading to Alembic head revision if needed...")
             from flask_migrate import upgrade
             upgrade()
             print("Alembic revision up to date!")
             print()
+        if click.confirm(text='Do you want to update CodeSystems and ValueSets?', default=False):
+            config = current_app.config
+            items = []
+            valuesets = config.get('VALUESET_IMPORT')
+            codesystems = config.get('CODESYSTEM_IMPORT')
+
+            items = [codesystems, valuesets]
+
+            sd_to_process = []
+            if items:
+                for code_dict in items:
+                    if isinstance(code_dict, dict):
+                        for key in code_dict:
+                            print('Requesting codeset from url: {}'.format(code_dict.get(key)))
+                            sd = get_fhir_codeset(url=code_dict.get(key))
+                            if sd:
+                                sd_to_process.append(sd)
+            if sd_to_process:
+                print("Codesets were retrieved and are now being processed.")
+                for sd in sd_to_process:
+                    if isinstance(sd, SourceData):
+                        obj = process_fhir_codeset(source_data=sd)
+                print("{} codesets were imported and processed!".format(len(sd_to_process) + 1))
+            else:
+                print("All codesets were already up to date or they could not retrieved online.")
+
+        print()
         print("Initializing app permissions...")
         AppPermission.initialize_app_permissions()
         print("Initializing user roles...")
@@ -116,7 +150,7 @@ def deploy():
             print()
             print("Total random users created: " + total_users)
 
-        if click.prompt('Create randomly generated patients?', default=True, show_default=True):
+        if click.confirm('Create randomly generated patients?', default=True, show_default=True):
             patient_create_number = click.prompt(text="How many random patients do you want to create?: ", default=100,
                                                  type=int)
             print("Creating " + str(patient_create_number) + " random patient(s)...")

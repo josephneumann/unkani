@@ -11,6 +11,7 @@ from flask_marshmallow import Marshmallow
 from flask_moment import Moment
 from flask_principal import Principal
 from flask_sqlalchemy import SQLAlchemy
+from flask_moment import Moment
 from raven.contrib.flask import Sentry
 from redis import Redis
 
@@ -31,6 +32,7 @@ login_manager.login_message = 'You must log in to view this page.'
 login_manager.login_message_category = 'info'
 sentry = Sentry()
 ma = Marshmallow()
+moment = Moment()
 
 default_redis_url = 'redis://localhost:6379'
 redis = Redis.from_url(url=os.environ.get('REDIS_URL', default_redis_url))
@@ -65,6 +67,7 @@ def create_app(config_name):
     sentry.init_app(app, logging=True, level=logging.ERROR)
     Principal(app, use_sessions=True)
     ma.init_app(app)
+    moment.init_app(app)
     if app.config.get('SERVER_SESSION'):
         Session(app)
 

@@ -109,6 +109,9 @@
             <script src="{{ url_for("static", filename="js/custom-notifications.js") }}"></script>
 
 
+            {{ moment.include_moment() }}
+
+
             <script type="text/javascript">
                 $().ready(function () {
                     demo.checkFullPageBackgroundImage();

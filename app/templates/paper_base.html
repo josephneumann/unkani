@@ -63,6 +63,8 @@
             <script src="{{ url_for("static", filename="js/paper/demo_paper.js") }}"></script>
             <script src="{{ url_for("static", filename="js/custom-notifications.js") }}"></script>
 
+            {{ moment.include_moment() }}
+
             {% block alerts %}
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% for category, message in messages %}

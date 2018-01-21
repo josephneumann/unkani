@@ -47,7 +47,7 @@ class Config:
 
 # Define specific configuration variables as Config subclasses
 class DevelopmentConfig(Config):
-    DEBUG = True
+    FLASK_DEBUG = True
     TESTING = False
     EMAIL_OFF = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
@@ -57,7 +57,7 @@ class DevelopmentConfig(Config):
 
 
 class TestingConfig(Config):
-    DEBUG = True
+    FLASK_DEBUG = True
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL')
     WTF_CSRF_ENABLED = False
@@ -70,7 +70,7 @@ class TestingConfig(Config):
 
 
 class StagingConfig(Config):
-    DEBUG = False
+    FLASK_DEBUG = False
     TESTING = False
     EMAIL_OFF = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')

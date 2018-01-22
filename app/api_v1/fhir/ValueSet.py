@@ -20,7 +20,6 @@ def get_valueset(resource_id):
         return not_found()
     else:
         data = valueset.dump_fhir_json()
-        #TODO: Figure out if eveloping is ok with FHIR
         response = jsonify(data)
         response.headers['Location'] = url_for('api_v1.get_valueset', resource_id=valueset.resource_id)
         response.status_code = 200

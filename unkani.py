@@ -17,13 +17,13 @@ from flask import current_app
 from app import create_app, db, mail
 from app.models.user import User, UserAPI
 from app.models.role import Role
-from app.models.fhir.Patient import Patient
+from app.models.fhir.patient import Patient
 from app.models.app_permission import AppPermission, role_app_permission
 from app.models.address import Address, AddressAPI
 from app.models.email_address import EmailAddress, EmailAddressAPI
 from app.models.app_group import AppGroup, user_app_group
 from app.models.phone_number import PhoneNumber, PhoneNumberAPI
-from app.models.fhir.Organization import Organization
+from app.models.fhir.organization import Organization
 from app.models.source_data import SourceData
 from app.models.fhir.codesets import CodeSystem, ValueSet, get_fhir_codeset, process_fhir_codeset
 from app.utils.demographics import random_demographics

@@ -1,3 +1,3 @@
 from .codesets import *
-from .Organization import *
-from .Patient import *
+from .organization import *
+from .patient import *

@@ -1,6 +1,8 @@
 from app import db, ma
 from marshmallow import fields, post_load
 from app.utils.demographics import *
+from fhirclient.models.patient import Patient
+
 from app.utils.general import json_serial
 from app.models.address import Address, AddressSchema
 from app.models.email_address import EmailAddress, EmailAddressSchema

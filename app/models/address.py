@@ -1,11 +1,13 @@
 from app import db, ma
 from marshmallow import fields, ValidationError, post_load, validates
+import hashlib, json, re
 
 from app.utils import normalize_address
 from app.utils.demographics import *
 from app.utils.general import json_serial
 from app.models.extensions import BaseExtension
-import hashlib, json, re
+from fhirclient.models import address
+from fhirclient.models.fhirabstractbase import FHIRValidationError
 
 
 class Address(db.Model):

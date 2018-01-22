@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, '.env'))
 
+
 # Define base configuration class for configuration settings that are shared
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hfwznel2805lkd43o98udnj'
@@ -39,8 +40,8 @@ class Config:
                        'v3-Ethnicity': 'http://hl7.org/fhir/ValueSet/v3-Ethnicity',
                        'contact-point-system': 'http://hl7.org/fhir/ValueSet/contact-point-system',
                        'contact-point-use': 'http://hl7.org/fhir/ValueSet/contact-point-use',
-                       'address-type':'http://hl7.org/fhir/ValueSet/address-type',
-                       'address-use':'http://hl7.org/fhir/ValueSet/address-use'}
+                       'address-type': 'http://hl7.org/fhir/ValueSet/address-type',
+                       'address-use': 'http://hl7.org/fhir/ValueSet/address-use'}
 
     # Define an init_app class method that allows for config specific initialization
     @staticmethod
@@ -83,7 +84,7 @@ class StagingConfig(Config):
 
 
 class ProductionConfig(Config):
-    DEBUG = False
+    FLASK_DEBUG = False
     TESTING = False
     EMAIL_OFF = False
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')

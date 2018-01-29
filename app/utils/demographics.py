@@ -422,6 +422,7 @@ def normalize_address(address1=None, address2=None, city=None, state=None, zipco
 
 
 def random_full_address(number=1):
+    #TODO: include start date, end date, type and use in randomization utility
     """
     Utility function used to generate one or many random full addresses.
     :param number:
@@ -1059,6 +1060,53 @@ def validate_language(language):
         return n_language
     else:
         raise ValueError("The language supplied ({}) could not be validated".format(language))
+
+
+def validate_marital_status(status):
+    """
+    Utility function to normalize a string representation of marital status to the HL7 FHIR R3 Marital Status codeset.
+    Value set: Expansion based on http://hl7.org/fhir/v3/MaritalStatus version 2016-11-11
+
+    :param status:
+        Type: String
+        Default: None
+        Description:  String representation of marital status.  May contain Hl7 FHIR R3 Marital Status code or string
+            representation of a marital status category
+    :return:
+        If 'status' is char(1) and in the HL7 codeset, the same Hl7 code is returned
+        If 'status' is in 'status_dict', the top level key (HL7 code) of the matching status is returned
+        If 'status' cannot be found in lookup dict, returns None
+        If 'status' is None, returns None
+    """
+    if not status:
+        raise ValueError('A NoneType value was supplied as a marital status.')
+    status = str(status).strip().upper()
+    n_status = None
+    status_dict = {"A": {"ANNULLED", "ANNULL"},  # Marriage contract has been declared null and to not have existed
+                   "D": {"DIVORCED", "DIV", "DVC"},  # Marriage contract has been declared dissolved and inactive
+                   "I": {"INTERLOCUTORY"},  # Subject to an Interlocutory Decree.
+                   "L": {"LEGALLY SEPARATED", "LS"},  # Legally Separated
+                   "M": {"MARRIED", "MAR", "M."},  # A current marriage contract is active
+                   "P": {"POLYGAMOUS", "POLY"},  # More than 1 current spouse
+                   "S": {"NEVER MARRIED", "SINGLE", "SIN", "SING", "S"},  # No marriage contract has ever been entered
+                   "T": {"REGISTERED DOMESTIC PARNTER", "RDP", "DOMESTIC PARTNER"},
+                   # Person declares that a domestic partner relationship exists.
+                   "U": {"UNMARRIED", "UN-MARRIED"},  # Currently not in a marriage contract.
+                   "UNK": {"UNKNOWN", "N/A"},  # Description:A proper value is applicable, but not known.
+                   "W": {"WIDOWED", "WID"}  # The spouse has died
+                   }
+    if status in status_dict:
+        n_status = status
+
+    for key in status_dict:
+        if status in status_dict[key]:
+            status = key
+
+    if n_status:
+        return n_status
+
+    else:
+        raise ValueError('The value supplied for marital status ({}) could not be validated.'.format(status))
 
 
 def random_language():

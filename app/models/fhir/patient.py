@@ -1,10 +1,9 @@
 from app import db, ma
 from marshmallow import fields, post_load
 from app.utils.demographics import *
-from fhirclient.models.patient import Patient
 
 from app.utils.general import json_serial
-from app.models.address import Address, AddressSchema
+from app.models.fhir.address import Address, AddressSchema
 from app.models.email_address import EmailAddress, EmailAddressSchema
 from app.models.phone_number import PhoneNumber, PhoneNumberSchema
 from app.models.extensions import BaseExtension
@@ -292,6 +291,9 @@ class Patient(db.Model):
         addr.zipcode = demo_dict.get("zipcode", None)
         addr.active = True
         addr.primary = True
+        addr.is_physical = True
+        addr.is_postal = True
+        addr.use = 'HOME'
         self.addresses.append(addr)
 
         phone_list = []

@@ -19,7 +19,7 @@ from app.models.user import User, UserAPI
 from app.models.role import Role
 from app.models.fhir.patient import Patient
 from app.models.app_permission import AppPermission, role_app_permission
-from app.models.address import Address, AddressAPI
+from app.models.fhir.address import Address, AddressAPI
 from app.models.email_address import EmailAddress, EmailAddressAPI
 from app.models.app_group import AppGroup, user_app_group
 from app.models.phone_number import PhoneNumber, PhoneNumberAPI

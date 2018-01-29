@@ -24,7 +24,7 @@ make_versioned(plugins=[FlaskPlugin(current_user_id_factory=fetch_current_user_i
 from .user import *
 from .role import *
 from .app_permission import *
-from .address import *
+from app.models.fhir.address import *
 from .phone_number import *
 from .email_address import *
 from app.models.fhir.patient import *

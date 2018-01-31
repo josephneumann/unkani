@@ -61,6 +61,37 @@ class Address(db.Model):
         self.is_physical = is_physical
         self.use = use
 
+        self._fhir = None
+
+    @property
+    def fhir(self):
+        """
+        Returns fhir-client Address model object associated with SQLAlchemy Instance
+        If no fhir-client object is initialized, one is created and stored in protected attrib _fhir
+        :return:
+            fhir-client Address object matching SQLAlchemy ORM object instance
+        """
+        if not getattr(self, '_fhir', None):
+            self.create_fhir_object()
+            return self._fhir
+        else:
+            return self._fhir
+
+    @fhir.setter
+    def fhir(self, fhir_obj):
+        """
+        Allows setting of the protected attribute _fhir
+        Validates object is fhir-client model Address object
+        :param fhir_obj:
+            A fhir-client Address model object instance
+        :return:
+            None
+        """
+        if not isinstance(fhir_obj, fhir_address.Address):
+            raise TypeError('Object is not a fhirclient.models.address.Address object')
+        else:
+            self._fhir = fhir_obj
+
     def formatted_address(self):
         """
         Method to return a formatted address string
@@ -82,16 +113,18 @@ class Address(db.Model):
         """
         Method to quickly dump the Address object via Marshmallow schema
         :return:
+            JSON string of object serialized with Marshmallow default schema
         """
         schema = AddressSchema()
         return schema.dump(self).data
 
-    def dump_fhir_json(self, stand_alone=False):
+    def create_fhir_object(self):
         """
-        method: dump_fhir_json()
+        method: create_fhir_object()
+        Create a fhir-client.model.address.Adress object and stores to the self.fhir attribute
 
         :return:
-        A valid FHIR STU 3.0 Address resource as JSON
+            None
         """
         # Initialize FHIRclient Address object
         # Assign Address object attributes to FHIRclient Address object
@@ -141,10 +174,23 @@ class Address(db.Model):
         elif self.is_physical:
             fa.type = 'physical'
 
+        self.fhir = fa
+
+    def dump_fhir_json(self, parent=False):
+        """
+        Method to dump valid FHIR STU 3.0 JSON representation of the Address ORM object
+
+        :param parent:
+            When True, outputs JSON with resourceType key and relevant meta-data populated
+            When False, ignores these attributes in JSON construction
+        :return:
+            FHIR STU 3.0 Address JSON matching ORM Address Object
+        """
+        self.create_fhir_object()
         try:
-            fhir_json = fa.as_json()
-            if stand_alone:
-                fhir_json['resourceType'] = fa.resource_type
+            fhir_json = self.fhir.as_json()
+            if parent:
+                fhir_json['resourceType'] = self.fhir.resource_type
                 # TODO: Add meta and identity items to serialize here
             return fhir_json
 

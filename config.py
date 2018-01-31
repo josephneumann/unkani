@@ -8,6 +8,7 @@ load_dotenv(os.path.join(basedir, '.env'))
 # Define base configuration class for configuration settings that are shared
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hfwznel2805lkd43o98udnj'
+    SERVER_NAME = os.environ.get('SERVER_NAME')
 
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
     SQLALCHEMY_TRACK_MODIFICATIONS = False

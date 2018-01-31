@@ -1,12 +1,14 @@
 from app import db, ma
 from marshmallow import fields, post_load
 from app.utils.demographics import *
-
+from flask import url_for
 from app.utils.general import json_serial
 from app.models.fhir.address import Address, AddressSchema
 from app.models.email_address import EmailAddress, EmailAddressSchema
 from app.models.phone_number import PhoneNumber, PhoneNumberSchema
 from app.models.extensions import BaseExtension
+from fhirclient.models import patient as fhir_patient, meta, fhirdate, codeableconcept
+from app.utils.fhir_utils import generate_humanname
 import hashlib, json
 
 
@@ -14,6 +16,7 @@ class Patient(db.Model):
     __tablename__ = 'patient'
     __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
+    #TODO Add active boolean and add to FHIR generation
 
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.Text, index=True)
@@ -128,6 +131,8 @@ class Patient(db.Model):
                     address_list[0].primary = True
                 for address in address_list:
                     self.addresses.append(address)
+
+        self._fhir = None
 
     @property
     def primary_address(self):
@@ -255,6 +260,79 @@ class Patient(db.Model):
         else:
             raise ValueError("A string value was not passed to the email parameter.  Unable to set email for user.")
 
+    ####################################
+    # RESOURCE URL BUILDER
+    # ####################################
+    def get_url(self):
+        """
+        Helper method to build the api url of the Patient resource
+        :return:
+            Returns the absolute URL of the Patient resource in the Patient api.
+        """
+        return url_for('api_v1.get_patient', id=self.id, _external=True)
+
+    @property
+    def fhir(self):
+        """
+        Returns fhir-client Patient model object associated with SQLAlchemy Instance
+        If no fhir-client object is initialized, one is created and stored in protected attrib _fhir
+        :return:
+            fhir-client Patient object matching SQLAlchemy ORM object instance
+        """
+        if not getattr(self, '_fhir', None):
+            self.create_fhir_object()
+            return self._fhir
+        else:
+            return self._fhir
+
+    @fhir.setter
+    def fhir(self, fhir_obj):
+        """
+        Allows setting of the protected attribute _fhir
+        Validates object is fhir-client model Patient object
+        :param fhir_obj:
+            A fhir-client Patient model object instance
+        :return:
+            None
+        """
+        if not isinstance(fhir_obj, fhir_patient.Patient):
+            raise TypeError('Object is not a fhirclient.models.address.Patient object')
+        else:
+            self._fhir = fhir_obj
+
+    def create_fhir_object(self):
+        fp = fhir_patient.Patient()
+
+        # Set resource logical identifier
+        fp.id = self.get_url()
+
+        # Build and assign meta
+        fm = meta.Meta()
+        last_updated = fhirdate.FHIRDate()
+        last_updated.date = self.updated_at
+        fm.lastUpdated = last_updated
+        fm.profile = ['http://hl7.org/fhir/StructureDefinition/Patient']
+        # TODO: Included version id in meta
+        fp.meta = fm
+
+        fp.name = []
+        fp.name.append(generate_humanname(use='official', first_name=self.first_name, last_name=self.last_name,
+                                          middle_name=self.middle_name, suffix=self.suffix, prefix=self.prefix))
+
+        fp.gender = self.sex
+
+        fd_dob = fhirdate.FHIRDate()
+        fd_dob.date = self.dob
+        fp.birthDate = fd_dob
+
+        fp.active = True
+
+        self._fhir = fp
+
+    def dump_fhir_json(self):
+        self.create_fhir_object()
+        return self.fhir.as_json()
+
     ##############################################################################################
     # Patient RANDOMIZATION UTILITIES
     ##############################################################################################
@@ -377,3 +455,27 @@ class PatientSchema(ma.Schema):
     @post_load
     def make_patient(self, data):
         return Patient(**data)
+
+
+class PatientAPI:
+
+    def __init__(self, first_name=None, last_name=None, middle_name=None, prefix=None, suffix=None, sex=None,
+                 dob=None, ssn=None, race=None, ethnicity=None, marital_status=None, deceased=None,
+                 deceased_date=None, multiple_birth=None, preferred_language=None, email=None, phone_numbers=None):
+        self.first_name = first_name
+        self.last_name = last_name
+        self.middle_name = middle_name
+        self.prefix = prefix
+        self.suffix = suffix
+        self.sex = sex
+        self.dob = dob
+        self.ssn = ssn
+        self.race = race
+        self.ethnicity = ethnicity
+        self.marital_status = marital_status
+        self.deceased = deceased
+        self.deceased_date = deceased_date
+        self.multiple_birth = multiple_birth
+        self.preferred_language = preferred_language
+        self.email = email
+        self.phone_numbers = phone_numbers

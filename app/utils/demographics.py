@@ -1,6 +1,6 @@
 import re
 import random
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from dateutil import parser as dateparser
 from dateutil.relativedelta import relativedelta
 from uszipcode import ZipcodeSearchEngine
@@ -139,7 +139,7 @@ def validate_ssn(ssn):
         if n_ssn:
             n_ssn_digits = str('{}{}{}'.format(n_ssn.group(1), n_ssn.group(2), n_ssn.group(3)))
             if (n_ssn_digits in bad_ssns) or (n_ssn.group(1) in ['666', '000']) or (n_ssn.group(2) in ['00']) or (
-                        n_ssn.group(3) in ['0000']):
+                    n_ssn.group(3) in ['0000']):
                 raise ValueError('An invalid value was supplied as an SSN: '.format(ssn))
             elif shannon_entropy(n_ssn_digits) < .16:
                 raise ValueError(
@@ -422,7 +422,7 @@ def normalize_address(address1=None, address2=None, city=None, state=None, zipco
 
 
 def random_full_address(number=1):
-    #TODO: include start date, end date, type and use in randomization utility
+    # TODO: include start date, end date, type and use in randomization utility
     """
     Utility function used to generate one or many random full addresses.
     :param number:
@@ -443,8 +443,10 @@ def random_full_address(number=1):
     for x in range(0, number):
         zip = zipcode_list.pop(0)
         add1, add2 = random_address_lines()
+        end_date = datetime.today().date()
+        start_date = end_date - timedelta(days=random.randrange(365, 3650))
         add_dict = {"address1": add1, "address2": add2, "zipcode": zip.Zipcode, "city": str(zip.City).upper(),
-                    "state": zip.State}
+                    "state": zip.State, "use": "HOME", "start_date": start_date, "end_date": end_date}
         result.append(add_dict)
     if result:
         return result
@@ -1196,13 +1198,13 @@ def random_demographics(number=1):
         marital_status = random_marital_status()
         race = random_race()
         ethnicity = random_ethnicity()
-        password = random.randint(1,99999999999)
+        password = random.randint(1, 99999999999)
 
         demo_dict = {"first_name": first_name, "last_name": last_name, "middle_name": middle_name, "dob": dob,
                      "sex": sex, "ssn": ssn, "home_phone": home_phone, "mobile_phone": mobile_phone,
                      "work_phone": work_phone, "email": email, "deceased": deceased,
                      "suffix": suffix, "marital_status": marital_status, "race": race,
-                     "ethnicity": ethnicity, "username": username, "password":password}
+                     "ethnicity": ethnicity, "username": username, "password": password}
         demo_dict.update(address_list.pop(0))
         result.append(demo_dict)
         print("{}".format(int(number) - len(result)), end='...', flush=True)

@@ -1,5 +1,5 @@
 import os, hashlib, json
-from flask import current_app, g
+from flask import current_app, g, url_for
 from sqlalchemy.ext.hybrid import hybrid_property
 from flask_login import UserMixin, AnonymousUserMixin, current_user
 from marshmallow import fields, ValidationError
@@ -19,7 +19,7 @@ from app.models.app_group import user_app_group, AppGroup, AppGroupSchema
 from app.security import app_permission_useractivation, app_permission_userforceconfirmation, \
     app_permission_userpasswordchange, app_permission_userrolechange, app_permission_userappgroupupdate
 from app.utils.demographics import *
-from app.utils.general import json_serial, url_for
+from app.utils.general import json_serial
 from sqlalchemy_continuum import version_class
 
 

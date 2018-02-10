@@ -1,4 +1,4 @@
-import os, hashlib, json
+import os, hashlib, json, base64
 from flask import current_app, g, url_for
 from sqlalchemy.ext.hybrid import hybrid_property
 from flask_login import UserMixin, AnonymousUserMixin, current_user
@@ -64,6 +64,8 @@ class User(UserMixin, db.Model):
     app_groups = db.relationship('AppGroup',
                                  secondary=user_app_group,
                                  back_populates='users')
+    token = db.Column(db.String(32), index=True, unique=True)
+    token_expiration = db.Column(db.DateTime)
     last_seen = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow())
     updated_at = db.Column(db.DateTime)
@@ -498,15 +500,22 @@ class User(UserMixin, db.Model):
     # USER API SUPPORT
     ##############################################################################################
 
-    def generate_api_auth_token(self, expiration=600):
+    def generate_api_auth_token(self, expiration=3600):
         __doc__ = """
-        Generates a Time JSON Web Signature token, with an expiration of 600 seconds
+        Generates a Time JSON Web Signature token, with an expiration of 1 hour
         by default.  Uses the application SECRET KEY to encrypt the token.  Token encrypts the
         user.id attribute with a key of 'id' for future identification use.  The token is supplied
         in an ascii format, for use with API client.py."""
+        now = datetime.utcnow()
+        if self.token and self.token_expiration > now + timedelta(seconds=60):
+            return self.token
         s = TimedSerializer(current_app.config['SECRET_KEY'], expires_in=expiration)
-        token = s.dumps({'id': self.id}).decode('ascii')
-        return token
+        self.token = base64.b64encode(os.urandom(24)).decode('utf-8')
+        self.token_expiration = datetime.utcnow() + timedelta(seconds=expiration)
+        return self.token
+
+    def revoke_token(self):
+        self.token_expiration = datetime.utcnow() - timedelta(seconds=1)
 
     @staticmethod
     def verify_api_auth_token(token):
@@ -514,12 +523,10 @@ class User(UserMixin, db.Model):
         User Method:  verify_api_auth_token takes a token and,
         if found valid, returns the user object stored in it.
         """
-        s = TimedSerializer(current_app.config['SECRET_KEY'])
-        try:
-            data = s.loads(token)
-        except:
+        user = User.query.filter_by(token=token).first()
+        if user is None or user.token_expiration < datetime.utcnow():
             return None
-        return User.query.get(int(data['id']))
+        return user
 
     ##############################################################################################
     # USER RANDOMIZATION METHODS

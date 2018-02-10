@@ -20,9 +20,9 @@ from app.models.role import Role
 from app.models.fhir.patient import Patient
 from app.models.app_permission import AppPermission, role_app_permission
 from app.models.fhir.address import Address, AddressAPI
-from app.models.email_address import EmailAddress, EmailAddressAPI
+from app.models.fhir.email_address import EmailAddress, EmailAddressAPI
 from app.models.app_group import AppGroup, user_app_group
-from app.models.phone_number import PhoneNumber, PhoneNumberAPI
+from app.models.fhir.phone_number import PhoneNumber, PhoneNumberAPI
 from app.models.fhir.organization import Organization
 from app.models.source_data import SourceData
 from app.models.fhir.codesets import CodeSystem, ValueSet, get_fhir_codeset, process_fhir_codeset
@@ -176,6 +176,14 @@ def deploy():
     else:
         print("Oh thank god............")
         print("That was a close call!")
+
+
+@app.cli.command()
+def drop_all():
+    if click.confirm(text='This will drop all tables, do you want to continue?', default=False, show_default=True):
+        db.engine.execute("drop schema if exists public cascade")
+        db.engine.execute("create schema public")
+        print("All tables have been dropped.")
 
 
 @app.cli.command()

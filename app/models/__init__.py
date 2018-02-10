@@ -25,8 +25,8 @@ from .user import *
 from .role import *
 from .app_permission import *
 from app.models.fhir.address import *
-from .phone_number import *
-from .email_address import *
+from app.models.fhir.phone_number import *
+from app.models.fhir.email_address import *
 from app.models.fhir.patient import *
 from .app_group import *
 from .source_data import *

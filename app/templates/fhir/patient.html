@@ -1,0 +1,52 @@
+{% extends "fhir/fhir_base.html" %}
+{% block head %}
+    <div>
+        <p><b>active</b>: {{ fhir_patient.active }}</p>
+        {% if fhir_patient.name %}
+            <p><b>name</b>: {{ fhir_patient.name[0].text }}</p>
+        {% endif %}
+        {% if fhir_patient.gender %}
+            <p><b>gender</b>:{{ fhir_patient.gender }} </p>
+        {% endif %}
+        {% if fhir_patient.birthDate %}
+            <p><b>birthDate</b>: {{ patient.dob_string }}</p>
+        {% endif %}
+        {% if fhir_patient.deceasedBoolean %}
+            <p><b>deceased</b>: {{ fhir_patient.deceasedBoolean }}</p>
+        {% endif %}
+        {% if fhir_patient.identifier %}
+            {% for id in fhir_patient.identifier %}
+                <p><b>identifier</b>: type={{ id.type.text }} system={{ id.system }} use={{ id.use }}
+                    value={{ id.value }}
+                </p>
+            {% endfor %}
+        {% endif %}
+        {% if fhir_patient.extension %}
+            {% for x in fhir_patient.extension %}
+                {% if x.url == 'http://hl7.org/fhir/StructureDefinition/us-core-race' %}
+                    <p><b>race</b>: {{ x.valueCodeableConcept.text }}</p>
+                {% endif %}
+                {% if x.url == 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity' %}
+                    <p><b>ethnicity</b>: {{ x.valueCodeableConcept.text }}</p>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% if fhir_patient.telecom %}
+            {% for x in fhir_patient.telecom %}
+                <p><b>contactPoint</b>: type={{ x.system }} use={{ x.use }} value={{ x.value }}</p>
+            {% endfor %}
+        {% endif %}
+        {% if fhir_patient.address %}
+            {% for x in fhir_patient.address %}
+                <p><b>address</b>: use={{ x.use }} text={{ x.text }}</p>
+            {% endfor %}
+        {% endif %}
+    </div>
+{% endblock head %}
+{% block body %}
+    <title>
+        {% block title %}
+            Patient Information
+        {% endblock title %}
+    </title>
+{% endblock body %}

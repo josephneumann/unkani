@@ -8,12 +8,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import db, login_manager, ma
 from app.flask_sendgrid import send_email
-from app.models.phone_number import PhoneNumberAPI
-from app.models.email_address import EmailAddress, EmailAddressAPI
+from app.models.fhir.phone_number import PhoneNumberAPI
+from app.models.fhir.email_address import EmailAddress, EmailAddressAPI
 from app.models.fhir.address import AddressAPI
 from app.models.role import Role
 from app.models.fhir.address import Address, AddressSchema
-from app.models.phone_number import PhoneNumber
+from app.models.fhir.phone_number import PhoneNumber
 from app.models.extensions import BaseExtension
 from app.models.app_group import user_app_group, AppGroup, AppGroupSchema
 from app.security import app_permission_useractivation, app_permission_userforceconfirmation, \

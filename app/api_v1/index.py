@@ -12,7 +12,8 @@ def index():
         {'v1':
             {
                 'fhir': {'CodeSystem': url_for('api_v1.get_codesystems', _external=True),
-                         'ValueSet': url_for('api_v1.get_valuesets', _external=True)},
+                         'ValueSet': url_for('api_v1.get_valuesets', _external=True),
+                         'Patient': url_for('api_v1.get_patients', _external=True)},
                 'resources': {'User': url_for('api_v1.get_users', _external=True)}
             }
         }

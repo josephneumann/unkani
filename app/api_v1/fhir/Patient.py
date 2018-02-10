@@ -24,3 +24,11 @@ def get_patient(id):
         response.headers['Location'] = url_for('api_v1.get_patient', id=pt.id)
         response.status_code = 200
         return response
+
+
+@api.route('/fhir/Patient', methods=['GET'])
+@token_auth.login_required
+@rate_limit(limit=5, period=15)
+@etag
+def get_patients():
+    return jsonify('Coming Soon!')

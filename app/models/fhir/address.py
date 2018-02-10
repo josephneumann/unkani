@@ -10,6 +10,10 @@ from fhirclient.models import period, fhirdate
 from fhirclient.models.fhirabstractbase import FHIRValidationError
 
 
+##################################################################################################
+# Address SQLAlchemy ORM Resource
+##################################################################################################
+
 class Address(db.Model):
     """
     SQL Alchemy Address object model definition
@@ -42,10 +46,12 @@ class Address(db.Model):
     is_postal = db.Column("is_postal", db.Boolean, default=True)
     is_physical = db.Column("is_physical", db.Boolean, default=True)
     use = db.Column("use", db.Text)
+    district = db.Column("district", db.Text)
+    country = db.Column("country", db.Text)
 
     def __init__(self, address1=None, address2=None, city=None, state=None, zipcode=None, active=True, primary=False,
                  user_id=None, patient_id=None, start_date=None, end_date=None, is_postal=True, is_physical=True,
-                 use=None, **kwargs):
+                 use=None, district=None, country=None, **kwargs):
         self.address1 = address1
         self.address2 = address2
         self.city = city
@@ -60,6 +66,8 @@ class Address(db.Model):
         self.is_postal = is_postal
         self.is_physical = is_physical
         self.use = use
+        self.district = district
+        self.country = country
 
         self._fhir = None
 
@@ -105,8 +113,8 @@ class Address(db.Model):
         address_text = "{}{}{}{}{}".format(self.address1 + '\n' if self.address1 else '',
                                            self.address2 + '\n' if self.address2 else ''
                                            , self.city + ', ' if self.city else ''
-                                           , self.state + ' ' if self.state else ' '
-                                           , self.zipcode if self.zipcode else '')
+                                           , ' ' + self.state if self.state else ''
+                                           , ' ' + self.zipcode if self.zipcode else '')
         return address_text
 
     def dump(self):
@@ -174,6 +182,12 @@ class Address(db.Model):
         elif self.is_physical:
             fa.type = 'physical'
 
+        if self.district:
+            fa.district = self.district
+
+        if self.country:
+            fa.country = self.country
+
         self.fhir = fa
 
     def dump_fhir_json(self, parent=False):
@@ -207,7 +221,7 @@ class Address(db.Model):
                 "state": self.state, "zipcode": self.zipcode,
                 "patient_id": self.patient_id, "user_id": self.user_id, "is_postal": self.is_postal,
                 "is_physical": self.is_physical, "use": self.use, "start_date": self.start_date,
-                "end_date": self.end_date}
+                "end_date": self.end_date, "district": self.district, "country": self.country}
         data_str = json.dumps(data, sort_keys=True, default=json_serial)
         data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
         return data_hash
@@ -231,7 +245,7 @@ class Address(db.Model):
             address2 = ''
         address_lines = str(address1 + address2)
         data = {"address_lines": address_lines, "city": self.city,
-                "state": self.state, "zipcode": self.zipcode}
+                "state": self.state, "zipcode": self.zipcode, "country": self.country}
         for key in data:
             if isinstance(data[key], str):
                 # Remove punctuation and whitespace from strings in address to hash
@@ -286,6 +300,8 @@ class AddressSchema(ma.Schema):
     updated_at = fields.DateTime(attribute='updated_at')
     address_hash = fields.String(attribute='address_hash')
     row_hash = fields.String(attribute='row_hash')
+    district = fields.String(attribute='district')
+    country = fields.String(attribute='country')
 
     @post_load
     def make_address(self, data):
@@ -328,7 +344,7 @@ class AddressAPI:
 
     def __init__(self, address1=None, address2=None, city=None, state=None, zipcode=None, primary=False, active=True,
                  patient_id=None, user_id=None, start_date=None, end_date=None, is_postal=None, is_physical=None,
-                 use=None):
+                 use=None, district=None, country= None):
         self.errors = {"critical": {},
                        "warning": {}}
         self._address = None
@@ -346,6 +362,8 @@ class AddressAPI:
         self.is_postal = is_postal
         self.is_physical = is_physical
         self.use = use
+        self.district = district
+        self.country = country
 
         self.patient_id = patient_id
         self.user_id = user_id
@@ -419,6 +437,8 @@ class AddressAPI:
             self.is_postal = d.get('is_postal', None)
             self.is_physical = d.get('is_physical', None)
             self.use = d.get('use', None)
+            self.district = d.get('district', None)
+            self.country = d.get('country', None)
 
             self.patient_id = d.get('patient_id', None)
             self.user_id = d.get('user_id', None)
@@ -433,7 +453,8 @@ class AddressAPI:
         """
         from app.utils import normalize_address
         addr_dict = normalize_address(address1=self.address1, address2=self.address2,
-                                      city=self.city, state=self.state, zipcode=self.zipcode)
+                                      city=self.city, state=self.state, zipcode=self.zipcode,
+                                      district=self.district, country=self.country)
 
         self.address1 = addr_dict.get('address1', None)
         self.address2 = addr_dict.get('address2', None)
@@ -461,6 +482,22 @@ class AddressAPI:
                     str(self.zipcode))
             else:
                 self.zipcode = addr_dict.get('zipcode', None)
+
+        if self.district:
+            if not addr_dict.get('district', None):
+                self.errors['warning'][
+                    'district'] = 'The value {} could not be normalized and assigned to the district attribute.'.format(
+                    str(self.district))
+            else:
+                self.district = addr_dict.get('district', None)
+
+        if self.country:
+            if not addr_dict.get('country', None):
+                self.errors['warning'][
+                    'country'] = 'The value {} could not be normalized and assigned to the country attribute.'.format(
+                    str(self.country))
+            else:
+                self.country = addr_dict.get('country', None)
 
     def validate_active(self):
         """
@@ -677,6 +714,12 @@ class AddressAPI:
 
             if self.use:
                 a.use = self.use
+
+            if self.district:
+                a.district = self.district
+
+            if self.country:
+                a.country = self.country
 
             self.address = a
 

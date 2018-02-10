@@ -5,6 +5,7 @@ from app.utils import validate_email
 from app.utils.demographics import *
 from app.utils.general import json_serial
 from app.models.extensions import BaseExtension
+from fhirclient.models import contactpoint
 
 import hashlib, json
 
@@ -35,6 +36,7 @@ class EmailAddress(db.Model):
         self.email = email
         self.primary = primary
         self.active = active
+        self._fhir = None
 
     def generate_avatar_hash(self):
         __doc__ = """
@@ -63,6 +65,57 @@ class EmailAddress(db.Model):
     def dump(self):
         schema = EmailAddressSchema()
         return schema.dump(self).data
+
+    @property
+    def fhir(self):
+        """
+        Returns fhir-client ContactPoint model object associated with SQLAlchemy Instance
+        If no fhir-client object is initialized, one is created and stored in protected attrib _fhir
+        :return:
+            fhir-client ContactPoint object matching SQLAlchemy ORM object instance
+        """
+        if not getattr(self, '_fhir', None):
+            self.create_fhir_object()
+            return self._fhir
+        else:
+            return self._fhir
+
+    @fhir.setter
+    def fhir(self, fhir_obj):
+        """
+        Allows setting of the protected attribute _fhir
+        Validates object is fhir-client model ContactPoint object
+        :param fhir_obj:
+            A fhir-client ContactPOint model object instance
+        :return:
+            None
+        """
+        if not isinstance(fhir_obj, contactpoint.ContactPoint):
+            raise TypeError('Object is not a fhirclient ContactPoint object')
+        else:
+            self._fhir = fhir_obj
+
+    def create_fhir_object(self):
+        fhir_contact = contactpoint.ContactPoint()
+        fhir_contact.system = 'email'
+        if self.active:
+            fhir_contact.use = 'home'
+            if self.primary:
+                fhir_contact.rank = 1
+            else:
+                fhir_contact.rank = 2
+        else:
+            fhir_contact.use = 'old'
+            fhir_contact.rank = 3
+
+        if self.email:
+            fhir_contact.value = self.email
+
+        self._fhir = fhir_contact
+
+    def dump_fhir_json(self):
+        self.create_fhir_object()
+        return self.fhir.as_json()
 
     def generate_row_hash(self):
         data = {"email": self.email, "patient_id": self.patient_id, "user_id": self.user_id}

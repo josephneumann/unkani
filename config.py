@@ -31,18 +31,19 @@ class Config:
     REDIS_URL = os.environ.get('REDIS_URL')
     BROKER_TRANSPORT = 'redis',
 
-    CODESYSTEM_IMPORT = {'organization-type': 'http://hl7.org/fhir/organization-type'}
+    CODESYSTEM_IMPORT = {'organization-type': 'http://hl7.org/fhir/organization-type',
+                         'name-use': 'http://hl7.org/fhir/name-use'}
 
     VALUESET_IMPORT = {'organization-type': 'http://hl7.org/fhir/ValueSet/organization-type',
-                       'v3 Race': 'http://www.hl7.org/fhir/v3/Race/v3-Race.json',
                        'administrative-gender': 'http://hl7.org/fhir/ValueSet/administrative-gender',
                        'marital-status': 'http://hl7.org/fhir/ValueSet/marital-status',
                        'languages': 'http://hl7.org/fhir/ValueSet/languages',
-                       'v3-Ethnicity': 'http://hl7.org/fhir/ValueSet/v3-Ethnicity',
                        'contact-point-system': 'http://hl7.org/fhir/ValueSet/contact-point-system',
                        'contact-point-use': 'http://hl7.org/fhir/ValueSet/contact-point-use',
                        'address-type': 'http://hl7.org/fhir/ValueSet/address-type',
-                       'address-use': 'http://hl7.org/fhir/ValueSet/address-use'}
+                       'address-use': 'http://hl7.org/fhir/ValueSet/address-use',
+                       'name-use': 'http://hl7.org/fhir/ValueSet/name-use',
+                       'V2 Identifier Type': 'http://hl7.org/fhir/ValueSet/v2-0203'}
 
     # Define an init_app class method that allows for config specific initialization
     @staticmethod

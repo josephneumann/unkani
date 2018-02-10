@@ -48,17 +48,9 @@ def verify_token(token):
     # Check is token exists
     if not token:
         return False
-    # Test deserialization of token
-    s = Serializer(current_app.config['SECRET_KEY'])
-    try:
-        data = s.loads(token)
-    except SignatureExpired:
-        raise AuthenticationError("Token is expired.")
-    except BadSignature:
-        raise AuthenticationError("Token is invalid.")
     # Extract user from valid token
     user = User.verify_api_auth_token(token)
-    # CCheck if user is returned from token
+    # Check if user is returned from token
     if user is None:
         raise AuthenticationError("Token is invalid.")
     # User must be confirmed

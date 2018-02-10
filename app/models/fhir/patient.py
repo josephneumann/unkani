@@ -2,7 +2,6 @@ from app import db, ma
 from marshmallow import fields, post_load
 from app.utils.demographics import *
 from flask import url_for, render_template
-from string import Template
 from app.utils.general import json_serial
 from app.models.fhir.address import Address, AddressSchema
 from app.models.fhir.email_address import EmailAddress, EmailAddressSchema
@@ -51,7 +50,7 @@ class Patient(db.Model):
     def __init__(self, first_name=None, last_name=None, middle_name=None, suffix=None, email=None,
                  home_phone=None, mobile_phone=None, work_phone=None, ssn=None, race=None, ethnicity=None, sex=None,
                  dob=None, deceased=False, deceased_date=None, addresses=None, multiple_birth=None,
-                 preferred_language=None, **kwargs):
+                 preferred_language=None, active=None, **kwargs):
         if first_name:
             self.first_name = first_name
         if middle_name:
@@ -133,6 +132,9 @@ class Patient(db.Model):
                     address_list[0].primary = True
                 for address in address_list:
                     self.addresses.append(address)
+
+        if isinstance(active, bool):
+            self.active = active
 
         self._fhir = None
 
@@ -283,6 +285,46 @@ class Patient(db.Model):
         """
         return url_for('api_v1.get_patient', id=self.id, _external=True)
 
+    ############################################
+    # VERSIONING UTILITY PROPERTIES AND METHODS
+    ############################################
+    @property
+    def version_number(self):
+        if self.versions:
+            return len(self.versions.all())
+        raise ValueError('No versions exist for this object.')
+
+    def latest_version(self):
+        if self.versions:
+            return self.versions[len(self.versions.all()) - 1]
+        raise ValueError('No versions exist for this object.')
+
+    def previous_version(self):
+        try:
+            lv = self.latest_version()
+            return lv.previous
+        except:
+            raise ValueError('No versions exist for this object.')
+
+    def first_version(self):
+        if self.versions:
+            return self.versions[0]
+        raise ValueError('No versions exist for this object.')
+
+    @property
+    def previous_version_url(self):
+        return None
+        # TODO: Implement URL builder when API route exists
+        # if self.versions and self.version_number > 1:
+        #     return url_for('api_v1.get_user_version', userid=self.id, version_number=self.version_number - 1,
+        #                    _external=True)
+        # else:
+        #     return None
+
+    ############################################
+    # FHIR STU 3 UTILITY PROPERTIES AND METHODS
+    ############################################
+
     @property
     def fhir(self):
         """
@@ -313,8 +355,6 @@ class Patient(db.Model):
             self._fhir = fhir_obj
 
     def create_fhir_object(self):
-        # TODO: Include version id in meta
-        # TODO: Use profile extension to include race, ethnicity
         """
         Generate a fhirclient.Patient class object and store in the protected attribute _fhir
         :return:
@@ -328,8 +368,8 @@ class Patient(db.Model):
 
         # Build and assign Meta resource for Patient object
         fhir_meta = meta.Meta()
-        last_updated = fhir_gen_datetime(dt=self.updated_at)
-        fhir_meta.lastUpdated = last_updated
+        fhir_meta.lastUpdated = fhir_gen_datetime(dt=self.updated_at)
+        fhir_meta.versionId = str(self.version_number)
         fhir_meta.profile = ['http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient']
         fhir_pt.meta = fhir_meta
 
@@ -562,7 +602,7 @@ class Patient(db.Model):
                 "dob": self.dob, "sex": self.sex, "prefix": self.prefix, "suffix": self.suffix, "race": self.race,
                 "ethnicity": self.ethnicity, "marital_status": self.marital_status, "deceased": self.deceased,
                 "deceased_date": self.deceased_date, "multiple_birth": self.multiple_birth, "ssn": self.ssn,
-                "preferred_language": self.preferred_language}
+                "preferred_language": self.preferred_language, "active": self.active}
 
         data_str = json.dumps(data, sort_keys=True, default=json_serial)
         data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
@@ -613,6 +653,7 @@ class PatientSchema(ma.Schema):
     deceased_date = fields.Date(attribute='deceased_date')
     multiple_birth = fields.Boolean(attribute='multiple_birth')
     preferred_language = fields.String(attribute='preferred_language')
+    active = fields.Boolean(attribute='active')
     created_at = fields.DateTime(attribute='created_at')
     updated_at = fields.DateTime(attribute='updated_at')
     row_hash = fields.String(attribute='row_hash')
@@ -626,7 +667,8 @@ class PatientAPI:
 
     def __init__(self, first_name=None, last_name=None, middle_name=None, prefix=None, suffix=None, sex=None,
                  dob=None, ssn=None, race=None, ethnicity=None, marital_status=None, deceased=None,
-                 deceased_date=None, multiple_birth=None, preferred_language=None, email=None, phone_numbers=None):
+                 deceased_date=None, multiple_birth=None, preferred_language=None, email=None, phone_numbers=None,
+                 active=None):
         self.first_name = first_name
         self.last_name = last_name
         self.middle_name = middle_name
@@ -644,3 +686,4 @@ class PatientAPI:
         self.preferred_language = preferred_language
         self.email = email
         self.phone_numbers = phone_numbers
+        self.active = active

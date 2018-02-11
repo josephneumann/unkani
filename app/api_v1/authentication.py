@@ -85,3 +85,10 @@ def new_token():
     """
     token = g.current_user.generate_api_auth_token()
     return jsonify({'token': token})
+
+
+@api.route('/tokens', methods=['DELETE'])
+@token_auth.login_required
+def revoke_token():
+    g.current_user.revoke_token()
+    db.session.commit()

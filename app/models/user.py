@@ -54,6 +54,8 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.Text)
     last_password_hash = db.Column(db.Text)
     password_timestamp = db.Column(db.DateTime)
+    token = db.Column(db.String(32), index=True, unique=True)
+    token_expiration = db.Column(db.DateTime)
     email_addresses = db.relationship("EmailAddress", back_populates="user", lazy="dynamic",
                                       cascade="all, delete, delete-orphan")
     phone_numbers = db.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
@@ -64,8 +66,6 @@ class User(UserMixin, db.Model):
     app_groups = db.relationship('AppGroup',
                                  secondary=user_app_group,
                                  back_populates='users')
-    token = db.Column(db.String(32), index=True, unique=True)
-    token_expiration = db.Column(db.DateTime)
     last_seen = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow())
     updated_at = db.Column(db.DateTime)

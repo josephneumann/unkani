@@ -1,4 +1,5 @@
 from app import db, ma
+from sqlalchemy.dialects.postgresql import UUID as postgresql_uuid
 from marshmallow import fields, post_load
 from app.utils.demographics import *
 from flask import url_for, render_template
@@ -10,7 +11,8 @@ from app.models.extensions import BaseExtension
 from fhirclient.models import patient as fhir_patient, meta, codeableconcept, coding, extension, identifier, narrative
 from app.utils.fhir_utils import fhir_gen_humanname, fhir_gen_datetime
 from app.utils.demographics import race_dict, ethnicity_dict
-import hashlib, json
+import hashlib, json, uuid
+
 
 
 class Patient(db.Model):
@@ -18,7 +20,8 @@ class Patient(db.Model):
     __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, index=True)
+    uuid = db.Column(postgresql_uuid(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
     first_name = db.Column(db.Text, index=True)
     last_name = db.Column(db.Text, index=True)
     middle_name = db.Column(db.Text)
@@ -34,10 +37,10 @@ class Patient(db.Model):
     deceased_date = db.Column(db.Date)
     multiple_birth = db.Column(db.Boolean, default=False)
     preferred_language = db.Column(db.Text)
+    active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow())
     updated_at = db.Column(db.DateTime)
     row_hash = db.Column(db.Text, index=True)
-    active = db.Column(db.Boolean, default=True, nullable=False)
     addresses = db.relationship("Address", order_by=Address.id.desc(), back_populates="patient", lazy="dynamic",
                                 cascade="all, delete, delete-orphan")
     email_addresses = db.relationship("EmailAddress", order_by=EmailAddress.id.desc(), back_populates="patient",
@@ -381,8 +384,8 @@ class Patient(db.Model):
         # Initialize Identifier resource
         id_mrn = identifier.Identifier()
         id_mrn.use = 'official'
-        id_mrn.system = 'http://unkani.com/hospital'
-        id_mrn.value = str(self.id)
+        id_mrn.system = 'http://unkani.com/unkanihospital'
+        id_mrn.value = str(self.uuid)
 
         # Initialize CodeableConcept resource
         mrn_cc = codeableconcept.CodeableConcept()

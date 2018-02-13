@@ -1,5 +1,6 @@
 from app import db, ma
 from marshmallow import fields, post_load
+from sqlalchemy.dialects.postgresql import UUID as postgresql_uuid
 import hashlib, json
 
 from app.utils.demographics import *
@@ -31,23 +32,23 @@ class Address(db.Model):
     city = db.Column("city", db.Text)
     state = db.Column("state", db.String(2))
     zipcode = db.Column("zipcode", db.Text, index=True)
+    district = db.Column("district", db.Text)
+    country = db.Column("country", db.Text)
     primary = db.Column("primary", db.Boolean)
+    is_postal = db.Column("is_postal", db.Boolean, default=True)
+    is_physical = db.Column("is_physical", db.Boolean, default=True)
+    use = db.Column("use", db.Text)
     active = db.Column("active", db.Boolean, default=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), index=True)
     patient = db.relationship("Patient", back_populates="addresses")
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
     user = db.relationship("User", back_populates="addresses")
+    start_date = db.Column("start_date", db.Date, default=date.today())
+    end_date = db.Column("end_date", db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow())
     updated_at = db.Column(db.DateTime)
     address_hash = db.Column(db.Text)
     row_hash = db.Column(db.Text)
-    start_date = db.Column("start_date", db.Date, default=date.today())
-    end_date = db.Column("end_date", db.Date)
-    is_postal = db.Column("is_postal", db.Boolean, default=True)
-    is_physical = db.Column("is_physical", db.Boolean, default=True)
-    use = db.Column("use", db.Text)
-    district = db.Column("district", db.Text)
-    country = db.Column("country", db.Text)
 
     def __init__(self, address1=None, address2=None, city=None, state=None, zipcode=None, active=True, primary=False,
                  user_id=None, patient_id=None, start_date=None, end_date=None, is_postal=True, is_physical=True,

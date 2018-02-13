@@ -1,5 +1,6 @@
 from app import db, ma
 from marshmallow import fields, ValidationError, post_load, validates
+from sqlalchemy.dialects.postgresql import UUID as postgresql_uuid
 
 from app.utils import validate_email
 from app.utils.demographics import *

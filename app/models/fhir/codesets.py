@@ -45,9 +45,9 @@ class CodeSystem(db.Model):
     version = db.Column(db.Text)
     url = db.Column(db.Text)
     data = db.Column(postgresql.JSONB)
-    data_hash = db.Column(db.Text, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow())
     updated_at = db.Column(db.DateTime)
+    data_hash = db.Column(db.Text, index=True)
 
     source_data = db.relationship('SourceData', secondary=source_data_codesystem)
 

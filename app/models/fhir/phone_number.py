@@ -1,6 +1,7 @@
 from app import db, ma
 from marshmallow import fields
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import UUID as postgresql_uuid
 
 from app.utils.demographics import validate_phone, validate_contact_type, format_phone
 from app.models.extensions import BaseExtension

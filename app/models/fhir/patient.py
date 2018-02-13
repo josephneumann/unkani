@@ -384,7 +384,7 @@ class Patient(db.Model):
         # Initialize Identifier resource
         id_mrn = identifier.Identifier()
         id_mrn.use = 'official'
-        id_mrn.system = 'http://unkani.com/unkanihospital'
+        id_mrn.system = 'http://unkani.com'
         id_mrn.value = str(self.uuid)
 
         # Initialize CodeableConcept resource

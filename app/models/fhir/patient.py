@@ -286,7 +286,7 @@ class Patient(db.Model):
         :return:
             Returns the absolute URL of the Patient resource in the Patient api.
         """
-        return url_for('api_v1.get_patient', id=self.id, _external=True)
+        return url_for('api_v1.patient_read', id=self.id, _external=True)
 
     ############################################
     # VERSIONING UTILITY PROPERTIES AND METHODS

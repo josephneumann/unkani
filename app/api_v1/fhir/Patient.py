@@ -4,6 +4,7 @@ from app.api_v1.authentication import token_auth
 from app.api_v1.errors import *
 from app.api_v1.rate_limit import rate_limit
 from app.api_v1.utils import etag
+from app.api_v1.fhir.fhir_utils import create_bundle
 from app.models.fhir.patient import Patient
 
 
@@ -57,16 +58,37 @@ def patient_vread(id, vid):
 
 
 @api.route('/fhir/Patient', methods=['GET'])
+@api.route('/fhir/Patient/_search', methods=['POST'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 @etag
 def patient_search():
-    return jsonify('Patient search: Coming Soon!')
+    query = Patient.query
+    bundle = create_bundle(query=query, paginate=True)
+    response = jsonify(bundle.as_json())
+    response.status_code = 200
+    return response
+
+    # Accept GET with URL parameters
+    # Accept POST with application/x-www-form-urlencoded submission
+    # Return 200 status code if successful with a Bundle resource type = searchset
+    # If search succeeds but no records returned, still 200 status code
+    # 4XX or 5XX status code for other errors
+    # If desired, a successful search can return an OperationOutcome object with Bundle.entry.search.mode = outcome
+    # No operation outcome is allowed for 400 / 500 errors.  No entries in OperationOutcome fatal or error
 
 
 @api.route('/fhir/Patient/$match', methods=['POST'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 @etag
-def patient_match():
+def patient_op_match():
     return jsonify('Patient matching operation: Coming Soon!')
+
+
+@api.route('/fhir/Patient/$everything', methods=['POST'])
+@token_auth.login_required
+@rate_limit(limit=5, period=15)
+@etag
+def patient_op_everything():
+    return jsonify('Patient everything operation: Coming Soon!')

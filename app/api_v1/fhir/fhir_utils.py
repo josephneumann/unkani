@@ -27,7 +27,7 @@ def set_bundle_page_links(bundle, pagination):
         link_prev = BundleLink()
         link_prev.relation = 'previous'
         link_prev.url = url_for(request.endpoint, page=pagination.prev_num, _external=True)
-        b.link.append(link_prev)
+        bundle.link.append(link_prev)
 
     if pagination.has_next:
         link_next = BundleLink()

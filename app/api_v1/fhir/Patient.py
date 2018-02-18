@@ -1,10 +1,10 @@
-from flask import url_for
+from flask import url_for, request
 
 from app.api_v1.authentication import token_auth
 from app.api_v1.errors import *
 from app.api_v1.rate_limit import rate_limit
 from app.api_v1.utils import etag
-from app.api_v1.fhir.fhir_utils import create_bundle
+from app.api_v1.fhir.fhir_utils import create_bundle, parse_fhir_search
 from app.models.fhir.patient import Patient
 
 
@@ -23,6 +23,7 @@ def patient_read(id):
         data = pt.dump_fhir_json()
         response = jsonify(data)
         response.headers['Location'] = url_for('api_v1.patient_read', id=pt.id)
+        response.headers['Content-Type'] = 'application/fhir+json'
         response.status_code = 200
         return response
 
@@ -61,12 +62,21 @@ def patient_vread(id, vid):
 @api.route('/fhir/Patient/_search', methods=['POST'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
-@etag
 def patient_search():
     query = Patient.query
+    # fhir_search_spec = parse_fhir_search(args=request.args)
+
+    # if '_id' in fhir_search_spec.keys():
+    #     search_params = fhir_search_spec.get('_id')
+    #     column = getattr(Patient, 'id')
+    #     op = '__eq__'
+    #     query = query.filter(getattr(column, op)(int(search_params['value'])))
+
     bundle = create_bundle(query=query, paginate=True)
     response = jsonify(bundle.as_json())
     response.status_code = 200
+    response.headers['Content-Type'] = 'application/fhir+json'
+    response.headers['Charset'] = 'UTF-8'
     return response
 
     # Accept GET with URL parameters

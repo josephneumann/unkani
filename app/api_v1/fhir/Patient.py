@@ -4,9 +4,8 @@ from app.api_v1.authentication import token_auth
 from app.api_v1.errors import *
 from app.api_v1.rate_limit import rate_limit
 from app.api_v1.utils import etag
-from app.api_v1.fhir.fhir_utils import create_bundle, parse_fhir_search
+from app.api_v1.fhir.fhir_utils import create_bundle, parse_fhir_search, enforce_fhir_mimetype_charset
 from app.models.fhir.patient import Patient
-
 
 @api.route('/fhir/Patient/<int:id>', methods=['GET'])
 @token_auth.login_required
@@ -61,16 +60,32 @@ def patient_vread(id, vid):
 @api.route('/fhir/Patient', methods=['GET'])
 @api.route('/fhir/Patient/_search', methods=['POST'])
 @token_auth.login_required
+@enforce_fhir_mimetype_charset
 @rate_limit(limit=5, period=15)
 def patient_search():
     query = Patient.query
-    # fhir_search_spec = parse_fhir_search(args=request.args)
+    fhir_search_spec = parse_fhir_search(args=request.args)
+    search_support = {'_id': {'modifier': ['exact', 'not'],
+                              'prefix': []},
+                      '_lastUpdated': {'modifier': [],
+                                       'prefix': ['gt', 'ge', 'lt', 'le', 'eq', 'ne']}
+                      }
 
-    # if '_id' in fhir_search_spec.keys():
-    #     search_params = fhir_search_spec.get('_id')
-    #     column = getattr(Patient, 'id')
-    #     op = '__eq__'
-    #     query = query.filter(getattr(column, op)(int(search_params['value'])))
+    for key in fhir_search_spec.keys():
+        if key == '_id':
+            column = getattr(Patient, 'id')
+            search_params = fhir_search_spec.get(key)
+
+            if search_params.get('modifier') in search_support[key]['modifier']:
+                op = search_params.get('modifierOp')
+            else:
+                op = '__eq__'
+                # TODO: Check if handing is strict and log error for un-supported modifier
+
+            if search_params.get('prefix'):
+                pass
+                # TODO: If strict handling, reject any prefix values
+            query = query.filter(getattr(column, op)(search_params.get('value')))
 
     bundle = create_bundle(query=query, paginate=True)
     response = jsonify(bundle.as_json())

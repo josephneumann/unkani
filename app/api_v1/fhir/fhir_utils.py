@@ -1,6 +1,118 @@
 from fhirclient.models.bundle import Bundle, BundleEntry, BundleEntrySearch, BundleLink
 from fhirclient.models.fhirabstractbase import FHIRAbstractBase
+from fhirclient.models.operationoutcome import OperationOutcome, OperationOutcomeIssue
+from fhirclient.models.narrative import Narrative
 from flask import request, jsonify, url_for
+import functools
+from app.models.fhir.codesets import ValueSet
+
+fhir_mime_types = {
+    'json': ['application/fhir+json', 'application/json+fhir', 'application/json', 'json'],
+    'xml': ['application/fhir+xml', 'application/json+xml', 'application/xml', 'text/xml', 'xml'],
+    'rdf': ['text/turtle', 'ttl']
+}
+
+
+def enforce_fhir_mimetype_charset(f):
+    # TODO:  Make an operation outcome response for this
+
+    def wrapped(*args, **kwargs):
+
+        oo_dict = {'textSummary': 'An issue occurred with request mime-type or charset',
+                   'items': []
+                   }
+
+        # For charset prioritize accept-charset header
+        accept_charset_header = request.headers.get(key='accept-charset')
+        if accept_charset_header:
+            if str(accept_charset_header).lower().strip() != 'utf-8':
+                oo_dict['items'].append({'severity': 'error', 'type': 'structure', 'location': ['http.accept-charset'],
+                                         'diagnostics':
+                                             'An invalid charset was requested in the Accept-Charset header {}'.format(
+                                                 accept_charset_header)})
+
+        # For mime_type prioritize _format arg
+        format_header = request.args.get(key='_format', type=str)
+        if format_header:
+            if str(format_header).lower().strip() not in fhir_mime_types['json']:
+                oo_dict['items'].append({'severity': 'error', 'type': 'structure', 'location': ['http._format'],
+                                         'diagnostics':
+                                             'An invalid mime-type was requested in the _format parameter {}'.format(
+                                                 format_header)})
+
+        # Check values in the accept header to get mime type if _format was not set or charset as a param
+        # of the accept header if the accept-charset header was not set
+        accept_header = request.headers.get(key='accept', type=str)
+        if accept_header:
+            accept_header_parts = str(accept_header).split(';')
+            accept_string = accept_header_parts[0]
+            if accept_string:
+                if str(accept_string).lower().strip() not in fhir_mime_types['json']:
+                    oo_dict['items'].append({'severity': 'error', 'type': 'structure', 'location': ['http.accept'],
+                                             'diagnostics':
+                                                 'An invalid mime-type was requested in the Accept header: {}.'.format(
+                                                     accept_string)})
+                try:
+                    if str(accept_header_parts[1]).lower().strip() != 'utf-8':
+                        oo_dict['items'].append(
+                            {'severity': 'error', 'type': 'structure', 'location': ['http.accept'],
+                             'diagnostics':
+                                 'An invalid charset was requested in the Accept header charset parameter {}'.format(
+                                     accept_header_parts[1])})
+                except IndexError:
+                    pass
+
+        # Check content-type header for mime type and charset
+        content_type_header = request.headers.get(key='content-type', type=str)
+        if content_type_header:
+            content_type_header_parts = str(content_type_header).split(';')
+            content_string = content_type_header_parts[0]
+            if content_string:
+                if str(content_string).lower().strip() not in fhir_mime_types['json']:
+                    oo_dict['items'].append(
+                        {'severity': 'error', 'type': 'structure', 'location': ['http.content-type'],
+                         'diagnostics': 'An invalid mime-type was designated in the Content-Type header: {}'.format(
+                             content_string)})
+            try:
+                if str(content_type_header_parts[1]).lower().strip() != 'utf-8':
+                    oo_dict['items'].append(
+                        {'severity': 'error', 'type': 'structure', 'location': ['http.content-type'],
+                         'diagnostics': 'An invalid charset was designated in the Content-Type header: {}'.format(
+                             content_type_header_parts[1])})
+            except IndexError:
+                pass
+
+        if oo_dict.get('items'):
+            oo = create_operation_outcome(oodict=oo_dict)
+            response = jsonify(oo.as_json())
+            response.status_code = 415
+            response.headers['Content-Type'] = 'application/fhir+json'
+            response.headers['Charset'] = 'UTF-8'
+            return response
+
+        # if accept_mime_type and str(accept_mime_type).lower().strip() not in fhir_mime_types['json']:
+        #     raise TypeError(
+        #         'The server cannot support the requested mime-type: {}. Please request application/fhir+json'.format(
+        #             accept_mime_type))
+        #
+        # if accept_charset and str(accept_charset).lower().strip() != 'utf-8':
+        #     raise TypeError(
+        #         'The server cannot support the requested charset: {}. Please request utf-8'.format(
+        #             accept_mime_type))
+        #
+        # if content_mime_type and str(content_mime_type).lower().strip() not in fhir_mime_types['json']:
+        #     raise TypeError(
+        #         'The server cannot support the content-type mime-type: {}. Please use application/fhir+json'.format(
+        #             accept_mime_type))
+        #
+        # if content_charset and str(content_charset).lower().strip() != 'utf-8':
+        #     raise TypeError(
+        #         'The server cannot support the content-type charset: {}. Please use utf-8'.format(accept_mime_type))
+
+        # let the request through
+        return f(*args, **kwargs)
+
+    return wrapped
 
 
 def paginate_query(query):
@@ -75,6 +187,14 @@ def create_bundle(query, paginate=True):
     b = Bundle()
     b.type = 'searchset'
 
+    # Handle _summary arg
+    # TODO: Refactor into separate function or decorator
+    summary = request.args.get('_summary')
+    if summary:
+        if summary == 'count':
+            b.total = len(query.all())
+            return b
+    # TODO: Handle summary = True and summary = Text and summary = Data
     # Apply pagination if desired and set links
     if paginate:
         p, per_page = paginate_query(query=query)
@@ -110,21 +230,22 @@ fhir_prefixes = {'eq': '__eq__',  # equal
                  'lt': '__lt__',  # less than
                  'le': '__le__',  # less than or equal to
                  'gt': '__gt__',  # greater than
-                 'ge': '__ge__'  # great than or equal to
+                 'ge': '__ge__',  # great than or equal to
+                 'in': 'in_'  # in
+                 # 'ni': 'notin_'  # not in
                  # 'sa': '__gt__',  # starts after
                  # 'eb': '__lt__',  # ends before
-                 # 'in': 'in_',  # in
                  # 'like': 'like',  # like (case-sensitive)
                  # 'ilike': 'ilike'
                  }  # ilike (case-insensitive)
 
-fhir_modifiers = {'text': '',
-                  'in': 'in',
+fhir_modifiers = {'contains': 'ilike',
+                  'in': 'in_',
                   'below': '__lt__',
                   'above': '__gt__',
-                  'not-in': '',
+                  'not-in': 'notin_',
                   'exact': '__eq__',
-                  'not': '__ne__'}
+                  'not': '__ne__'}  # TODO: Handle :missing, :text
 
 
 def parse_fhir_search(args):
@@ -133,16 +254,19 @@ def parse_fhir_search(args):
         if arg not in ['page', '_count']:
             arg_split = arg.split(':')
             search_key = arg_split[0]
+            search_modifer = None
+            search_modifer_op = None
             try:
-                search_modifer = arg_split[1].lower().strip()
-                if search_modifer not in fhir_modifiers:
-                    search_modifer = None
+                n_search_modifer = arg_split[1].lower().strip()
+                if n_search_modifer in fhir_modifiers:
+                    search_modifer = n_search_modifer
+                    search_modifer_op = fhir_modifiers.get(n_search_modifer)
             except IndexError:
-                search_modifer = None
+                pass
 
             value = request.args.get(arg)
             value_prefix = None
-            if search_key in ['_lastUpdated', 'birthdate', 'death-date']:
+            if search_key in ['_lastUpdated']:  # Add 'birthdate', 'death-date' for patient
                 try:
                     value_prefix = value[0:2].lower().strip()
                     if value_prefix in fhir_prefixes.keys():
@@ -152,6 +276,79 @@ def parse_fhir_search(args):
                 except IndexError:
                     pass
             fhir_search_spec[search_key] = {'modifier': search_modifer,
+                                            'modifierOp': search_modifer_op,
                                             'prefix': value_prefix,
                                             'value': value}
     return fhir_search_spec
+
+
+oo_template = {'textSummary': None,
+               'items': [{'severity': None, 'type': None, 'location': [], 'diagnostics': []}]
+               }
+
+
+def create_operation_outcome(oodict):
+    oo = OperationOutcome()
+    if oodict.get('textSummary'):
+        narrative = Narrative()
+        narrative.status = 'additional'
+        narrative.div = oodict.get('textSummary')
+        oo.text = narrative
+
+    severity_codes = ValueSet.query.filter(ValueSet.resource_id == 'issue-severity').first().code_set
+    type_codes = ValueSet.query.filter(ValueSet.resource_id == 'issue-type').first().code_set
+
+    if oodict.get('items'):
+        for x in oodict.get('items'):
+            issue_severity = None
+            issue_type = None
+            issue_location = []
+            issue_diagnostics = None
+            if 'severity' in x.keys():
+                issue_severity = x.get('severity').lower().strip()
+                if issue_severity not in severity_codes:
+                    issue_severity = None
+
+            if 'type' in x.keys():
+                issue_type = x.get('type').lower().strip()
+                if issue_type not in type_codes:
+                    issue_type = None
+
+            if 'details' in x.keys():
+                # TODO: Handle
+                pass
+
+            if 'diagnostics' in x.keys():
+                diagnostics = x.get('diagnostics')
+                if diagnostics:
+                    issue_diagnostics = diagnostics
+
+            if 'location' in x.keys():
+                location = x.get('location')
+                if location:
+                    if isinstance(location, list):
+                        for i in location:
+                            issue_location.append(i)
+                    elif isinstance(location, str):
+                        issue_location.append(location)
+
+            if 'expression' in x.keys():
+                # TODO: Handle
+                pass
+
+            issue = OperationOutcomeIssue()
+            if issue_severity:
+                issue.severity = issue_severity
+            if issue_type:
+                issue.code = issue_type
+            if issue_location:
+                issue.location = issue_location
+            if issue_diagnostics:
+                issue.diagnostics = issue_diagnostics
+
+            try:
+                oo.issue.append(issue)
+            except AttributeError:
+                oo.issue = [issue]
+
+    return oo

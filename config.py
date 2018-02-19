@@ -43,7 +43,11 @@ class Config:
                        'address-type': 'http://hl7.org/fhir/ValueSet/address-type',
                        'address-use': 'http://hl7.org/fhir/ValueSet/address-use',
                        'name-use': 'http://hl7.org/fhir/ValueSet/name-use',
-                       'V2 Identifier Type': 'http://hl7.org/fhir/ValueSet/v2-0203'}
+                       'V2 Identifier Type': 'http://hl7.org/fhir/ValueSet/v2-0203',
+                       'issue-type': 'http://hl7.org/fhir/ValueSet/issue-type',
+                       'issue-severity': 'http://hl7.org/fhir/ValueSet/issue-severity',
+                       'operation-outcome': 'http://hl7.org/fhir/ValueSet/operation-outcome'
+                       }
 
     # Define an init_app class method that allows for config specific initialization
     @staticmethod

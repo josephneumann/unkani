@@ -16,6 +16,7 @@ fhir_mime_types = {
 def enforce_fhir_mimetype_charset(f):
     # TODO:  Make an operation outcome response for this
 
+    @functools.wraps(f)
     def wrapped(*args, **kwargs):
 
         oo_dict = {'textSummary': 'An issue occurred with request mime-type or charset',

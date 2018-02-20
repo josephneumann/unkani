@@ -7,8 +7,10 @@ from app.api_v1.utils import etag
 from app.api_v1.fhir.fhir_utils import create_bundle, parse_fhir_search, enforce_fhir_mimetype_charset
 from app.models.fhir.patient import Patient
 
+
 @api.route('/fhir/Patient/<int:id>', methods=['GET'])
 @token_auth.login_required
+@enforce_fhir_mimetype_charset
 @rate_limit(limit=5, period=15)
 @etag
 def patient_read(id):
@@ -29,6 +31,7 @@ def patient_read(id):
 
 @api.route('/fhir/Patient/<int:id>', methods=['PUT'])
 @token_auth.login_required
+@enforce_fhir_mimetype_charset
 @rate_limit(limit=5, period=15)
 @etag
 def patient_update(id):
@@ -37,6 +40,7 @@ def patient_update(id):
 
 @api.route('/fhir/Patient/<int:id>', methods=['DELETE'])
 @token_auth.login_required
+@enforce_fhir_mimetype_charset
 @rate_limit(limit=5, period=15)
 def patient_delete(id):
     return jsonify('Patient delete: Coming Soon!')
@@ -44,6 +48,7 @@ def patient_delete(id):
 
 @api.route('/fhir/Patient/<int:id>', methods=['POST'])
 @token_auth.login_required
+@enforce_fhir_mimetype_charset
 @rate_limit(limit=5, period=15)
 def patient_create(id):
     return jsonify('Patient create: Coming Soon!')
@@ -51,6 +56,7 @@ def patient_create(id):
 
 @api.route('/fhir/Patient/<int:id>/_history/<int:vid>', methods=['GET'])
 @token_auth.login_required
+@enforce_fhir_mimetype_charset
 @rate_limit(limit=5, period=15)
 @etag
 def patient_vread(id, vid):
@@ -105,6 +111,7 @@ def patient_search():
 
 @api.route('/fhir/Patient/$match', methods=['POST'])
 @token_auth.login_required
+@enforce_fhir_mimetype_charset
 @rate_limit(limit=5, period=15)
 @etag
 def patient_op_match():
@@ -114,6 +121,7 @@ def patient_op_match():
 @api.route('/fhir/Patient/$everything', methods=['POST'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
+@enforce_fhir_mimetype_charset
 @etag
 def patient_op_everything():
     return jsonify('Patient everything operation: Coming Soon!')

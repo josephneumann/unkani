@@ -1,0 +1,52 @@
+{% extends "fhir/fhir_base.html" %}
+{% block head %}
+    <title>
+        {% block title %}
+            Operation Outcome
+        {% endblock title %}
+    </title>
+{% endblock head %}
+{% block body %}
+    <div>
+        {% for oo in outcome_list %} }
+            <table>
+                {% if oo.get('type') %}
+                    <tr>
+                        <td>Type</td>
+                        <td>{{ oo.get('type') }}</td>
+                    </tr>
+                {% endif %}
+                {% if oo.get('severity') %}
+                    <tr>
+                        <td>Severity</td>
+                        <td>{{ oo.get('severity') }}</td>
+                    </tr>
+                {% endif %}
+                {% if oo.get('details') %}
+                    <tr>
+                        <td>Details</td>
+                        <td>{{ oo.get('details') }}</td>
+                    </tr>
+                {% endif %}
+                {% if oo.get('location') %}
+                    <tr>
+                        <td>Location</td>
+                        <td>{{ oo.get('location') }}</td>
+                    </tr>
+                {% endif %}
+                {% if oo.get('expression') %}
+                    <tr>
+                        <td>Expression</td>
+                        <td>{{ oo.get('expression') }}</td>
+                    </tr>
+                {% endif %}
+                {% if oo.get('diagnostics') %}
+                    <tr>
+                        <td>Diagnostics</td>
+                        <td>{{ oo.get('diagnostics') }}</td>
+                    </tr>
+                {% endif %}
+            </table>
+        {% endfor %}
+    </div>
+{% endblock body %}

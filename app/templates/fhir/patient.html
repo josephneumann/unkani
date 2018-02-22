@@ -1,5 +1,12 @@
 {% extends "fhir/fhir_base.html" %}
 {% block head %}
+    <title>
+        {% block title %}
+            Patient Information
+        {% endblock title %}
+    </title>
+{% endblock head %}
+{% block body %}
     <div>
         <p><b>active</b>: {{ fhir_patient.active }}</p>
         {% if fhir_patient.name %}
@@ -45,11 +52,4 @@
             {% endfor %}
         {% endif %}
     </div>
-{% endblock head %}
-{% block body %}
-    <title>
-        {% block title %}
-            Patient Information
-        {% endblock title %}
-    </title>
 {% endblock body %}

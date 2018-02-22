@@ -2,7 +2,8 @@ from fhirclient.models.bundle import Bundle, BundleEntry, BundleEntrySearch, Bun
 from fhirclient.models.fhirabstractbase import FHIRAbstractBase
 from fhirclient.models.operationoutcome import OperationOutcome, OperationOutcomeIssue
 from fhirclient.models.narrative import Narrative
-from flask import request, jsonify, url_for
+from fhirclient.models.codeableconcept import CodeableConcept
+from flask import request, jsonify, url_for, render_template
 import functools
 from app.models.fhir.codesets import ValueSet
 
@@ -14,32 +15,28 @@ fhir_mime_types = {
 
 
 def enforce_fhir_mimetype_charset(f):
-    # TODO:  Make an operation outcome response for this
-
     @functools.wraps(f)
     def wrapped(*args, **kwargs):
 
-        oo_dict = {'textSummary': 'An issue occurred with request mime-type or charset',
-                   'items': []
-                   }
+        outcome_list = []
 
         # For charset prioritize accept-charset header
         accept_charset_header = request.headers.get(key='accept-charset')
         if accept_charset_header:
             if str(accept_charset_header).lower().strip() != 'utf-8':
-                oo_dict['items'].append({'severity': 'error', 'type': 'structure', 'location': ['http.accept-charset'],
-                                         'diagnostics':
-                                             'An invalid charset was requested in the Accept-Charset header {}'.format(
-                                                 accept_charset_header)})
+                outcome_list.append({'severity': 'error', 'type': 'structure', 'location': ['http.accept-charset'],
+                                     'details':
+                                         'An invalid charset was requested in the Accept-Charset header {}'.format(
+                                             accept_charset_header)})
 
         # For mime_type prioritize _format arg
         format_header = request.args.get(key='_format', type=str)
         if format_header:
             if str(format_header).lower().strip() not in fhir_mime_types['json']:
-                oo_dict['items'].append({'severity': 'error', 'type': 'structure', 'location': ['http._format'],
-                                         'diagnostics':
-                                             'An invalid mime-type was requested in the _format parameter {}'.format(
-                                                 format_header)})
+                outcome_list.append({'severity': 'error', 'type': 'structure', 'location': ['http._format'],
+                                     'details':
+                                         'An invalid mime-type was requested in the _format parameter {}'.format(
+                                             format_header)})
 
         # Check values in the accept header to get mime type if _format was not set or charset as a param
         # of the accept header if the accept-charset header was not set
@@ -49,15 +46,15 @@ def enforce_fhir_mimetype_charset(f):
             accept_string = accept_header_parts[0]
             if accept_string:
                 if str(accept_string).lower().strip() not in fhir_mime_types['json']:
-                    oo_dict['items'].append({'severity': 'error', 'type': 'structure', 'location': ['http.accept'],
-                                             'diagnostics':
-                                                 'An invalid mime-type was requested in the Accept header: {}.'.format(
-                                                     accept_string)})
+                    outcome_list.append({'severity': 'error', 'type': 'structure', 'location': ['http.accept'],
+                                         'details':
+                                             'An invalid mime-type was requested in the Accept header: {}.'.format(
+                                                 accept_string)})
                 try:
                     if str(accept_header_parts[1]).lower().strip() != 'utf-8':
-                        oo_dict['items'].append(
+                        outcome_list.append(
                             {'severity': 'error', 'type': 'structure', 'location': ['http.accept'],
-                             'diagnostics':
+                             'details':
                                  'An invalid charset was requested in the Accept header charset parameter {}'.format(
                                      accept_header_parts[1])})
                 except IndexError:
@@ -70,21 +67,21 @@ def enforce_fhir_mimetype_charset(f):
             content_string = content_type_header_parts[0]
             if content_string:
                 if str(content_string).lower().strip() not in fhir_mime_types['json']:
-                    oo_dict['items'].append(
+                    outcome_list.append(
                         {'severity': 'error', 'type': 'structure', 'location': ['http.content-type'],
-                         'diagnostics': 'An invalid mime-type was designated in the Content-Type header: {}'.format(
+                         'details': 'An invalid mime-type was designated in the Content-Type header: {}'.format(
                              content_string)})
             try:
                 if str(content_type_header_parts[1]).lower().strip() != 'utf-8':
-                    oo_dict['items'].append(
+                    outcome_list.append(
                         {'severity': 'error', 'type': 'structure', 'location': ['http.content-type'],
-                         'diagnostics': 'An invalid charset was designated in the Content-Type header: {}'.format(
+                         'details': 'An invalid charset was designated in the Content-Type header: {}'.format(
                              content_type_header_parts[1])})
             except IndexError:
                 pass
 
-        if oo_dict.get('items'):
-            oo = create_operation_outcome(oodict=oo_dict)
+        if outcome_list:
+            oo = create_operation_outcome(outcome_list)
             response = jsonify(oo.as_json())
             response.status_code = 415
             response.headers['Content-Type'] = 'application/fhir+json'
@@ -283,73 +280,82 @@ def parse_fhir_search(args):
     return fhir_search_spec
 
 
-oo_template = {'textSummary': None,
-               'items': [{'severity': None, 'type': None, 'location': [], 'diagnostics': []}]
-               }
+oo_template = [{'severity': None, 'type': None, 'location': [], 'diagnostics': [], 'expression': None,
+                'details': None}]
 
 
-def create_operation_outcome(oodict):
+def create_operation_outcome(outcome_list):
     oo = OperationOutcome()
-    if oodict.get('textSummary'):
-        narrative = Narrative()
-        narrative.status = 'additional'
-        narrative.div = oodict.get('textSummary')
-        oo.text = narrative
+
+    narrative = Narrative()
+    narrative.status = 'additional'
+    narrative.div = render_template('fhir/operation_outcome.html', outcome_list=outcome_list)
+    oo.text = narrative
 
     severity_codes = ValueSet.query.filter(ValueSet.resource_id == 'issue-severity').first().code_set
     type_codes = ValueSet.query.filter(ValueSet.resource_id == 'issue-type').first().code_set
 
-    if oodict.get('items'):
-        for x in oodict.get('items'):
-            issue_severity = None
-            issue_type = None
-            issue_location = []
-            issue_diagnostics = None
-            if 'severity' in x.keys():
-                issue_severity = x.get('severity').lower().strip()
-                if issue_severity not in severity_codes:
-                    issue_severity = None
+    for x in outcome_list:
+        issue_severity = None
+        issue_type = None
+        issue_location = []
+        issue_diagnostics = None
+        issue_expression = None
+        issue_details = None
+        if 'severity' in x.keys():
+            issue_severity = x.get('severity').lower().strip()
+            if issue_severity not in severity_codes:
+                issue_severity = None
 
-            if 'type' in x.keys():
-                issue_type = x.get('type').lower().strip()
-                if issue_type not in type_codes:
-                    issue_type = None
+        if 'type' in x.keys():
+            issue_type = x.get('type').lower().strip()
+            if issue_type not in type_codes:
+                issue_type = None
 
-            if 'details' in x.keys():
-                # TODO: Handle
-                pass
+        if 'details' in x.keys():
+            details = x.get('details')
+            if details:
+                details_cc = CodeableConcept()
+                details_cc.text = details
+                issue_details = details_cc
+            pass
 
-            if 'diagnostics' in x.keys():
-                diagnostics = x.get('diagnostics')
-                if diagnostics:
-                    issue_diagnostics = diagnostics
+        if 'diagnostics' in x.keys():
+            diagnostics = x.get('diagnostics')
+            if diagnostics:
+                issue_diagnostics = diagnostics
 
-            if 'location' in x.keys():
-                location = x.get('location')
-                if location:
-                    if isinstance(location, list):
-                        for i in location:
-                            issue_location.append(i)
-                    elif isinstance(location, str):
-                        issue_location.append(location)
+        if 'location' in x.keys():
+            location = x.get('location')
+            if location:
+                if isinstance(location, list):
+                    for i in location:
+                        issue_location.append(i)
+                elif isinstance(location, str):
+                    issue_location.append(location)
 
-            if 'expression' in x.keys():
-                # TODO: Handle
-                pass
+        if 'expression' in x.keys():
+            expression = x.get('expression')
+            if expression:
+                issue_expression = expression
 
-            issue = OperationOutcomeIssue()
-            if issue_severity:
-                issue.severity = issue_severity
-            if issue_type:
-                issue.code = issue_type
-            if issue_location:
-                issue.location = issue_location
-            if issue_diagnostics:
-                issue.diagnostics = issue_diagnostics
+        issue = OperationOutcomeIssue()
+        if issue_severity:
+            issue.severity = issue_severity
+        if issue_type:
+            issue.code = issue_type
+        if issue_location:
+            issue.location = issue_location
+        if issue_diagnostics:
+            issue.diagnostics = issue_diagnostics
+        if issue_expression:
+            issue.expression = issue_expression
+        if issue_details:
+            issue.details = issue_details
 
-            try:
-                oo.issue.append(issue)
-            except AttributeError:
-                oo.issue = [issue]
+        try:
+            oo.issue.append(issue)
+        except AttributeError:
+            oo.issue = [issue]
 
     return oo

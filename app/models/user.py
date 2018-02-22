@@ -521,12 +521,16 @@ class User(UserMixin, db.Model):
     def verify_api_auth_token(token):
         __doc__ = """
         User Method:  verify_api_auth_token takes a token and,
-        if found valid, returns the user object stored in it.
+        if found valid, returns the user object stored in it and a boolean for Expired
+        
+        (user, expired)
         """
         user = User.query.filter_by(token=token).first()
-        if user is None or user.token_expiration < datetime.utcnow():
-            return None
-        return user
+        if user is None:
+            return None, True
+        if user.token_expiration < datetime.utcnow():
+            return user, True
+        return user, False
 
     ##############################################################################################
     # USER RANDOMIZATION METHODS

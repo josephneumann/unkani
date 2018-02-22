@@ -88,26 +88,6 @@ def enforce_fhir_mimetype_charset(f):
             response.headers['Charset'] = 'UTF-8'
             return response
 
-        # if accept_mime_type and str(accept_mime_type).lower().strip() not in fhir_mime_types['json']:
-        #     raise TypeError(
-        #         'The server cannot support the requested mime-type: {}. Please request application/fhir+json'.format(
-        #             accept_mime_type))
-        #
-        # if accept_charset and str(accept_charset).lower().strip() != 'utf-8':
-        #     raise TypeError(
-        #         'The server cannot support the requested charset: {}. Please request utf-8'.format(
-        #             accept_mime_type))
-        #
-        # if content_mime_type and str(content_mime_type).lower().strip() not in fhir_mime_types['json']:
-        #     raise TypeError(
-        #         'The server cannot support the content-type mime-type: {}. Please use application/fhir+json'.format(
-        #             accept_mime_type))
-        #
-        # if content_charset and str(content_charset).lower().strip() != 'utf-8':
-        #     raise TypeError(
-        #         'The server cannot support the content-type charset: {}. Please use utf-8'.format(accept_mime_type))
-
-        # let the request through
         return f(*args, **kwargs)
 
     return wrapped
@@ -280,11 +260,20 @@ def parse_fhir_search(args):
     return fhir_search_spec
 
 
-oo_template = [{'severity': None, 'type': None, 'location': [], 'diagnostics': [], 'expression': None,
-                'details': None}]
-
-
 def create_operation_outcome(outcome_list):
+    """
+    Helper function to construct and OperationOutcome object from the appropriate data structure
+
+    :param outcome_list:
+    An array of dicts containing the keys necessary to generate an OperationOutcome FHIR STU 3.0 object
+
+        outcome_list = [{'severity': None, 'type': None, 'location': [], 'diagnostics': None, 'expression': None,
+                'details': None}]
+        # Severity and Type are REQUIRED
+
+    :return:
+    A FHIR-Client OperationOutcome Object
+    """
     oo = OperationOutcome()
 
     narrative = Narrative()
@@ -358,4 +347,11 @@ def create_operation_outcome(outcome_list):
         except AttributeError:
             oo.issue = [issue]
 
+    return oo
+
+
+def create_token_expired_operation_outcome(e):
+    oo = create_operation_outcome(outcome_list=[
+        {'severity': 'error', 'type': 'expired', 'location': [url_for('api_v1.new_token', _external=True)],
+         'diagnostics': e.args[0], 'details': 'Authentication token expired: complete authentication for new token'}])
     return oo

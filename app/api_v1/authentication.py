@@ -4,8 +4,7 @@ from flask_principal import Identity, identity_changed
 from app import db
 from ..models import User, EmailAddress
 from . import api
-from app.api_v1.errors import unauthorized, AuthenticationError
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
+from app.api_v1.errors import unauthorized, AuthenticationError, TokenExpiredError
 
 basic_auth = HTTPBasicAuth()
 token_auth = HTTPTokenAuth()
@@ -49,10 +48,13 @@ def verify_token(token):
     if not token:
         return False
     # Extract user from valid token
-    user = User.verify_api_auth_token(token)
+    user, expired = User.verify_api_auth_token(token)
     # Check if user is returned from token
     if user is None:
         raise AuthenticationError("Token is invalid.")
+    # Token must not be expired
+    if expired:
+        raise TokenExpiredError("user.veriry_api_auth_token failed on condition token expired == True")
     # User must be confirmed
     if not user.confirmed:
         raise AuthenticationError("User account is unconfirmed.")

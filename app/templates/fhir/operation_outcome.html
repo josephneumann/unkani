@@ -1,11 +1,5 @@
 {% extends "fhir/fhir_base.html" %}
-{% block head %}
-    <title>
-        {% block title %}
-            Operation Outcome
-        {% endblock title %}
-    </title>
-{% endblock head %}
+{% block head %}{% block title %}Operation Outcome{% endblock title %}{% endblock head %}
 {% block body %}
     <div>
         {% for oo in outcome_list %} }

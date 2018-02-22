@@ -3,19 +3,8 @@
             "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
     <html xmlns="http://www.w3.org/1999/xhtml">
     {% block html %}
-        <head>
-            {% block head %}
-                <title>
-                    {% block title %}
-                        FHIR Resource
-                    {% endblock title %}
-                </title>
-            {% endblock head %}
-        </head>
-        <body>
-        {% block body %}
-            <p>FHIR Resource Body</p>
-        {% endblock body %}
+        <head>{% block head %}<title>{% block title %}FHIR Resource{% endblock title %}</title>{% endblock head %}</head>
+        <body>{% block body %}<p>FHIR Resource Body</p>{% endblock body %}
         </body>
     {% endblock html %}c
     </html>

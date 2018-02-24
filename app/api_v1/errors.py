@@ -188,19 +188,3 @@ class AuthenticationError(ValueError):
 @api.errorhandler(AuthenticationError)
 def validation_error(e):
     return bad_request(type='authentication error', message=e.args[0])
-
-
-class TokenExpiredError(AuthenticationError):
-    pass
-
-
-@api.errorhandler(TokenExpiredError)
-def token_expired(e):
-    from app.api_v1.fhir.fhir_utils import create_token_expired_operation_outcome
-    oo = create_token_expired_operation_outcome(e=e)
-    response = jsonify(oo.as_json())
-    response.status_code = 401
-    response.headers['Content-Type'] = 'application/fhir+json'
-    response.headers['Charset'] = 'UTF-8'
-    response.headers['Location'] = url_for('api_v1.new_token', _external=True)
-    return response

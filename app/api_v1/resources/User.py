@@ -1,8 +1,8 @@
-from flask import request, g, url_for
+from flask import request, g
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import aliased
 
-from app import db, ma
+from app import db
 from app.models import Address, AppGroup, PhoneNumber, Role, EmailAddress
 from app.models.user import User, UserAPI, UserVersionSchema
 from app.security import *
@@ -10,7 +10,8 @@ from app.utils.demographics import *
 from app.api_v1.authentication import token_auth
 from app.api_v1.errors import *
 from app.api_v1.rate_limit import rate_limit
-from app.api_v1.utils import paginate_query, filter_ops, register_arg_error, etag
+from app.api_v1.utils import paginate_query, filter_ops, register_arg_error
+from app.api_v1.etag import etag
 
 
 @api.route('/User', methods=['GET'])

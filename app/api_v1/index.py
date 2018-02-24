@@ -1,6 +1,6 @@
-from flask import request, jsonify, g, url_for, abort
+from flask import jsonify, url_for
 from . import api
-from .utils import etag
+from app.api_v1.etag import etag
 from .authentication import token_auth
 
 

@@ -4,7 +4,8 @@ from flask_principal import Identity, identity_changed
 from app import db
 from ..models import User, EmailAddress
 from . import api
-from app.api_v1.errors import unauthorized, AuthenticationError, TokenExpiredError
+from app.api_v1.errors import unauthorized, AuthenticationError
+from .errors_test.exceptions import TokenExpiredError
 
 basic_auth = HTTPBasicAuth()
 token_auth = HTTPTokenAuth()

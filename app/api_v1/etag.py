@@ -1,8 +1,6 @@
 import functools
 import hashlib
-
 from flask import request, make_response
-
 from app.api_v1.errors import precondition_failed, not_modified
 
 

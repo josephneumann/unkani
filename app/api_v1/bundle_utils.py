@@ -1,6 +1,6 @@
+from flask import request, url_for
 from fhirclient.models.bundle import BundleLink, BundleEntry, BundleEntrySearch, Bundle
 from fhirclient.models.fhirabstractbase import FHIRAbstractBase
-from flask import request, url_for
 
 
 def paginate_query(query):

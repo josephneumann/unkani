@@ -3,10 +3,10 @@ from flask import request
 from app.api_v1.authentication import token_auth
 from app.api_v1.errors import *
 from app.api_v1.rate_limit import rate_limit
-from app.api_v1 import etag
-from app.api_v1.fhir.utils.bundle_utils import create_bundle
-from app.api_v1.fhir.utils.search_utils import parse_fhir_search
-from app.api_v1.fhir.utils.request_utils import enforce_fhir_mimetype_charset
+from app.api_v1.etag import etag
+from app.api_v1.bundle_utils import create_bundle
+from app.api_v1.search_utils import parse_fhir_search
+from app.api_v1.request_utils import enforce_fhir_mimetype_charset
 from app.models.fhir.patient import Patient
 
 

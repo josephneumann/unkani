@@ -2,10 +2,10 @@ from flask import g, jsonify, url_for, current_app
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
 from flask_principal import Identity, identity_changed
 from app import db
-from ..models import User, EmailAddress
-from . import api
+from app.models import User, EmailAddress
+from app.api_v1 import api
 from app.api_v1.errors import unauthorized, AuthenticationError
-from .errors_test.exceptions import TokenExpiredError
+from app.api_v1.exceptions import TokenExpiredError
 
 basic_auth = HTTPBasicAuth()
 token_auth = HTTPTokenAuth()

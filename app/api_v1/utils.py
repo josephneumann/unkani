@@ -1,5 +1,4 @@
 from flask import request, jsonify, url_for
-
 from app.api_v1.errors import not_found
 
 filter_ops = {'eq': '__eq__',  # equal
@@ -103,5 +102,3 @@ def register_arg_error(arg=None, type='invalid argument'):
              'level': 'warning',
              'message': 'invalid argument was ignored : {}'.format(arg)}
     return error
-
-

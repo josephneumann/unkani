@@ -1,7 +1,7 @@
 from app.api_v1.authentication import token_auth
 from app.api_v1.errors.errors import *
-from app.api_v1.rate_limit import rate_limit
-from app.api_v1.etag import etag
+from app.api_v1.utils.rate_limit import rate_limit
+from app.api_v1.utils.etag import etag
 from app.models.fhir.codesets import CodeSystem
 
 

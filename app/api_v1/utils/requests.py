@@ -1,6 +1,6 @@
 import functools
 from flask import request, jsonify
-from app.api_v1.operation_outcome import create_operation_outcome
+from app.api_v1.utils.operation_outcome import create_operation_outcome
 
 fhir_mime_types = {
     'json': ['application/fhir+json', 'application/json+fhir', 'application/json', 'json'],

@@ -1,6 +1,6 @@
 from flask import jsonify, url_for
 from app.api_v1 import api
-from app.api_v1.etag import etag
+from app.api_v1.utils.etag import etag
 from app.api_v1.authentication import token_auth
 
 

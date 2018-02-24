@@ -9,9 +9,9 @@ from app.security import *
 from app.utils.demographics import *
 from app.api_v1.authentication import token_auth
 from app.api_v1.errors.errors import *
-from app.api_v1.rate_limit import rate_limit
-from app.api_v1.utils import paginate_query, filter_ops, register_arg_error
-from app.api_v1.etag import etag
+from app.api_v1.utils.rate_limit import rate_limit
+from app.api_v1.utils.pagination import paginate_query, filter_ops, register_arg_error
+from app.api_v1.utils.etag import etag
 
 
 @api.route('/User', methods=['GET'])

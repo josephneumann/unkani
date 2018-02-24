@@ -1,7 +1,7 @@
 from app.api_v1 import api
 from app.api_v1.errors.exceptions import TokenExpiredError
 from flask import jsonify, url_for
-from app.api_v1.operation_outcome import create_operation_outcome
+from app.api_v1.utils.operation_outcome import create_operation_outcome
 
 
 @api.errorhandler(TokenExpiredError)

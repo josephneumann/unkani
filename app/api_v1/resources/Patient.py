@@ -1,7 +1,7 @@
 from flask import request
 
 from app.api_v1.authentication import token_auth
-from app.api_v1.errors import *
+from app.api_v1.errors.errors import *
 from app.api_v1.rate_limit import rate_limit
 from app.api_v1.etag import etag
 from app.api_v1.bundle_utils import create_bundle

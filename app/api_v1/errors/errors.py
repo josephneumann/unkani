@@ -1,5 +1,6 @@
 from flask import jsonify, url_for
 from app.api_v1 import api
+from app.api_v1.errors.exceptions import *
 
 
 def process_model_errors(errors=None):
@@ -172,17 +173,9 @@ def internal_server_error_handler(e):
     return response
 
 
-class ValidationError(ValueError):
-    pass
-
-
 @api.errorhandler(ValidationError)
 def validation_error(e):
     return bad_request(type='validation error', message=e.args[0])
-
-
-class AuthenticationError(ValueError):
-    pass
 
 
 @api.errorhandler(AuthenticationError)

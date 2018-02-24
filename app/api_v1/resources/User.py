@@ -8,7 +8,7 @@ from app.models.user import User, UserAPI, UserVersionSchema
 from app.security import *
 from app.utils.demographics import *
 from app.api_v1.authentication import token_auth
-from app.api_v1.errors import *
+from app.api_v1.errors.errors import *
 from app.api_v1.rate_limit import rate_limit
 from app.api_v1.utils import paginate_query, filter_ops, register_arg_error
 from app.api_v1.etag import etag

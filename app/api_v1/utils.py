@@ -1,5 +1,5 @@
 from flask import request, jsonify, url_for
-from app.api_v1.errors import not_found
+from app.api_v1.errors.errors import not_found
 
 filter_ops = {'eq': '__eq__',  # equal
               'ne': '__ne__',  # not equal

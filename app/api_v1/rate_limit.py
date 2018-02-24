@@ -3,7 +3,7 @@ from app.api_v1.errors import *
 import time
 from app import redis
 from flask import current_app, g
-from app.api_v1.errors import too_many_requests
+from app.api_v1.errors.errors import too_many_requests
 
 
 def rate_limit(limit, period):

@@ -1,7 +1,7 @@
 import functools
 import hashlib
 from flask import request, make_response
-from app.api_v1.errors import precondition_failed, not_modified
+from app.api_v1.errors.errors import precondition_failed, not_modified
 
 
 def etag(f):

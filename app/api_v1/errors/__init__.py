@@ -1,1 +1,1 @@
-from app.api_v1.errors import errors, fhir, exceptions
+from app.api_v1.errors import user_errors, fhir_errors, exceptions

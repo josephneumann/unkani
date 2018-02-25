@@ -830,10 +830,12 @@ def random_race():
     race_values = list(race_dict.keys())
     return random.choice(race_values)
 
+
 ethnicity_dict = {
     "2135-2": ["HISPANIC OR LATINO", "H", "HISPANIC", "HISP", "LATINO", "L", "LAT"],
     "2186-5": ["NOT HISPANIC OR LATINO", "N", "NOT", "NOT HISPANIC", "NOT LATINO", "NOT HISP", "NOT LAT"]
 }
+
 
 def validate_ethnicity(ethnicity):
     """
@@ -885,6 +887,22 @@ def random_ethnicity():
     return random.choice(ethnicity_values)
 
 
+marital_status_dict = {"A": ["ANNULLED", "ANNULL"],  # Marriage contract has been declared null and to not have existed
+                       "D": ["DIVORCED", "DIV", "DVC"],  # Marriage contract has been declared dissolved and inactive
+                       "I": ["INTERLOCUTORY"],  # Subject to an Interlocutory Decree.
+                       "L": ["LEGALLY SEPARATED", "LS"],  # Legally Separated
+                       "M": ["MARRIED", "MAR", "M."],  # A current marriage contract is active
+                       "P": ["POLYGAMOUS", "POLY"],  # More than 1 current spouse
+                       "S": ["NEVER MARRIED", "SINGLE", "SIN", "SING", "S"],
+                       # No marriage contract has ever been entered
+                       "T": ["REGISTERED DOMESTIC PARNTER", "RDP", "DOMESTIC PARTNER"],
+                       # Person declares that a domestic partner relationship exists.
+                       "U": ["UNMARRIED", "UN-MARRIED"],  # Currently not in a marriage contract.
+                       "UNK": ["UNKNOWN", "N/A"],  # Description:A proper value is applicable, but not known.
+                       "W": ["WIDOWED", "WID", "WIDOWER"]  # The spouse has died
+                       }
+
+
 def validate_marital_status(status):
     """
     Utility function to normalize a string representation of marital status to the HL7 FHIR R3 Marital Status codeset.
@@ -905,24 +923,11 @@ def validate_marital_status(status):
         raise ValueError('A NoneType value was supplied as a marital status.')
     status = str(status).strip().upper()
     n_status = None
-    status_dict = {"A": {"ANNULLED", "ANNULL"},  # Marriage contract has been declared null and to not have existed
-                   "D": {"DIVORCED", "DIV", "DVC"},  # Marriage contract has been declared dissolved and inactive
-                   "I": {"INTERLOCUTORY"},  # Subject to an Interlocutory Decree.
-                   "L": {"LEGALLY SEPARATED", "LS"},  # Legally Separated
-                   "M": {"MARRIED", "MAR", "M."},  # A current marriage contract is active
-                   "P": {"POLYGAMOUS", "POLY"},  # More than 1 current spouse
-                   "S": {"NEVER MARRIED", "SINGLE", "SIN", "SING", "S"},  # No marriage contract has ever been entered
-                   "T": {"REGISTERED DOMESTIC PARNTER", "RDP", "DOMESTIC PARTNER"},
-                   # Person declares that a domestic partner relationship exists.
-                   "U": {"UNMARRIED", "UN-MARRIED"},  # Currently not in a marriage contract.
-                   "UNK": {"UNKNOWN", "N/A"},  # Description:A proper value is applicable, but not known.
-                   "W": {"WIDOWED", "WID"}  # The spouse has died
-                   }
-    if status in status_dict:
+    if status in marital_status_dict:
         n_status = status
 
-    for key in status_dict:
-        if status in status_dict[key]:
+    for key in marital_status_dict:
+        if status in marital_status_dict[key]:
             status = key
 
     if n_status:
@@ -933,16 +938,17 @@ def validate_marital_status(status):
 
 
 def random_marital_status():
-    """Utility function to randomly return one of the three most common marital status codes from the HL7 Marital
-    Status codeset OID == 2.16.840.1.114222.4.11.809
+    """Utility function to randomly return one of the three most common marital status codes from the FHIR Marital
+    Status codeset http://hl7.org/fhir/v3/MaritalStatus
     
     :return:
         "D" for divorced
         "M" for married
         "S" for single
+        "U" for unmarried
+        "W" for widowed / widower
     """
-    status_values = ["D", "M", "S"]
-    return random.choice(status_values)
+    return random.choice(['D', 'M', 'S', 'U', 'W'])
 
 
 def normalize_deceased(value=None):

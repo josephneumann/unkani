@@ -10,9 +10,8 @@ from app.models.fhir.phone_number import PhoneNumber, PhoneNumberSchema
 from app.models.extensions import BaseExtension
 from fhirclient.models import patient as fhir_patient, meta, codeableconcept, coding, extension, identifier, narrative
 from app.utils.fhir_utils import fhir_gen_humanname, fhir_gen_datetime
-from app.utils.demographics import race_dict, ethnicity_dict
+from app.utils.demographics import race_dict, ethnicity_dict, marital_status_dict
 import hashlib, json, uuid
-
 
 
 class Patient(db.Model):
@@ -378,12 +377,12 @@ class Patient(db.Model):
 
         # Patient name represented as HumanName resource
         fhir_pt.name = []
-        fhir_pt.name.append(fhir_gen_humanname(use='official', first_name=self.first_name, last_name=self.last_name,
+        fhir_pt.name.append(fhir_gen_humanname(use='usual', first_name=self.first_name, last_name=self.last_name,
                                                middle_name=self.middle_name, suffix=self.suffix, prefix=self.prefix))
         # Display MRN as identifier codeable concept = Patient.identifier.codeableconcept.coding
         # Initialize Identifier resource
         id_mrn = identifier.Identifier()
-        id_mrn.use = 'official'
+        id_mrn.use = 'usual'
         id_mrn.system = 'http://unkani.com'
         id_mrn.value = str(self.uuid)
 
@@ -410,7 +409,7 @@ class Patient(db.Model):
         if self.ssn:
             # Initialize Identifier resource
             id_ssn = identifier.Identifier()
-            id_ssn.use = 'official'
+            id_ssn.use = 'usual'
             id_ssn.system = 'http://hl7.org/fhir/sid/us-ssn'
             id_ssn.value = self.ssn
 
@@ -433,11 +432,23 @@ class Patient(db.Model):
             # Assign CodeableConcept to Patient
             fhir_pt.identifier.append(id_ssn)
 
+        if self.marital_status:
+            marital_status_cc = codeableconcept.CodeableConcept()
+            marital_status_cc.text = marital_status_dict.get(self.marital_status)[0].capitalize()
+
+            marital_status_coding = coding.Coding()
+            marital_status_coding.code = self.marital_status
+            marital_status_coding.system = 'http://hl7.org/fhir/ValueSet/marital-status'
+            marital_status_coding.display = marital_status_cc.text
+
+            marital_status_cc.coding = [marital_status_coding]
+            fhir_pt.maritalStatus = marital_status_cc
+
         if self.race:
             ext_race = extension.Extension()
             ext_race.url = 'http://hl7.org/fhir/StructureDefinition/us-core-race'
             cc_race = codeableconcept.CodeableConcept()
-            cc_race.text = race_dict.get(self.race)[0]
+            cc_race.text = race_dict.get(self.race)[0].capitalize()
             coding_race = coding.Coding()
             coding_race.system = 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category'
             coding_race.code = self.race
@@ -453,7 +464,7 @@ class Patient(db.Model):
             ext_ethnicity = extension.Extension()
             ext_ethnicity.url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity'
             cc_ethnicity = codeableconcept.CodeableConcept()
-            cc_ethnicity.text = ethnicity_dict.get(self.ethnicity)[0]
+            cc_ethnicity.text = ethnicity_dict.get(self.ethnicity)[0].capitalize()
             coding_ethnicity = coding.Coding()
             coding_ethnicity.system = 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category'
             coding_ethnicity.code = self.race
@@ -463,7 +474,7 @@ class Patient(db.Model):
 
             try:
                 fhir_pt.extension.append(ext_ethnicity)
-            except:
+            except AttributeError:
                 fhir_pt.extension = [ext_ethnicity]
 
         if self.sex:
@@ -478,7 +489,7 @@ class Patient(db.Model):
 
             try:
                 fhir_pt.extension.append(ext_birth_sex)
-            except:
+            except AttributeError:
                 fhir_pt.extension = [ext_birth_sex]
 
         if self.dob:

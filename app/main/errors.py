@@ -34,7 +34,7 @@ def forbidden(e):
         403 html template rendered or 403 JSON error response
     """
     if request_wants_json():
-        from app.api_v1.errors.fhir import fhir_error_response
+        from app.api_v1.errors.fhir_errors import fhir_error_response
         response = fhir_error_response(status_code=403, outcome_list=[
             {'severity': 'error', 'type': 'forbidden', 'diagnostics': [str(e)],
              'details': 'Forbidden - not authorized'}])
@@ -52,7 +52,7 @@ def not_found(e):
         403 html template rendered or 404 JSON error response
     """
     if request_wants_json():
-        from app.api_v1.errors.fhir import fhir_error_response
+        from app.api_v1.errors.fhir_errors import fhir_error_response
         response = fhir_error_response(status_code=404, outcome_list=[
             {'severity': 'fatal', 'type': 'not-found', 'diagnostics': [str(e)],
              'details': 'Resource not found'}])
@@ -69,7 +69,7 @@ def internal_server_error(e):
     :return:
         403 html template rendered or 404 JSON error response"""
     if request_wants_json():
-        from app.api_v1.errors.fhir import fhir_error_response
+        from app.api_v1.errors.fhir_errors import fhir_error_response
         response = fhir_error_response(status_code=500, outcome_list=[
             {'severity': 'fatal', 'type': 'exception', 'diagnostics': [str(e)],
              'details': 'Internal server error'}])

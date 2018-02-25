@@ -5,7 +5,7 @@ from app import db
 from app.models import User, EmailAddress
 from app.api_v1 import api_bp
 from app.api_v1.errors.exceptions import *
-from app.api_v1.errors.fhir import fhir_error_response
+from app.api_v1.errors.fhir_errors import fhir_error_response
 
 basic_auth = HTTPBasicAuth()
 token_auth = HTTPTokenAuth()

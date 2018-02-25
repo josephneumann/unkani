@@ -2,18 +2,20 @@ from flask import request, g, url_for
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import aliased
 
-from app import db, ma
+from app import db
 from app.models import Address, AppGroup, PhoneNumber, Role, EmailAddress
 from app.models.user import User, UserAPI, UserVersionSchema
 from app.security import *
 from app.utils.demographics import *
 from app.api_v1.authentication import token_auth
-from app.api_v1.errors import *
-from app.api_v1.rate_limit import rate_limit
-from app.api_v1.utils import paginate_query, filter_ops, register_arg_error, etag
+from app.api_v1.errors.user_errors import *
+from app.api_v1.errors.exceptions import *
+from app.api_v1.utils.rate_limit import rate_limit
+from app.api_v1.utils.pagination import paginate_query, filter_ops, register_arg_error
+from app.api_v1.utils.etag import etag
 
 
-@api.route('/User', methods=['GET'])
+@api_bp.route('/User', methods=['GET'])
 @token_auth.login_required
 @app_permission_userprofileupdate.require(http_exception=403)
 @rate_limit(limit=5, period=15)
@@ -180,7 +182,7 @@ def get_users():
     return response
 
 
-@api.route('/User/<int:userid>', methods=['GET'])
+@api_bp.route('/User/<int:userid>', methods=['GET'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 @etag
@@ -189,18 +191,15 @@ def get_user(userid):
     Return a user.
     This endpoint requires token auth and will return a JSON user object requested by ID.
     """
-    user = User.query.get(userid)
-    if not user:
-        return not_found()
-    else:
-        data = user.dump()
-        response = jsonify({'User': data, 'errors': []})
-        response.headers['Location'] = url_for('api_v1.get_user', userid=user.id)
-        response.status_code = 200
-        return response
+    user = User.query.get_or_404(ident=userid)
+    data = user.dump()
+    response = jsonify({'User': data, 'errors': []})
+    response.headers['Location'] = url_for('api_v1.get_user', userid=user.id)
+    response.status_code = 200
+    return response
 
 
-@api.route('/User', methods=['POST'])
+@api_bp.route('/User', methods=['POST'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def new_user():
@@ -208,7 +207,7 @@ def new_user():
     Register a new user
     """
     if not app_permission_usercreate.can():
-        return forbidden(message='You do not have sufficient permissions to crete a new user.')
+        raise ForbiddenError('Insufficient permissions to crete a new user')
     json_data = request.get_json()
     uv = UserAPI()
     uv.loads_json(json_data)
@@ -233,7 +232,7 @@ def new_user():
         return response
 
 
-@api.route('/User/<int:userid>', methods=['PATCH'])
+@api_bp.route('/User/<int:userid>', methods=['PATCH'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def update_user(userid):
@@ -250,7 +249,7 @@ def update_user(userid):
 
     # Check app permission for logged in user to update the given user
     if not g.current_user.is_accessible(requesting_user=user, other_permissions=[app_permission_userprofileupdate]):
-        forbidden(message="Permission denied: unable to update user.")
+        raise ForbiddenError('Insufficient permissions to update user')
 
     # Deserialize JSON data and run validations
     json_data = request.get_json()
@@ -282,18 +281,16 @@ def update_user(userid):
         return response
 
 
-@api.route('/User/<int:userid>', methods=['DELETE'])
+@api_bp.route('/User/<int:userid>', methods=['DELETE'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def delete_user(userid):
     """
     Delete an existing user
     """
-    user = User.query.get(userid)
-    if not user:
-        return not_found(message='The user that was attempted to be deleted could not be found.')
+    user = User.query.get_or_404(ident=userid)
     if not user.is_accessible(requesting_user=g.current_user, other_permissions=[app_permission_userdelete]):
-        return forbidden(message="You do not have permission to delete user with id {}".format(user.id))
+        raise ForbiddenError('Insufficient permissions to delete user')
     user_id = user.id
     db.session.delete(user)
     db.session.commit()
@@ -301,29 +298,27 @@ def delete_user(userid):
     return json_response, 200
 
 
-def invalid_version_number(version_number, object):
-    return bad_request(message='The version number supplied ({}) was invalid.  '
-                               'Please supply a user version between 1 and {}'.format(version_number,
-                                                                                      len(object.versions.all())))
-
-
-@api.route('/User/<int:userid>/version/<int:version_number>', methods=['GET'])
+@api_bp.route('/User/<int:userid>/version/<int:version_number>', methods=['GET'])
 @token_auth.login_required
 @rate_limit(limit=5, period=15)
 def get_user_version(userid, version_number):
-    user = User.query.get_or_404(userid)
+    user = User.query.get_or_404(ident=userid)
     if not user.is_accessible(requesting_user=g.current_user):
-        return forbidden(message="You do not have permission to view user with id {}".format(user.id))
+        raise ForbiddenError('Insufficient permissions to view user')
 
     # Handle version numbers less than 1 with an error not found w/ custom error dict
     if version_number < 1:
-        return invalid_version_number(version_number=version_number, object=user)
+        raise BadRequestError('The version number supplied ({}) was invalid.  '
+                              'Please supply a user version between 1 and {}'.format(version_number,
+                                                                                     len(user.versions.all())))
 
     # Check if positive version number exists
     try:
         uv = user.versions[version_number - 1]
     except IndexError:
-        return invalid_version_number(version_number=version_number, object=user)
+        raise BadRequestError('The version number supplied ({}) was invalid.  '
+                              'Please supply a user version between 1 and {}'.format(version_number,
+                                                                                     len(user.versions.all())))
 
     # Dump data using Marshmallow shcema
     schema = UserVersionSchema()

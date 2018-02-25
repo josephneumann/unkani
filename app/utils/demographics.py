@@ -242,6 +242,25 @@ def validate_state(state):
         raise ValueError('Could not find a valid US state with the given input: {}'.format(state))
 
 
+def validate_country(country):
+    """
+    Utility function that accepts a string representation of a country code and determines if the value
+    is within the ISO 3166-1 Alpha-3 country code set
+
+    :param country:
+        A 3 character country code for validation
+    :return:
+        If valid, returns 3 character code for country
+        If invalid, raises ValueError
+    """
+    # TODO: Add validation w/ valueset for ISO 3166-1 Alpha-3 lookup
+    n_country = str(country).strip().upper()
+    if n_country in ('USA', 'CAN', 'MEX'):
+        return n_country
+    else:
+        raise ValueError('Could not find a valid ISO 3166-1 Alpha-3 country code with given input: {}'.format(country))
+
+
 def lookup_zipcode_object(zipcode):
     """
     Utility function to lookup a uszipcode zipcode object based on a zipcode string.
@@ -359,7 +378,7 @@ def random_address_lines():
     return addr1, addr2
 
 
-def normalize_address(address1=None, address2=None, city=None, state=None, zipcode=None):
+def normalize_address(address1=None, address2=None, city=None, state=None, zipcode=None, district=None, country=None):
     """
     Utility function to normalize five named parameters that comprise a physical address.  
 
@@ -384,10 +403,19 @@ def normalize_address(address1=None, address2=None, city=None, state=None, zipco
         Type: String
         Zipcode component of a physical address.  Long or short form US zipcodes are accepted.  This input
         is validated against a canonical list of zipcodes in the US.
-        
+
+   :param district:
+        Type: String
+        State name for the physical address.  Uses state name lookup if necessary and allows
+        for fuzzy name matching and abbreviation lookup.  Default is None
+
+    :param country:
+        Type: String
+        Country component of a physical address.  ISO 3166-1 Alpha-3 codes accepted
+
     :return:
-        Returns a dictionary with keys "address1", "address2", "city", "state", "zipcode" which represents the 
-        normalized physical address.
+        Returns a dictionary with keys "address1", "address2", "city", "state", "zipcode" , "district", "country"
+        which represents the normalized physical address.
         
         Uses supplied information to normalize address components.  
 
@@ -400,29 +428,59 @@ def normalize_address(address1=None, address2=None, city=None, state=None, zipco
     
         If zipcode is not supplied, and city is supplied, the city name is accepted without validation.
     """
-    n_address_dict = {"address1": None, "address2": None, "city": None, "state": None, "zipcode": None}
+    n_address_dict = {"address1": None, "address2": None, "city": None, "state": None, "zipcode": None,
+                      "district": None, "country": None}
+
+    n_district = normalize_name(name=district)
+
+    if address1:
+        address1 = str(address1).upper().strip()
+    if address2:
+        address2 = str(address2).upper().strip()
+
+    zip_object = None
     if zipcode:
         zip_object = lookup_zipcode_object(zipcode)
-        if zip_object:
-            n_address_dict["zipcode"] = zip_object.Zipcode
-            n_address_dict["state"] = zip_object.State
-            n_address_dict["city"] = (str(zip_object.City).upper())
-    if address1:
-        n_address_dict["address1"] = str(address1).upper().strip()
-    if address2:
-        n_address_dict["address2"] = str(address2).upper().strip()
-    if (not n_address_dict.get("zipcode", None)) and state:
+
+    if zip_object:
+        n_address_dict["zipcode"] = zip_object.Zipcode
+        n_address_dict["state"] = zip_object.State
+        n_address_dict["city"] = (str(zip_object.City).upper())
+        n_address_dict["address1"] = address1
+        n_address_dict["address2"] = address2
+        n_address_dict["district"] = n_district
+        n_address_dict["country"] = "USA"
+
+    elif state:
         n_city, n_state, n_zipcode = normalize_city_state(city=city, state=state)
         n_address_dict["state"] = n_state
+        if n_state:
+            n_address_dict["country"] = "USA"
+            n_address_dict["district"] = n_district
         n_address_dict["city"] = str(n_city).upper()
         n_address_dict["zipcode"] = n_zipcode
         if not n_address_dict.get("city", None):
             n_address_dict["city"] = str(city).upper().strip()
+        n_address_dict["address1"] = address1
+        n_address_dict["address2"] = address2
+
+    else:
+        if country:
+            try:
+                n_country = validate_country(country=country)
+                n_address_dict["country"] = n_country
+            except ValueError:
+                pass
+        if city:
+            n_address_dict["city"] = str(city).strip().upper()
+        n_address_dict["address1"] = address1
+        n_address_dict["address2"] = address2
+
     return n_address_dict
 
 
 def random_full_address(number=1):
-    # TODO: include start date, end date, type and use in randomization utility
+    # TODO: Include district in randomization
     """
     Utility function used to generate one or many random full addresses.
     :param number:
@@ -446,7 +504,7 @@ def random_full_address(number=1):
         end_date = datetime.today().date()
         start_date = end_date - timedelta(days=random.randrange(365, 3650))
         add_dict = {"address1": add1, "address2": add2, "zipcode": zip.Zipcode, "city": str(zip.City).upper(),
-                    "state": zip.State, "use": "HOME", "start_date": start_date, "end_date": end_date}
+                    "state": zip.State, "use": "HOME", "start_date": start_date, "end_date": end_date, "country": "USA"}
         result.append(add_dict)
     if result:
         return result
@@ -722,10 +780,19 @@ def random_dob():
     return dob
 
 
+race_dict = {"1002-5": ["AMERICAN INDIAN OR ALASKA NATIVE", "AI"],
+             "2028-9": ["ASIAN", "AS"],
+             "2054-5": ["BLACK OR AFRICAN AMERICAN", "B", "BL", "BLACK", "AFRICAN AMERICAN", "AA"],
+             "2076-8": ["NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER", "HAWAIIAN", "NH", "PACIFIC ISLANDER", "PI"],
+             "UNK": ["UNKNOWN", "OTHER RACE", "O", "OTHER", "OTH", "OT", "OR", "UNK"],
+             "2106-3": ["WHITE", "W", "WH", "WHI", "WHIT" "CAUCASIAN"],
+             "ASKU": ["ASKED UNKNOWN", "ASKED", "REFUSED"]}
+
+
 def validate_race(race):
     """
-    Utility function to normalize string representations of race to the CDC Race Category codeset.  
-    Value set OID == 2.16.840.1.114222.4.11.836
+    Utility function to normalize string representations of race to the OMB Race Category valueset.
+    Value set url = http://hl7.org/fhir/us/core/ValueSet/omb-race-category
     
     :param race:
         Type: str
@@ -733,7 +800,7 @@ def validate_race(race):
         
     :return: 
         If 'race' is None, returns None
-        If 'race' is in CDC race category set, returns 'race'
+        If 'race' is in race category set, returns 'race'
         If 'race' lookup succeeds from dictionary 'race_dict', the top-level key of the dictionary is returned
         If 'race' is not None and lookup in 'race_dict' fails, returns None
     """
@@ -741,23 +808,15 @@ def validate_race(race):
         raise ValueError('A NoneType value as supplied as race.')
 
     race = str(race).strip().upper()
-    race_values = {"1002-5", "2028-9", "2054-5", "2076-8", "2131-1", "2106-3"}
 
-    if race in race_values:
+    if race in race_dict.keys():
         return race
+    else:
+        for key in race_dict:
+            if race in race_dict[key]:
+                race = key
 
-    race_dict = {"1002-5": {"AMERICAN INDIAN OR ALASKA NATIVE", "AI"},
-                 "2028-9": {"ASIAN", "AS"},
-                 "2054-5": {"BLACK OR AFRICAN AMERICAN", "B", "BL", "BLACK", "AFRICAN AMERICAN", "AA"},
-                 "2076-8": {"NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER", "HAWAIIAN", "NH", "PACIFIC ISLANDER", "PI"},
-                 "2131-1": {"OTHER RACE", "O", "OTHER", "OTH", "OT", "OR"},
-                 "2106-3": {"WHITE", "W", "WH", "WHI", "WHIT" "CAUCASIAN"}}
-
-    for key in race_dict:
-        if race in race_dict[key]:
-            race = key
-
-    if race in race_values:
+    if race:
         return race
     else:
         raise ValueError('The value supplied as race ({})could not be validated.'.format(race))
@@ -765,17 +824,23 @@ def validate_race(race):
 
 def random_race():
     """
-    Utility function to generate a random string value from the CDC Race Category codeset.
-    Value set OID == 2.16.840.1.114222.4.11.836
+    Utility function to generate a random string value from the OMB Race Category FHIR ValueSet.
+    Value set url = http://hl7.org/fhir/us/core/ValueSet/omb-race-category
     """
-    race_values = ["1002-5", "2028-9", "2054-5", "2076-8", "2131-1", "2106-3"]
+    race_values = list(race_dict.keys())
     return random.choice(race_values)
+
+
+ethnicity_dict = {
+    "2135-2": ["HISPANIC OR LATINO", "H", "HISPANIC", "HISP", "LATINO", "L", "LAT"],
+    "2186-5": ["NOT HISPANIC OR LATINO", "N", "NOT", "NOT HISPANIC", "NOT LATINO", "NOT HISP", "NOT LAT"]
+}
 
 
 def validate_ethnicity(ethnicity):
     """
     Utility function to normalize string representations of ethnicity categories
-    Uses CDC ethnicity category value set OID == 2.16.840.1.114222.4.11.837
+    Uses OMB Ethnicity Category FHIR ValueSet http://hl7.org/fhir/us/core/ValueSet/omb-ethnicity-category
     Hispanic or Latino vs Not Hispanic or Latino
     
     :param ethnicity: 
@@ -798,20 +863,13 @@ def validate_ethnicity(ethnicity):
     if not ethnicity:
         raise ValueError('A NoneType value was supplied as ethnicity.')
     ethnicity = str(ethnicity).strip().upper()
-    ethnicity_values = {"2135-2", "2186-5"}
-    ethnicity_dict = {
-        "2135-2": {"HISPANIC OR LATINO", "H", "HISPANIC", "HISP", "LATINO", "L", "LAT"},
-        "2186-5": {"NOT HISPANIC OR LATINO", "N", "NOT", "NOT HISPANIC", "NOT LATINO", "NOT HISP", "NOT LAT"}
-    }
-    if ethnicity in ethnicity_values:
+
+    if ethnicity in ethnicity_dict.keys():
         return ethnicity
 
     for key in ethnicity_dict:
         if ethnicity in ethnicity_dict[key]:
-            ethnicity = key
-
-    if ethnicity in ethnicity_values:
-        return ethnicity
+            return key
 
     else:
         raise ValueError('The value supplied for ethnicity ({}) could not be validated.'.format(ethnicity))
@@ -819,13 +877,30 @@ def validate_ethnicity(ethnicity):
 
 def random_ethnicity():
     """
-    Utility function to generate a random ethnicity value from the CDC ethnicity category codeset
+    Utility function to generate a random ethnicity value from the OMB Ethnicity Category ValueSet for FHIR
+    http://hl7.org/fhir/us/core/ValueSet/omb-ethnicity-category
 
     :return: 
         Either "2135-2" for Hispanic or Latino or "2186-5" for Not Hispanic or Latino
     """
     ethnicity_values = ["2135-2", "2186-5"]
     return random.choice(ethnicity_values)
+
+
+marital_status_dict = {"A": ["ANNULLED", "ANNULL"],  # Marriage contract has been declared null and to not have existed
+                       "D": ["DIVORCED", "DIV", "DVC"],  # Marriage contract has been declared dissolved and inactive
+                       "I": ["INTERLOCUTORY"],  # Subject to an Interlocutory Decree.
+                       "L": ["LEGALLY SEPARATED", "LS"],  # Legally Separated
+                       "M": ["MARRIED", "MAR", "M."],  # A current marriage contract is active
+                       "P": ["POLYGAMOUS", "POLY"],  # More than 1 current spouse
+                       "S": ["NEVER MARRIED", "SINGLE", "SIN", "SING", "S"],
+                       # No marriage contract has ever been entered
+                       "T": ["REGISTERED DOMESTIC PARNTER", "RDP", "DOMESTIC PARTNER"],
+                       # Person declares that a domestic partner relationship exists.
+                       "U": ["UNMARRIED", "UN-MARRIED"],  # Currently not in a marriage contract.
+                       "UNK": ["UNKNOWN", "N/A"],  # Description:A proper value is applicable, but not known.
+                       "W": ["WIDOWED", "WID", "WIDOWER"]  # The spouse has died
+                       }
 
 
 def validate_marital_status(status):
@@ -848,24 +923,11 @@ def validate_marital_status(status):
         raise ValueError('A NoneType value was supplied as a marital status.')
     status = str(status).strip().upper()
     n_status = None
-    status_dict = {"A": {"ANNULLED", "ANNULL"},  # Marriage contract has been declared null and to not have existed
-                   "D": {"DIVORCED", "DIV", "DVC"},  # Marriage contract has been declared dissolved and inactive
-                   "I": {"INTERLOCUTORY"},  # Subject to an Interlocutory Decree.
-                   "L": {"LEGALLY SEPARATED", "LS"},  # Legally Separated
-                   "M": {"MARRIED", "MAR", "M."},  # A current marriage contract is active
-                   "P": {"POLYGAMOUS", "POLY"},  # More than 1 current spouse
-                   "S": {"NEVER MARRIED", "SINGLE", "SIN", "SING", "S"},  # No marriage contract has ever been entered
-                   "T": {"REGISTERED DOMESTIC PARNTER", "RDP", "DOMESTIC PARTNER"},
-                   # Person declares that a domestic partner relationship exists.
-                   "U": {"UNMARRIED", "UN-MARRIED"},  # Currently not in a marriage contract.
-                   "UNK": {"UNKNOWN", "N/A"},  # Description:A proper value is applicable, but not known.
-                   "W": {"WIDOWED", "WID"}  # The spouse has died
-                   }
-    if status in status_dict:
+    if status in marital_status_dict:
         n_status = status
 
-    for key in status_dict:
-        if status in status_dict[key]:
+    for key in marital_status_dict:
+        if status in marital_status_dict[key]:
             status = key
 
     if n_status:
@@ -876,16 +938,17 @@ def validate_marital_status(status):
 
 
 def random_marital_status():
-    """Utility function to randomly return one of the three most common marital status codes from the HL7 Marital
-    Status codeset OID == 2.16.840.1.114222.4.11.809
+    """Utility function to randomly return one of the three most common marital status codes from the FHIR Marital
+    Status codeset http://hl7.org/fhir/v3/MaritalStatus
     
     :return:
         "D" for divorced
         "M" for married
         "S" for single
+        "U" for unmarried
+        "W" for widowed / widower
     """
-    status_values = ["D", "M", "S"]
-    return random.choice(status_values)
+    return random.choice(['D', 'M', 'S', 'U', 'W'])
 
 
 def normalize_deceased(value=None):
@@ -962,13 +1025,13 @@ def validate_sex(sex):
         unknown_values = {"U", "UNKNOWN", "UNSPECIFIED"}
         sex = str(sex).upper().strip()
         if sex in female_values:
-            return 'FEMALE'
+            return 'F'
         if sex in male_values:
-            return 'MALE'
+            return 'M'
         if sex in other_values:
-            return 'OTHER'
+            return 'O'
         if sex in unknown_values:
-            return 'UNKNOWN'
+            return 'U'
         else:
             raise ValueError('An invalid value ({}) was supplied as sex.'.format(sex))
 
@@ -981,9 +1044,9 @@ def random_sex():
         "MALE" or "FEMALE"
     """
     if random.randint(0, 1):
-        return "MALE"
+        return "M"
     else:
-        return "FEMALE"
+        return "F"
 
 
 def validate_language(language):
@@ -1064,53 +1127,6 @@ def validate_language(language):
         raise ValueError("The language supplied ({}) could not be validated".format(language))
 
 
-def validate_marital_status(status):
-    """
-    Utility function to normalize a string representation of marital status to the HL7 FHIR R3 Marital Status codeset.
-    Value set: Expansion based on http://hl7.org/fhir/v3/MaritalStatus version 2016-11-11
-
-    :param status:
-        Type: String
-        Default: None
-        Description:  String representation of marital status.  May contain Hl7 FHIR R3 Marital Status code or string
-            representation of a marital status category
-    :return:
-        If 'status' is char(1) and in the HL7 codeset, the same Hl7 code is returned
-        If 'status' is in 'status_dict', the top level key (HL7 code) of the matching status is returned
-        If 'status' cannot be found in lookup dict, returns None
-        If 'status' is None, returns None
-    """
-    if not status:
-        raise ValueError('A NoneType value was supplied as a marital status.')
-    status = str(status).strip().upper()
-    n_status = None
-    status_dict = {"A": {"ANNULLED", "ANNULL"},  # Marriage contract has been declared null and to not have existed
-                   "D": {"DIVORCED", "DIV", "DVC"},  # Marriage contract has been declared dissolved and inactive
-                   "I": {"INTERLOCUTORY"},  # Subject to an Interlocutory Decree.
-                   "L": {"LEGALLY SEPARATED", "LS"},  # Legally Separated
-                   "M": {"MARRIED", "MAR", "M."},  # A current marriage contract is active
-                   "P": {"POLYGAMOUS", "POLY"},  # More than 1 current spouse
-                   "S": {"NEVER MARRIED", "SINGLE", "SIN", "SING", "S"},  # No marriage contract has ever been entered
-                   "T": {"REGISTERED DOMESTIC PARNTER", "RDP", "DOMESTIC PARTNER"},
-                   # Person declares that a domestic partner relationship exists.
-                   "U": {"UNMARRIED", "UN-MARRIED"},  # Currently not in a marriage contract.
-                   "UNK": {"UNKNOWN", "N/A"},  # Description:A proper value is applicable, but not known.
-                   "W": {"WIDOWED", "WID"}  # The spouse has died
-                   }
-    if status in status_dict:
-        n_status = status
-
-    for key in status_dict:
-        if status in status_dict[key]:
-            status = key
-
-    if n_status:
-        return n_status
-
-    else:
-        raise ValueError('The value supplied for marital status ({}) could not be validated.'.format(status))
-
-
 def random_language():
     """
     Utility function to generate a random language code.
@@ -1119,7 +1135,7 @@ def random_language():
         Type: String
         Value: A language code
     """
-    lang_list = ['en', 'en', 'es', 'en - US']
+    lang_list = ['en', 'en', 'en', 'en', 'es']
     return random.choice(lang_list)
 
 
@@ -1194,17 +1210,21 @@ def random_demographics(number=1):
         username = (first_name + "." + last_name + str(random.randint(0, 1000)))
         email = username + '@EXAMPLE.COM'
         dob = random_dob()
+        multiple_birth = random_deceased()
         deceased = random_deceased()
+        deceased_date = None  # TODO randomize deceased date
         marital_status = random_marital_status()
+        preferred_language = random_language()
         race = random_race()
         ethnicity = random_ethnicity()
         password = random.randint(1, 99999999999)
 
         demo_dict = {"first_name": first_name, "last_name": last_name, "middle_name": middle_name, "dob": dob,
                      "sex": sex, "ssn": ssn, "home_phone": home_phone, "mobile_phone": mobile_phone,
-                     "work_phone": work_phone, "email": email, "deceased": deceased,
-                     "suffix": suffix, "marital_status": marital_status, "race": race,
-                     "ethnicity": ethnicity, "username": username, "password": password}
+                     "work_phone": work_phone, "email": email, "deceased": deceased, "deceased_date": deceased_date,
+                     "suffix": suffix, "marital_status": marital_status, "race": race, "multiple_birth": multiple_birth,
+                     "ethnicity": ethnicity, "username": username, "password": password,
+                     "preferred_language": preferred_language}
         demo_dict.update(address_list.pop(0))
         result.append(demo_dict)
         print("{}".format(int(number) - len(result)), end='...', flush=True)

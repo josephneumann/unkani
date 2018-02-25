@@ -1,24 +1,26 @@
 from app import db, ma
+from sqlalchemy.dialects.postgresql import UUID as postgresql_uuid
 from marshmallow import fields, post_load
 from app.utils.demographics import *
-from flask import url_for
+from flask import url_for, render_template
 from app.utils.general import json_serial
 from app.models.fhir.address import Address, AddressSchema
-from app.models.email_address import EmailAddress, EmailAddressSchema
-from app.models.phone_number import PhoneNumber, PhoneNumberSchema
+from app.models.fhir.email_address import EmailAddress, EmailAddressSchema
+from app.models.fhir.phone_number import PhoneNumber, PhoneNumberSchema
 from app.models.extensions import BaseExtension
-from fhirclient.models import patient as fhir_patient, meta, fhirdate, codeableconcept
-from app.utils.fhir_utils import generate_humanname
-import hashlib, json
+from fhirclient.models import patient as fhir_patient, meta, codeableconcept, coding, extension, identifier, narrative
+from app.utils.fhir_utils import fhir_gen_humanname, fhir_gen_datetime
+from app.utils.demographics import race_dict, ethnicity_dict, marital_status_dict
+import hashlib, json, uuid
 
 
 class Patient(db.Model):
     __tablename__ = 'patient'
     __versioned__ = {}
     __mapper_args__ = {'extension': BaseExtension()}
-    #TODO Add active boolean and add to FHIR generation
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, index=True)
+    uuid = db.Column(postgresql_uuid(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
     first_name = db.Column(db.Text, index=True)
     last_name = db.Column(db.Text, index=True)
     middle_name = db.Column(db.Text)
@@ -34,6 +36,7 @@ class Patient(db.Model):
     deceased_date = db.Column(db.Date)
     multiple_birth = db.Column(db.Boolean, default=False)
     preferred_language = db.Column(db.Text)
+    active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow())
     updated_at = db.Column(db.DateTime)
     row_hash = db.Column(db.Text, index=True)
@@ -49,7 +52,7 @@ class Patient(db.Model):
     def __init__(self, first_name=None, last_name=None, middle_name=None, suffix=None, email=None,
                  home_phone=None, mobile_phone=None, work_phone=None, ssn=None, race=None, ethnicity=None, sex=None,
                  dob=None, deceased=False, deceased_date=None, addresses=None, multiple_birth=None,
-                 preferred_language=None, **kwargs):
+                 preferred_language=None, active=None, **kwargs):
         if first_name:
             self.first_name = first_name
         if middle_name:
@@ -131,6 +134,9 @@ class Patient(db.Model):
                     address_list[0].primary = True
                 for address in address_list:
                     self.addresses.append(address)
+
+        if isinstance(active, bool):
+            self.active = active
 
         self._fhir = None
 
@@ -260,6 +266,16 @@ class Patient(db.Model):
         else:
             raise ValueError("A string value was not passed to the email parameter.  Unable to set email for user.")
 
+    @property
+    def dob_string(self):
+        __doc__ = """
+        Represent Patient's DOB as a string with format 'YYYY-MM-DD'
+        """
+        if self.dob:
+            return self.dob.strftime('%Y-%m-%d')
+        else:
+            return None
+
     ####################################
     # RESOURCE URL BUILDER
     # ####################################
@@ -269,7 +285,47 @@ class Patient(db.Model):
         :return:
             Returns the absolute URL of the Patient resource in the Patient api.
         """
-        return url_for('api_v1.get_patient', id=self.id, _external=True)
+        return url_for('api_v1.patient_read', id=self.id, _external=True)
+
+    ############################################
+    # VERSIONING UTILITY PROPERTIES AND METHODS
+    ############################################
+    @property
+    def version_number(self):
+        if self.versions:
+            return len(self.versions.all())
+        raise ValueError('No versions exist for this object.')
+
+    def latest_version(self):
+        if self.versions:
+            return self.versions[len(self.versions.all()) - 1]
+        raise ValueError('No versions exist for this object.')
+
+    def previous_version(self):
+        try:
+            lv = self.latest_version()
+            return lv.previous
+        except:
+            raise ValueError('No versions exist for this object.')
+
+    def first_version(self):
+        if self.versions:
+            return self.versions[0]
+        raise ValueError('No versions exist for this object.')
+
+    @property
+    def previous_version_url(self):
+        return None
+        # TODO: Implement URL builder when API route exists
+        # if self.versions and self.version_number > 1:
+        #     return url_for('api_v1.get_user_version', userid=self.id, version_number=self.version_number - 1,
+        #                    _external=True)
+        # else:
+        #     return None
+
+    ############################################
+    # FHIR STU 3 UTILITY PROPERTIES AND METHODS
+    ############################################
 
     @property
     def fhir(self):
@@ -301,33 +357,186 @@ class Patient(db.Model):
             self._fhir = fhir_obj
 
     def create_fhir_object(self):
-        fp = fhir_patient.Patient()
+        """
+        Generate a fhirclient.Patient class object and store in the protected attribute _fhir
+        :return:
+            None
+        """
+        # Initialize Patient resource
+        fhir_pt = fhir_patient.Patient()
 
         # Set resource logical identifier
-        fp.id = self.get_url()
+        fhir_pt.id = self.get_url()
 
-        # Build and assign meta
-        fm = meta.Meta()
-        last_updated = fhirdate.FHIRDate()
-        last_updated.date = self.updated_at
-        fm.lastUpdated = last_updated
-        fm.profile = ['http://hl7.org/fhir/StructureDefinition/Patient']
-        # TODO: Included version id in meta
-        fp.meta = fm
+        # Build and assign Meta resource for Patient object
+        fhir_meta = meta.Meta()
+        fhir_meta.lastUpdated = fhir_gen_datetime(dt=self.updated_at)
+        fhir_meta.versionId = str(self.version_number)
+        fhir_meta.profile = ['http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient']
+        fhir_pt.meta = fhir_meta
 
-        fp.name = []
-        fp.name.append(generate_humanname(use='official', first_name=self.first_name, last_name=self.last_name,
-                                          middle_name=self.middle_name, suffix=self.suffix, prefix=self.prefix))
+        # Patient name represented as HumanName resource
+        fhir_pt.name = []
+        fhir_pt.name.append(fhir_gen_humanname(use='usual', first_name=self.first_name, last_name=self.last_name,
+                                               middle_name=self.middle_name, suffix=self.suffix, prefix=self.prefix))
+        # Display MRN as identifier codeable concept = Patient.identifier.codeableconcept.coding
+        # Initialize Identifier resource
+        id_mrn = identifier.Identifier()
+        id_mrn.use = 'usual'
+        id_mrn.system = 'http://unkani.com'
+        id_mrn.value = str(self.uuid)
 
-        fp.gender = self.sex
+        # Initialize CodeableConcept resource
+        mrn_cc = codeableconcept.CodeableConcept()
+        mrn_cc.text = 'Medical Record Number'
 
-        fd_dob = fhirdate.FHIRDate()
-        fd_dob.date = self.dob
-        fp.birthDate = fd_dob
+        # Initialize Coding resource
+        mrn_coding = coding.Coding()
+        mrn_coding.system = 'http://hl7.org/fhir/v2/0203'
+        mrn_coding.code = 'MR'
+        mrn_coding.display = 'Medical Record Number'
 
-        fp.active = True
+        # Assign Coding resource to CodeableConcept
+        mrn_cc.coding = [mrn_coding]
 
-        self._fhir = fp
+        # Assign CodeableConcept to Identifier
+        id_mrn.type = mrn_cc
+
+        # Assign CodeableConcept to Patient
+        fhir_pt.identifier = [id_mrn]
+
+        # Display SSN as identifier codeable concept = Patient.identifier.codeableconcept.coding
+        if self.ssn:
+            # Initialize Identifier resource
+            id_ssn = identifier.Identifier()
+            id_ssn.use = 'usual'
+            id_ssn.system = 'http://hl7.org/fhir/sid/us-ssn'
+            id_ssn.value = self.ssn
+
+            # Initialize CodeableConcept resource
+            ssn_cc = codeableconcept.CodeableConcept()
+            ssn_cc.text = 'Social Security Number'
+
+            # Initialize Coding resource
+            ssn_coding = coding.Coding()
+            ssn_coding.system = 'http://hl7.org/fhir/v2/0203'
+            ssn_coding.code = 'SS'
+            ssn_coding.display = 'Social Security Number'
+
+            # Assign Coding resource to CodeableConcept
+            ssn_cc.coding = [ssn_coding]
+
+            # Assign CodeableConcept to Identifier
+            id_ssn.type = ssn_cc
+
+            # Assign CodeableConcept to Patient
+            fhir_pt.identifier.append(id_ssn)
+
+        if self.marital_status:
+            marital_status_cc = codeableconcept.CodeableConcept()
+            marital_status_cc.text = marital_status_dict.get(self.marital_status)[0].capitalize()
+
+            marital_status_coding = coding.Coding()
+            marital_status_coding.code = self.marital_status
+            marital_status_coding.system = 'http://hl7.org/fhir/ValueSet/marital-status'
+            marital_status_coding.display = marital_status_cc.text
+
+            marital_status_cc.coding = [marital_status_coding]
+            fhir_pt.maritalStatus = marital_status_cc
+
+        if self.race:
+            ext_race = extension.Extension()
+            ext_race.url = 'http://hl7.org/fhir/StructureDefinition/us-core-race'
+            cc_race = codeableconcept.CodeableConcept()
+            cc_race.text = race_dict.get(self.race)[0].capitalize()
+            coding_race = coding.Coding()
+            coding_race.system = 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category'
+            coding_race.code = self.race
+            coding_race.display = cc_race.text
+            cc_race.coding = [coding_race]
+            ext_race.valueCodeableConcept = cc_race
+            try:
+                fhir_pt.extension.append(ext_race)
+            except:
+                fhir_pt.extension = [ext_race]
+
+        if self.ethnicity:
+            ext_ethnicity = extension.Extension()
+            ext_ethnicity.url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity'
+            cc_ethnicity = codeableconcept.CodeableConcept()
+            cc_ethnicity.text = ethnicity_dict.get(self.ethnicity)[0].capitalize()
+            coding_ethnicity = coding.Coding()
+            coding_ethnicity.system = 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category'
+            coding_ethnicity.code = self.race
+            coding_ethnicity.display = cc_ethnicity.text
+            cc_ethnicity.coding = [coding_ethnicity]
+            ext_ethnicity.valueCodeableConcept = cc_ethnicity
+
+            try:
+                fhir_pt.extension.append(ext_ethnicity)
+            except AttributeError:
+                fhir_pt.extension = [ext_ethnicity]
+
+        if self.sex:
+            sex_dict = {"administrativeGender": {"M": "male", "F": "female", "u": "unknown", "o": "other"},
+                        "usCoreBirthSex": {"M": "M", "F": "F", "U": "UNK", "O": "UNK"}}
+
+            fhir_pt.gender = sex_dict['administrativeGender'][str(self.sex).upper()]
+
+            ext_birth_sex = extension.Extension()
+            ext_birth_sex.url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex'
+            ext_birth_sex.valueCode = sex_dict['usCoreBirthSex'][str(self.sex).upper()]
+
+            try:
+                fhir_pt.extension.append(ext_birth_sex)
+            except AttributeError:
+                fhir_pt.extension = [ext_birth_sex]
+
+        if self.dob:
+            fhir_pt.birthDate = fhir_gen_datetime(dt=self.dob, to_date=True)
+
+        fhir_pt.active = self.active
+
+        fhir_pt.deceasedBoolean = self.deceased
+
+        if self.deceased_date:
+            fhir_pt.deceasedDateTime = fhir_gen_datetime(dt=self.deceased_date, to_date=False)
+
+        if self.preferred_language:
+            fhir_comm = fhir_patient.PatientCommunication()
+            fhir_comm.preferred = True
+            fhir_lang_cc = codeableconcept.CodeableConcept()
+            fhir_lang_cc.coding = [coding.Coding(jsondict={"code": self.preferred_language})]
+            fhir_comm.language = fhir_lang_cc
+            fhir_pt.communication = [fhir_comm]
+
+        contact_point_list = []
+
+        phone_list = self.phone_numbers.all()
+        if phone_list:
+            for ph in phone_list:
+                contact_point_list.append(ph.fhir)
+
+        email_list = self.email_addresses.all()
+        if email_list:
+            for em in email_list:
+                contact_point_list.append(em.fhir)
+
+        if contact_point_list:
+            fhir_pt.telecom = contact_point_list
+
+        address_list = self.addresses.all()
+        if address_list:
+            fhir_pt.address = []
+            for addr in address_list:
+                fhir_pt.address.append(addr.fhir)
+
+        xhtml = render_template('fhir/patient.html', fhir_patient=fhir_pt, patient=self)
+        fhir_pt.text = narrative.Narrative()
+        fhir_pt.text.status = 'generated'
+        fhir_pt.text.div = xhtml
+
+        self._fhir = fhir_pt
 
     def dump_fhir_json(self):
         self.create_fhir_object()
@@ -359,7 +568,9 @@ class Patient(db.Model):
         self.ethnicity = demo_dict.get("ethnicity", None)
         self.marital_status = demo_dict.get("marital_status", None)
         self.deceased = demo_dict.get("deceased", False)
-        self.preferred_language = random_language()
+        self.deceased_date = demo_dict.get("deceased_date", None)
+        self.preferred_language = demo_dict.get("preferred_language", None)
+        self.multiple_birth = demo_dict.get("multiple_birth", False)
 
         addr = Address()
         addr.address1 = demo_dict.get("address1", None)
@@ -405,16 +616,24 @@ class Patient(db.Model):
                 "dob": self.dob, "sex": self.sex, "prefix": self.prefix, "suffix": self.suffix, "race": self.race,
                 "ethnicity": self.ethnicity, "marital_status": self.marital_status, "deceased": self.deceased,
                 "deceased_date": self.deceased_date, "multiple_birth": self.multiple_birth, "ssn": self.ssn,
-                "preferred_language": self.preferred_language}
+                "preferred_language": self.preferred_language, "active": self.active}
 
         data_str = json.dumps(data, sort_keys=True, default=json_serial)
         data_hash = hashlib.sha1(data_str.encode('utf-8')).hexdigest()
         return data_hash
 
     def before_insert(self):
+        """
+        Stuff to do before record is inserted into database
+        :return: None
+        """
         self.row_hash = self.generate_row_hash()
 
     def before_update(self):
+        """
+        Stuff to do before record is updated in database
+        :return: None
+        """
         self.row_hash = self.generate_row_hash()
 
 
@@ -448,6 +667,7 @@ class PatientSchema(ma.Schema):
     deceased_date = fields.Date(attribute='deceased_date')
     multiple_birth = fields.Boolean(attribute='multiple_birth')
     preferred_language = fields.String(attribute='preferred_language')
+    active = fields.Boolean(attribute='active')
     created_at = fields.DateTime(attribute='created_at')
     updated_at = fields.DateTime(attribute='updated_at')
     row_hash = fields.String(attribute='row_hash')
@@ -461,7 +681,8 @@ class PatientAPI:
 
     def __init__(self, first_name=None, last_name=None, middle_name=None, prefix=None, suffix=None, sex=None,
                  dob=None, ssn=None, race=None, ethnicity=None, marital_status=None, deceased=None,
-                 deceased_date=None, multiple_birth=None, preferred_language=None, email=None, phone_numbers=None):
+                 deceased_date=None, multiple_birth=None, preferred_language=None, email=None, phone_numbers=None,
+                 active=None):
         self.first_name = first_name
         self.last_name = last_name
         self.middle_name = middle_name
@@ -479,3 +700,4 @@ class PatientAPI:
         self.preferred_language = preferred_language
         self.email = email
         self.phone_numbers = phone_numbers
+        self.active = active

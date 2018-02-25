@@ -45,9 +45,9 @@ class CodeSystem(db.Model):
     version = db.Column(db.Text)
     url = db.Column(db.Text)
     data = db.Column(postgresql.JSONB)
-    data_hash = db.Column(db.Text, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow())
     updated_at = db.Column(db.DateTime)
+    data_hash = db.Column(db.Text, index=True)
 
     source_data = db.relationship('SourceData', secondary=source_data_codesystem)
 
@@ -379,6 +379,7 @@ def process_fhir_codeset(source_data):
     recursively calls this function to satisfy requirement and create CodeSystem object."""
     if source_data and isinstance(source_data, SourceData) and source_data.route in ['/codesystem', '/valueset']:
         # TODO: Error handling in this function
+        # TODO: Process any codesets in source_data that do not have association object entries
         data = json.loads(source_data.payload)
         url = data.get('url')
         if source_data.route == '/codesystem':

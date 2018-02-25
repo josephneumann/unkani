@@ -1,9 +1,11 @@
 from app import db, ma
 from marshmallow import fields
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import UUID as postgresql_uuid
 
 from app.utils.demographics import validate_phone, validate_contact_type, format_phone
 from app.models.extensions import BaseExtension
+from fhirclient.models import contactpoint
 import hashlib, json
 
 
@@ -36,6 +38,7 @@ class PhoneNumber(db.Model):
         self.primary = primary
         self.user_id = user_id
         self.patient_id = patient_id
+        self._fhir = None
 
     def generate_row_hash(self):
         data = {"number": self.number, "type": self.type, "active": self.active}
@@ -55,6 +58,59 @@ class PhoneNumber(db.Model):
     def formatted_phone(self):
         if self.number:
             return format_phone(self.number)
+
+    @property
+    def fhir(self):
+        """
+        Returns fhir-client ContactPoint model object associated with SQLAlchemy Instance
+        If no fhir-client object is initialized, one is created and stored in protected attrib _fhir
+        :return:
+            fhir-client ContactPoint object matching SQLAlchemy ORM object instance
+        """
+        if not getattr(self, '_fhir', None):
+            self.create_fhir_object()
+            return self._fhir
+        else:
+            return self._fhir
+
+    @fhir.setter
+    def fhir(self, fhir_obj):
+        """
+        Allows setting of the protected attribute _fhir
+        Validates object is fhir-client model ContactPoint object
+        :param fhir_obj:
+            A fhir-client ContactPOint model object instance
+        :return:
+            None
+        """
+        if not isinstance(fhir_obj, contactpoint.ContactPoint):
+            raise TypeError('Object is not a fhirclient ContactPoint object')
+        else:
+            self._fhir = fhir_obj
+
+    def create_fhir_object(self):
+        fhir_contact = contactpoint.ContactPoint()
+        fhir_contact.system = 'phone'
+
+        if self.active:
+            fhir_contact.use = self.type.lower()
+            if self.primary:
+                fhir_contact.rank = 1
+            else:
+                fhir_contact.rank = 2
+        else:
+            fhir_contact.use = 'old'
+            fhir_contact.rank = 3
+
+        if self.number:
+            fhir_contact.value = self.formatted_phone
+
+        self._fhir = fhir_contact
+
+    def dump_fhir_json(self):
+        self.create_fhir_object()
+        return self.fhir.as_json()
+
 
 
 

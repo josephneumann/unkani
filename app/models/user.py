@@ -1,4 +1,4 @@
-import os, hashlib, json
+import os, hashlib, json, base64
 from flask import current_app, g, url_for
 from sqlalchemy.ext.hybrid import hybrid_property
 from flask_login import UserMixin, AnonymousUserMixin, current_user
@@ -8,12 +8,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import db, login_manager, ma
 from app.flask_sendgrid import send_email
-from app.models.phone_number import PhoneNumberAPI
-from app.models.email_address import EmailAddress, EmailAddressAPI
+from app.models.fhir.phone_number import PhoneNumberAPI
+from app.models.fhir.email_address import EmailAddress, EmailAddressAPI
 from app.models.fhir.address import AddressAPI
 from app.models.role import Role
 from app.models.fhir.address import Address, AddressSchema
-from app.models.phone_number import PhoneNumber
+from app.models.fhir.phone_number import PhoneNumber
 from app.models.extensions import BaseExtension
 from app.models.app_group import user_app_group, AppGroup, AppGroupSchema
 from app.security import app_permission_useractivation, app_permission_userforceconfirmation, \
@@ -54,6 +54,8 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.Text)
     last_password_hash = db.Column(db.Text)
     password_timestamp = db.Column(db.DateTime)
+    token = db.Column(db.String(32), index=True, unique=True)
+    token_expiration = db.Column(db.DateTime)
     email_addresses = db.relationship("EmailAddress", back_populates="user", lazy="dynamic",
                                       cascade="all, delete, delete-orphan")
     phone_numbers = db.relationship("PhoneNumber", order_by=PhoneNumber.id.desc(), back_populates="user",
@@ -498,28 +500,37 @@ class User(UserMixin, db.Model):
     # USER API SUPPORT
     ##############################################################################################
 
-    def generate_api_auth_token(self, expiration=600):
+    def generate_api_auth_token(self, expiration=3600):
         __doc__ = """
-        Generates a Time JSON Web Signature token, with an expiration of 600 seconds
+        Generates a Time JSON Web Signature token, with an expiration of 1 hour
         by default.  Uses the application SECRET KEY to encrypt the token.  Token encrypts the
         user.id attribute with a key of 'id' for future identification use.  The token is supplied
         in an ascii format, for use with API client.py."""
+        now = datetime.utcnow()
+        if self.token and self.token_expiration > now + timedelta(seconds=60):
+            return self.token
         s = TimedSerializer(current_app.config['SECRET_KEY'], expires_in=expiration)
-        token = s.dumps({'id': self.id}).decode('ascii')
-        return token
+        self.token = base64.b64encode(os.urandom(24)).decode('utf-8')
+        self.token_expiration = datetime.utcnow() + timedelta(seconds=expiration)
+        return self.token
+
+    def revoke_token(self):
+        self.token_expiration = datetime.utcnow() - timedelta(seconds=1)
 
     @staticmethod
     def verify_api_auth_token(token):
         __doc__ = """
         User Method:  verify_api_auth_token takes a token and,
-        if found valid, returns the user object stored in it.
+        if found valid, returns the user object stored in it and a boolean for Expired
+        
+        (user, expired)
         """
-        s = TimedSerializer(current_app.config['SECRET_KEY'])
-        try:
-            data = s.loads(token)
-        except:
-            return None
-        return User.query.get(int(data['id']))
+        user = User.query.filter_by(token=token).first()
+        if user is None:
+            return None, True
+        if user.token_expiration < datetime.utcnow():
+            return user, True
+        return user, False
 
     ##############################################################################################
     # USER RANDOMIZATION METHODS

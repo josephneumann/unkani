@@ -1,11 +1,8 @@
-import functools, os
-from flask import request, url_for, make_response
-from app.utils.general import json_serial
-from app.api_v1.errors import *
+import functools
 import time
 from app import redis
 from flask import current_app, g
-from app.api_v1.errors import too_many_requests
+from app.api_v1.errors.exceptions import RateLimitError
 
 
 def rate_limit(limit, period):
@@ -29,12 +26,11 @@ def rate_limit(limit, period):
                     'X-RateLimit-Limit': str(limit),
                     'X-RateLimit-Reset': str(limiter.reset)
                 }
-                g.headers = rate_limit_info
 
                 # if the client went over the limit respond with a 429 status
                 # code, else invoke the wrapped function
                 if not limiter.allowed:
-                    return too_many_requests(message='You have exceeded your request rate limit: {}'.format(rate_limit_info))
+                    raise RateLimitError(rate_limit_info)
 
             # let the request through
             return f(*args, **kwargs)

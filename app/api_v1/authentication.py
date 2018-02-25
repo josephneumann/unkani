@@ -2,35 +2,30 @@ from flask import g, jsonify, url_for, current_app
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
 from flask_principal import Identity, identity_changed
 from app import db
-from ..models import User, EmailAddress
-from . import api
-from app.api_v1.errors import unauthorized, AuthenticationError
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
+from app.models import User, EmailAddress
+from app.api_v1 import api_bp
+from app.api_v1.errors.exceptions import *
+from app.api_v1.errors.fhir_errors import fhir_error_response
 
 basic_auth = HTTPBasicAuth()
 token_auth = HTTPTokenAuth()
 multi_auth = MultiAuth(basic_auth, token_auth)
 
 
-@api.before_request
-def before_request():  # pragma: no cover
-    pass
-
-
 @basic_auth.verify_password
 def verify_password(email, password):
     if not email:
-        raise AuthenticationError("No email address provided for login.")
+        raise BasicAuthError("HTTP Basic-auth failed on condition: No email address provided.")
     user = db.session.query(User).join(EmailAddress).filter(EmailAddress.active == True).filter(
         EmailAddress.email == str(email).upper().strip()).first()
     if user is None:
-        raise AuthenticationError("Email provided does not match an active account")
+        raise BasicAuthError("HTTP Basic-auth failed on condition: No user matching the provided email found.")
     if not user.verify_password(password):
         return False
     if not user.confirmed:
-        raise AuthenticationError("User account is unconfirmed")
+        raise BasicAuthError("HTTP Basic-auth failed on condition: User account is unconfirmed")
     if not user.active:
-        raise AuthenticationError("User account is inactive")
+        raise BasicAuthError("HTTP Basic-auth failed on condition: User account is inactive")
     setattr(g, 'current_user', user)
     identity_changed.send(current_app._get_current_object(),
                           identity=Identity(user.id))
@@ -39,7 +34,9 @@ def verify_password(email, password):
 
 @basic_auth.error_handler
 def auth_error():
-    return unauthorized('Invalid credentials')
+    """Handles circumstances where the function decorated with basic_auth.verify_password
+    returns a False boolean.  Functionally means password was invalid."""
+    raise BasicAuthError("HTTP Basic-auth failed on condition: password could not be verified.")
 
 
 @token_auth.verify_token
@@ -48,22 +45,17 @@ def verify_token(token):
     # Check is token exists
     if not token:
         return False
-    # Test deserialization of token
-    s = Serializer(current_app.config['SECRET_KEY'])
-    try:
-        data = s.loads(token)
-    except SignatureExpired:
-        raise AuthenticationError("Token is expired.")
-    except BadSignature:
-        raise AuthenticationError("Token is invalid.")
     # Extract user from valid token
-    user = User.verify_api_auth_token(token)
-    # CCheck if user is returned from token
+    user, expired = User.verify_api_auth_token(token)
+    # Check if user is returned from token
     if user is None:
-        raise AuthenticationError("Token is invalid.")
+        raise TokenAuthError("Token is invalid.")
+    # Token must not be expired
+    if expired:
+        raise TokenExpiredError("User authentication token expired.")
     # User must be confirmed
     if not user.confirmed:
-        raise AuthenticationError("User account is unconfirmed.")
+        raise TokenAuthError("User account is unconfirmed.")
     # Set global request context g.current_user variable which is used in API routes
     # Since sessions are not used in RESTapi, there should not be any authentication info stored in session with
     # flask-login's login_user function
@@ -75,14 +67,12 @@ def verify_token(token):
 
 @token_auth.error_handler
 def token_error():
-    """Return a 401 error to the client.py."""
-    r = unauthorized(message='Token authentication required.')
-    r.headers['Location'] = url_for('api_v1.new_token')
-    r.headers['WWW-Authenticate'] = 'Bearer realm="Authentication Required"'
-    return r
+    """Handles circumstances where the function decorated with token_auth.verify_password
+    returns a False boolean.  Functionally means token was invalid."""
+    raise TokenAuthError('Invalid token provided for authentication')
 
 
-@api.route('/tokens', methods=['POST'])
+@api_bp.route('/tokens', methods=['POST'])
 @basic_auth.login_required
 def new_token():
     """
@@ -93,3 +83,10 @@ def new_token():
     """
     token = g.current_user.generate_api_auth_token()
     return jsonify({'token': token})
+
+
+@api_bp.route('/tokens', methods=['DELETE'])
+@token_auth.login_required
+def revoke_token():
+    g.current_user.revoke_token()
+    db.session.commit()

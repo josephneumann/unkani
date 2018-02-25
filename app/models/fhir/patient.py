@@ -370,7 +370,7 @@ class Patient(db.Model):
 
         # Build and assign Meta resource for Patient object
         fhir_meta = meta.Meta()
-        fhir_meta.lastUpdated = fhir_gen_datetime(dt=self.updated_at)
+        fhir_meta.lastUpdated = fhir_gen_datetime(value=self.updated_at, error_out=False, to_date=False)
         fhir_meta.versionId = str(self.version_number)
         fhir_meta.profile = ['http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient']
         fhir_pt.meta = fhir_meta
@@ -493,14 +493,14 @@ class Patient(db.Model):
                 fhir_pt.extension = [ext_birth_sex]
 
         if self.dob:
-            fhir_pt.birthDate = fhir_gen_datetime(dt=self.dob, to_date=True)
+            fhir_pt.birthDate = fhir_gen_datetime(value=self.dob, to_date=True)
 
         fhir_pt.active = self.active
 
         fhir_pt.deceasedBoolean = self.deceased
 
         if self.deceased_date:
-            fhir_pt.deceasedDateTime = fhir_gen_datetime(dt=self.deceased_date, to_date=False)
+            fhir_pt.deceasedDateTime = fhir_gen_datetime(value=self.deceased_date, to_date=False)
 
         if self.preferred_language:
             fhir_comm = fhir_patient.PatientCommunication()

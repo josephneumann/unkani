@@ -19,6 +19,7 @@ class Config:
 
     SENTRY_DSN = os.environ.get('SENTRY_DSN')
     SENTRY_USER_ATTRS = ['username', 'first_name', 'last_name', 'email']
+    SENTRY_DISABLE = True
 
     SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
     SENDGRID_PASSWORD = os.environ.get('SENDGRID_PASSWORD')
@@ -48,6 +49,13 @@ class Config:
                        'issue-severity': 'http://hl7.org/fhir/ValueSet/issue-severity',
                        'operation-outcome': 'http://hl7.org/fhir/ValueSet/operation-outcome'
                        }
+
+    ALLOWED_MIMETYPES = {
+        'json': ['application/fhir+json', 'application/json+fhir', 'application/json'],
+        'xml': ['application/fhir+xml', 'application/json+xml', 'application/xml', 'text/xml'],
+        'rdf': ['text/turtle'],
+        'html': ['text/html', 'application/html']
+    }
 
     # Define an init_app class method that allows for config specific initialization
     @staticmethod

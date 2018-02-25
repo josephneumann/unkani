@@ -57,7 +57,7 @@ def create_operation_outcome(outcome_list):
         if 'diagnostics' in x.keys():
             diagnostics = x.get('diagnostics')
             if diagnostics:
-                issue_diagnostics = diagnostics
+                issue_diagnostics = str(diagnostics)
 
         if 'location' in x.keys():
             location = x.get('location')

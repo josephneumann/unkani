@@ -1,7 +1,7 @@
 import functools
 import hashlib
 from flask import request, make_response
-from app.api_v1.errors.errors import precondition_failed, not_modified
+from app.api_v1.errors.exceptions import NotModifiedError, PreconditionFailedError
 
 
 def etag(f):
@@ -22,11 +22,11 @@ def etag(f):
         if if_match:
             etag_list = [tag.strip() for tag in if_match.split(',')]
             if etag not in etag_list and '*' not in etag_list:
-                rv = precondition_failed()
+                raise PreconditionFailedError
         elif if_none_match:
             etag_list = [tag.strip() for tag in if_none_match.split(',')]
             if etag in etag_list or '*' in etag_list:
-                rv = not_modified()
+                raise NotModifiedError
         return rv
 
     return wrapped

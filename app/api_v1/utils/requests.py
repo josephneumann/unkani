@@ -1,12 +1,6 @@
 import functools
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from app.api_v1.utils.operation_outcome import create_operation_outcome
-
-fhir_mime_types = {
-    'json': ['application/fhir+json', 'application/json+fhir', 'application/json', 'json'],
-    'xml': ['application/fhir+xml', 'application/json+xml', 'application/xml', 'text/xml', 'xml'],
-    'rdf': ['text/turtle', 'ttl']
-}
 
 
 def enforce_fhir_mimetype_charset(f):
@@ -14,6 +8,8 @@ def enforce_fhir_mimetype_charset(f):
     def wrapped(*args, **kwargs):
 
         outcome_list = []
+        allowed_mimetypes = dict(current_app.config['ALLOWED_MIMETYPES'])
+
 
         # For charset prioritize accept-charset header
         accept_charset_header = request.headers.get(key='accept-charset')
@@ -27,7 +23,7 @@ def enforce_fhir_mimetype_charset(f):
         # For mime_type prioritize _format arg
         format_header = request.args.get(key='_format', type=str)
         if format_header:
-            if str(format_header).lower().strip() not in fhir_mime_types['json']:
+            if str(format_header).lower().strip() not in allowed_mimetypes['json']:
                 outcome_list.append({'severity': 'error', 'type': 'structure', 'location': ['http._format'],
                                      'details':
                                          'An invalid mime-type was requested in the _format parameter {}'.format(
@@ -40,7 +36,7 @@ def enforce_fhir_mimetype_charset(f):
             accept_header_parts = str(accept_header).split(';')
             accept_string = accept_header_parts[0]
             if accept_string:
-                if str(accept_string).lower().strip() not in fhir_mime_types['json']:
+                if str(accept_string).lower().strip() not in allowed_mimetypes['json']:
                     outcome_list.append({'severity': 'error', 'type': 'structure', 'location': ['http.accept'],
                                          'details':
                                              'An invalid mime-type was requested in the Accept header: {}.'.format(
@@ -61,7 +57,7 @@ def enforce_fhir_mimetype_charset(f):
             content_type_header_parts = str(content_type_header).split(';')
             content_string = content_type_header_parts[0]
             if content_string:
-                if str(content_string).lower().strip() not in fhir_mime_types['json']:
+                if str(content_string).lower().strip() not in allowed_mimetypes['json']:
                     outcome_list.append(
                         {'severity': 'error', 'type': 'structure', 'location': ['http.content-type'],
                          'details': 'An invalid mime-type was designated in the Content-Type header: {}'.format(

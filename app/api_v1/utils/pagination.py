@@ -1,5 +1,5 @@
 from flask import request, jsonify, url_for
-from app.api_v1.errors.errors import not_found
+from app.api_v1.errors.exceptions import *
 
 filter_ops = {'eq': '__eq__',  # equal
               'ne': '__ne__',  # not equal
@@ -35,8 +35,8 @@ def paginate_query(query, name, max_per_page=50, error_list=[], **kwargs):
     # Return pagination object
     p = query.paginate(page, per_page)
 
-    if not p.items:
-        return not_found(message='No resources could be found matching your request paramaters')
+    # if not p.items:
+    #     raise 404
 
     # Set pages dict to be supplied to metadata
     pages = {'page': page, 'per_page': per_page,

@@ -1,5 +1,6 @@
 import re
 import random
+import unidecode
 from datetime import datetime, date, timedelta
 from dateutil import parser as dateparser
 from dateutil.relativedelta import relativedelta
@@ -545,6 +546,7 @@ def normalize_name(name=None):
         return value
 
     if name:
+        name = unidecode.unidecode(name)  # Remove accents
         name = remove_paren(value=name)
         name = remove_restricted_chars(value=name).upper()
         name = finalize_output(value=name)
@@ -570,6 +572,7 @@ def normalize_username(username=None):
     def remove_restricted_chars(value):
         restricted_re = re.compile("[@]")
         value = restricted_re.sub('', value).strip()
+        value = unidecode.unidecode(value)
         return value
 
     def finalize_output(value):
@@ -578,7 +581,7 @@ def normalize_username(username=None):
 
     if username:
         username = remove_restricted_chars(value=username).upper()
-        name = finalize_output(value=username)
+        username = finalize_output(value=username)
 
     return username
 

@@ -1,5 +1,5 @@
 from fhirclient.models import humanname, fhirdate
-from app.utils.datetime import datetime_handler
+from app.utils.type_validation import validate_datetime
 
 
 def fhir_gen_humanname(use='official', first_name=None, last_name=None, middle_name=None, suffix=None, prefix=None):
@@ -48,7 +48,7 @@ def fhir_gen_datetime(value=None, to_date=False, error_out=False):
         fhirclient.models.fhirdate.FHIRDate class object if it can be constructed
         If invalid datetime string is passed, DatetimeParseError is raised if error_out=True
     """
-    dt = datetime_handler(value=value, to_date=to_date, error_out=error_out)
+    dt = validate_datetime(value=value, to_date=to_date, error_out=error_out)
     fhir_date_obj = fhirdate.FHIRDate()
     if dt:
         fhir_date_obj.date = dt

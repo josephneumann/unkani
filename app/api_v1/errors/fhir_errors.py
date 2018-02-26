@@ -134,3 +134,15 @@ def not_modified_handler(e):
         {'severity': 'error', 'type': 'business-rule',
          'diagnostics': str(e), 'details': 'Precondition failed'}])
     return response
+
+
+@api_bp.errorhandler(ValidationError)
+def not_modified_handler(e):
+    try:
+        error_text = str(e.args[0])
+    except IndexError:
+        error_text = str(e)
+    response = fhir_error_response(status_code=400, outcome_list=[
+        {'severity': 'fatal', 'type': 'business-rule',
+         'diagnostics': error_text, 'details': 'Bad Request - Validation of input failed: {}'.format(error_text)}])
+    return response

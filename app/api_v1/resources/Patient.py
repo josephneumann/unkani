@@ -66,26 +66,60 @@ def patient_vread(id, vid):
 
 
 @api_bp.route('/fhir/Patient', methods=['GET'])
-@api_bp.route('/fhir/Patient/_search', methods=['POST'])
+# @api_bp.route('/fhir/Patient/_search', methods=['POST']) #TODO better support for webform params
 @token_auth.login_required
 @enforce_fhir_mimetype_charset
 @rate_limit(limit=5, period=15)
+@etag
 def patient_search():
+    # Initialize a query that will be added to dynamically according to url params
     query = Patient.query
-    model_support = {}
+    # Define additional search support beyond the standard _id and _lastUpdated attributes
+    model_support = {'active': {'ordered': False,
+                                'modifier': ['not'],
+                                'prefix': [],
+                                'model': Patient,
+                                'column': 'active',
+                                'type': 'bool',
+                                'validation': []},
+                     'deceased': {'ordered': False,
+                                  'modifier': ['not'],
+                                  'prefix': [],
+                                  'model': Patient,
+                                  'column': 'deceased',
+                                  'type': 'bool',
+                                  'validation': []},
+                     'birthdate': {'ordered': True,
+                                   'modifier': [],
+                                   'prefix': ['gt', 'ge', 'lt', 'le', 'eq', 'ne'],
+                                   'model': Patient,
+                                   'column': 'dob',
+                                   'type': 'date',
+                                   'validation': []},
+                     'death-date': {'ordered': True,
+                                    'modifier': [],
+                                    'prefix': ['gt', 'ge', 'lt', 'le', 'eq', 'ne'],
+                                    'model': Patient,
+                                    'column': 'deceased_date',
+                                    'type': 'date',
+                                    'validation': []},
+                     'given': {'ordered': False,
+                               'modifier': ['exact', 'contains', 'missing'],
+                               'prefix': [],
+                               'model': Patient,
+                               'column': 'first_name',
+                               'type': 'string',
+                               'validation': []}
+                     }
+    # Parse the request args and execute the search.  Return un-executed query
     query = fhir_search(args=request.args, model_support=model_support, base=Patient, query=query)
+    # Pass the query to be executed to bundle/pagination utility
     bundle = create_bundle(query=query, paginate=True)
+
+    # Create the response from bundle JSON
     response = jsonify(bundle.as_json())
     response.status_code = 200
     return response
-
-    # Accept GET with URL parameters
-    # Accept POST with application/x-www-form-urlencoded submission
-    # Return 200 status code if successful with a Bundle resource type = searchset
-    # If search succeeds but no records returned, still 200 status code
-    # 4XX or 5XX status code for other errors
-    # If desired, a successful search can return an OperationOutcome object with Bundle.entry.search.mode = outcome
-    # No operation outcome is allowed for 400 / 500 errors.  No entries in OperationOutcome fatal or error
 
 
 @api_bp.route('/fhir/Patient/$match', methods=['POST'])

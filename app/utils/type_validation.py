@@ -7,7 +7,7 @@ class DatetimeParseError(ValueError):
     pass
 
 
-def datetime_handler(value=None, error_out=True, to_date=False):
+def validate_datetime(value=None, error_out=True, to_date=False):
     """
     Helper function to validate a datetime object or parse a valid date or datetime string into
     a datetime object
@@ -41,3 +41,36 @@ def datetime_handler(value=None, error_out=True, to_date=False):
     if dt and to_date:
         dt = dt.date()
     return dt
+
+
+def validate_bool(value, error=False):
+    """
+    Takes a value and normalizes it to a boolean, if possible
+    :param value: The value to normalize.  Can be any type
+    :param error: Boolean - whether function should raise an error if normalization fails
+    :return:
+        Normalized value (boolean type) OR None
+        ValueError if normalization fails and error=True
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        if value in (0, 1):
+            return bool(value)
+        raise ValueError
+    if not value:
+        if error:
+            raise ValueError
+    if value in ('0', '1'):
+        return bool(int(value))
+    try:
+        str_value = str(value).lower().strip()[0:1]
+        if str_value == 't':
+            return True
+        if str_value == 'f':
+            return False
+    except:
+        pass
+    if error:
+        raise ValueError
+    return None

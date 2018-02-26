@@ -2,17 +2,25 @@ class APIError(Exception):
     """Base error for API exceptions.  Subclass of Exception"""
     pass
 
+
+class ValidationError(APIError):
+    pass
+
+
 class PreconditionFailedError(APIError):
     """Used with etag"""
     pass
+
 
 class NotModifiedError(APIError):
     """Used with etag"""
     pass
 
+
 class BadRequestError(APIError):
     """Raised in context of API when a 400 error is appropriate."""
     pass
+
 
 class RateLimitError(APIError):
     """Base error for Rate Limit exceptions.  Subclass of APIError"""
@@ -43,7 +51,7 @@ class BasicAuthError(AuthenticationError):
     """Error related to basic auth requests."""
     pass
 
+
 class ForbiddenError(AuthenticationError):
     """Forbidden authentication related error.  Subclass of AuthenticationError"""
     pass
-

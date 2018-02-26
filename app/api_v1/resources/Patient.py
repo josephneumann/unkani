@@ -5,7 +5,7 @@ from app.api_v1.errors.user_errors import *
 from app.api_v1.utils.rate_limit import rate_limit
 from app.api_v1.utils.etag import etag
 from app.api_v1.utils.bundle import create_bundle
-from app.api_v1.utils.search import parse_fhir_search
+from app.api_v1.utils.search import fhir_search
 from app.api_v1.utils.requests import enforce_fhir_mimetype_charset
 from app.models.fhir.patient import Patient
 
@@ -73,21 +73,7 @@ def patient_vread(id, vid):
 def patient_search():
     query = Patient.query
     model_support = {}
-    fhir_search_spec = parse_fhir_search(args=request.args, model_support=model_support)
-
-    for key in fhir_search_spec.keys():
-        if key == '_id':
-            column = getattr(Patient, 'id')
-            search_params = fhir_search_spec.get(key)
-            op = search_params.get('op')
-            query = query.filter(getattr(column, op)(search_params.get('value')))
-
-        if key == '_lastUpdated':
-            column = getattr(Patient, 'updated_at')
-            search_params = fhir_search_spec.get(key)
-            op = search_params.get('op')
-            query = query.filter(getattr(column, op)(search_params.get('value')))
-
+    query = fhir_search(args=request.args, model_support=model_support, base=Patient, query=query)
     bundle = create_bundle(query=query, paginate=True)
     response = jsonify(bundle.as_json())
     response.status_code = 200

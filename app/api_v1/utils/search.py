@@ -22,35 +22,46 @@ fhir_modifiers = {'contains': 'ilike',
                   'not': '__ne__'}  # TODO: Handle :missing, :text
 
 
-def parse_fhir_search(args):
+def parse_fhir_search(args, model_support={}):
+    default_support = {'_id': {'ordered': False,
+                               'modifier': ['exact', 'not'],
+                               'prefix': []},
+                       '_lastUpdated': {'ordered': True,
+                                        'modifier': [],
+                                        'prefix': ['gt', 'ge', 'lt', 'le', 'eq', 'ne']}
+                       }
+    #TODO:  Validate input for model_support and base_model
+    # Build one search support dictionary
+    support = {**default_support, **model_support}
+
     fhir_search_spec = {}
     for arg in args:
-        if arg not in ['page', '_count']:
-            arg_split = arg.split(':')
+        arg_split = arg.split(':')
+        search_key, search_modifier = None, None
+        op = '__eq__'
+        if arg_split[0] in support.keys():
             search_key = arg_split[0]
-            search_modifer = None
-            search_modifer_op = None
             try:
-                n_search_modifer = arg_split[1].lower().strip()
-                if n_search_modifer in fhir_modifiers:
-                    search_modifer = n_search_modifer
-                    search_modifer_op = fhir_modifiers.get(n_search_modifer)
+                n_search_modifier = arg_split[1].lower().strip()
+                if n_search_modifier in support[search_key].get('modifier'):
+                    search_modifier = n_search_modifier
+                    op = fhir_modifiers.get(n_search_modifier)
             except IndexError:
                 pass
 
             value = request.args.get(arg)
             value_prefix = None
-            if search_key in ['_lastUpdated']:  # Add 'birthdate', 'death-date' for patient
+            if support[search_key].get('ordered'):
                 try:
-                    value_prefix = value[0:2].lower().strip()
-                    if value_prefix in fhir_prefixes.keys():
+                    n_value_prefix = value[0:2].lower().strip()
+                    if n_value_prefix in fhir_prefixes.keys():
                         value = value[2:]
-                    else:
-                        value_prefix = None
+                        op = fhir_prefixes.get(n_value_prefix)
+                        value_prefix = n_value_prefix
                 except IndexError:
                     pass
-            fhir_search_spec[search_key] = {'modifier': search_modifer,
-                                            'modifierOp': search_modifer_op,
+            fhir_search_spec[search_key] = {'modifier': search_modifier,
+                                            'op': op,
                                             'prefix': value_prefix,
                                             'value': value}
     return fhir_search_spec

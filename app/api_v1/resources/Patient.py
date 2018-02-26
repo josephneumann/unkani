@@ -72,27 +72,20 @@ def patient_vread(id, vid):
 @rate_limit(limit=5, period=15)
 def patient_search():
     query = Patient.query
-    fhir_search_spec = parse_fhir_search(args=request.args)
-    search_support = {'_id': {'modifier': ['exact', 'not'],
-                              'prefix': []},
-                      '_lastUpdated': {'modifier': [],
-                                       'prefix': ['gt', 'ge', 'lt', 'le', 'eq', 'ne']}
-                      }
+    model_support = {}
+    fhir_search_spec = parse_fhir_search(args=request.args, model_support=model_support)
 
     for key in fhir_search_spec.keys():
         if key == '_id':
             column = getattr(Patient, 'id')
             search_params = fhir_search_spec.get(key)
+            op = search_params.get('op')
+            query = query.filter(getattr(column, op)(search_params.get('value')))
 
-            if search_params.get('modifier') in search_support[key]['modifier']:
-                op = search_params.get('modifierOp')
-            else:
-                op = '__eq__'
-                # TODO: Check if handing is strict and log error for un-supported modifier
-
-            if search_params.get('prefix'):
-                pass
-                # TODO: If strict handling, reject any prefix values
+        if key == '_lastUpdated':
+            column = getattr(Patient, 'updated_at')
+            search_params = fhir_search_spec.get(key)
+            op = search_params.get('op')
             query = query.filter(getattr(column, op)(search_params.get('value')))
 
     bundle = create_bundle(query=query, paginate=True)

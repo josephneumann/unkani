@@ -316,6 +316,25 @@ class ValueSet(db.Model):
                 code_set = code_set | inc.valueset.code_set
         return code_set
 
+    def get_concept(self, code):
+        for inc in self.fhir.compose.include:
+            if hasattr(inc, 'system') and inc.system:
+                if hasattr(inc, 'concept') and inc.concept:
+                    for x in inc.concept:
+                        if x == code:
+                            return x
+                else:
+                    cs = CodeSystem.query.filter(CodeSystem.url == inc.system).first()
+                    if cs:
+                        x = cs.get_concept(code)
+                        if x:
+                            return x
+            if hasattr(inc, 'valueset') and inc.valueset:
+                x = inc.valueset.get_concept()
+                if x:
+                    return x
+        return None
+
     def dump_fhir_json(self):
         return self.data  # same as self.fhir.as_json()
 

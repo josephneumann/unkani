@@ -2,6 +2,7 @@ from flask import request
 import unidecode
 from app.api_v1.errors.exceptions import *
 from app.utils.type_validation import *
+from sqlalchemy import and_, or_
 
 fhir_prefixes = {'eq': '__eq__',  # equal
                  'ne': '__ne__',  # not equal
@@ -36,7 +37,9 @@ def search_support_is_valid(support):
             return False
         if not isinstance(support[key]['ordered'], bool):
             return False
-        if not support[key].get('model') or not support[key].get('column'):
+        if not support[key].get('model'):
+            return False
+        if not support[key].get('column') or not isinstance(support[key].get('column'), list):
             return False
         if not support[key].get('type') or support[key].get('type') not in ['bool', 'datetime', 'int',
                                                                             'string', 'timestamp', 'date',
@@ -62,14 +65,14 @@ def parse_fhir_search(args, base, model_support={}):
                                'modifier': ['exact', 'not'],
                                'prefix': [],
                                'model': base,
-                               'column': 'id',
+                               'column': ['id'],
                                'type': 'int',
                                'validation': []},
                        '_lastUpdated': {'ordered': True,
                                         'modifier': [],
                                         'prefix': ['gt', 'ge', 'lt', 'le', 'eq', 'ne'],
                                         'model': base,
-                                        'column': 'updated_at',
+                                        'column': ['updated_at'],
                                         'type': 'datetime',
                                         'validation': []}
                        }
@@ -149,8 +152,8 @@ def parse_fhir_search(args, base, model_support={}):
                         raise ValidationError(
                             'The value for parameter ({}) was ({}) and could not be validated as a datetime input for the search' \
                                 .format(search_key, input_value))
-                if param_type == 'string': # Deal with case comparison
-                    input_value = unidecode.unidecode(input_value) # Handle accents per FHIR
+                if param_type == 'string':  # Deal with case comparison
+                    input_value = unidecode.unidecode(input_value)  # Handle accents per FHIR
                     if op == 'ilike':  # Handles the :contains modifier for string parameters
                         value = '%' + str(input_value) + '%'
                     if not op:  # If no modifier is defined for string parameters a case-insensitive starts_with comp
@@ -169,15 +172,31 @@ def parse_fhir_search(args, base, model_support={}):
     return fhir_search_spec
 
 
-def fhir_apply_search_to_query(fhir_search_spec, query):
+def fhir_apply_search_to_query(fhir_search_spec, query, base):
     for key in fhir_search_spec.keys():
-        column = getattr(fhir_search_spec[key]['model'], fhir_search_spec[key]['column'])
-        op = fhir_search_spec[key]['op']
-        value = fhir_search_spec[key]['value']
-        query = query.filter(getattr(column, op)(value))
+        column_spec = fhir_search_spec[key]['column']
+        executed_joins = []
+        model = fhir_search_spec[key]['model']
+        if model != base and model not in executed_joins:
+            query = query.join(model)
+        if len(column_spec) == 1:
+            column = getattr(model, column_spec[0])
+            op = fhir_search_spec[key]['op']
+            value = fhir_search_spec[key]['value']
+            query = query.filter(getattr(column, op)(value))
+        else:
+            filter_list = []
+            op = fhir_search_spec[key]['op']
+            value = fhir_search_spec[key]['value']
+            for col in column_spec:
+                column = getattr(model, col)
+                filt = getattr(column, op)(value)
+                filter_list.append(filt)
+            query = query.filter(or_(*filter_list))
+
     return query
 
 
 def fhir_search(args, model_support, base, query):
     fhir_search_spec = parse_fhir_search(args=args, model_support=model_support, base=base)
-    return fhir_apply_search_to_query(fhir_search_spec=fhir_search_spec, query=query)
+    return fhir_apply_search_to_query(fhir_search_spec=fhir_search_spec, query=query, base=base)

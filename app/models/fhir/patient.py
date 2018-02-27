@@ -506,7 +506,11 @@ class Patient(db.Model):
             fhir_comm = fhir_patient.PatientCommunication()
             fhir_comm.preferred = True
             fhir_lang_cc = codeableconcept.CodeableConcept()
-            fhir_lang_cc.coding = [coding.Coding(jsondict={"code": self.preferred_language})]
+            fhir_lang_coding = coding.Coding()
+            fhir_lang_coding.code = self.preferred_language
+            fhir_lang_coding.system = 'http://hl7.org/fhir/ValueSet/languages'
+            fhir_lang_coding.display = language_dict.get(self.preferred_language)[0]
+            fhir_lang_cc.coding = [fhir_lang_coding]
             fhir_comm.language = fhir_lang_cc
             fhir_pt.communication = [fhir_comm]
 

@@ -321,7 +321,7 @@ class ValueSet(db.Model):
             if hasattr(inc, 'system') and inc.system:
                 if hasattr(inc, 'concept') and inc.concept:
                     for x in inc.concept:
-                        if x == code:
+                        if x.code == code:
                             return x
                 else:
                     cs = CodeSystem.query.filter(CodeSystem.url == inc.system).first()
@@ -333,6 +333,13 @@ class ValueSet(db.Model):
                 x = inc.valueset.get_concept()
                 if x:
                     return x
+        return None
+
+    @staticmethod
+    def get_valueset_concept(url, code):
+        vs = ValueSet.query.filter(ValueSet.url == url).first()
+        if vs:
+            return vs.get_concept(code)
         return None
 
     def dump_fhir_json(self):

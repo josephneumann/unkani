@@ -7,10 +7,11 @@ from app.utils.general import json_serial
 from app.models.fhir.address import Address, AddressSchema
 from app.models.fhir.email_address import EmailAddress, EmailAddressSchema
 from app.models.fhir.phone_number import PhoneNumber, PhoneNumberSchema
+from app.models.fhir.codesets import ValueSet, CodeSystem
 from app.models.extensions import BaseExtension
 from fhirclient.models import patient as fhir_patient, meta, codeableconcept, coding, extension, identifier, narrative
 from app.utils.fhir_utils import fhir_gen_humanname, fhir_gen_datetime
-from app.utils.demographics import race_dict, ethnicity_dict, marital_status_dict
+from app.utils.demographics import race_dict, ethnicity_dict
 import hashlib, json, uuid
 
 
@@ -434,11 +435,13 @@ class Patient(db.Model):
 
         if self.marital_status:
             marital_status_cc = codeableconcept.CodeableConcept()
-            marital_status_cc.text = marital_status_dict.get(self.marital_status)[0].capitalize()
-
+            marital_status_url = 'http://hl7.org/fhir/ValueSet/marital-status'
+            marital_status_concept = ValueSet.get_valueset_concept(marital_status_url, self.marital_status)
+            if marital_status_concept:
+                marital_status_cc.text = getattr(marital_status_concept, 'display')
             marital_status_coding = coding.Coding()
             marital_status_coding.code = self.marital_status
-            marital_status_coding.system = 'http://hl7.org/fhir/ValueSet/marital-status'
+            marital_status_coding.system = marital_status_url
             marital_status_coding.display = marital_status_cc.text
 
             marital_status_cc.coding = [marital_status_coding]
@@ -447,17 +450,20 @@ class Patient(db.Model):
         if self.race:
             ext_race = extension.Extension()
             ext_race.url = 'http://hl7.org/fhir/StructureDefinition/us-core-race'
+            race_url = 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category'
             cc_race = codeableconcept.CodeableConcept()
-            cc_race.text = race_dict.get(self.race)[0].capitalize()
+            race_concept = ValueSet.get_valueset_concept(race_url, self.race)
+            if race_concept:
+                cc_race.text = getattr(race_concept, 'display')
             coding_race = coding.Coding()
-            coding_race.system = 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category'
+            coding_race.system = race_url
             coding_race.code = self.race
             coding_race.display = cc_race.text
             cc_race.coding = [coding_race]
             ext_race.valueCodeableConcept = cc_race
             try:
                 fhir_pt.extension.append(ext_race)
-            except:
+            except AttributeError:
                 fhir_pt.extension = [ext_race]
 
         if self.ethnicity:
@@ -508,8 +514,12 @@ class Patient(db.Model):
             fhir_lang_cc = codeableconcept.CodeableConcept()
             fhir_lang_coding = coding.Coding()
             fhir_lang_coding.code = self.preferred_language
-            fhir_lang_coding.system = 'http://hl7.org/fhir/ValueSet/languages'
-            fhir_lang_coding.display = language_dict.get(self.preferred_language)[0]
+            fhir_lang_url = 'http://hl7.org/fhir/ValueSet/languages'
+            fhir_lang_coding.system = fhir_lang_url
+            fhir_lang_concept = ValueSet.get_valueset_concept(fhir_lang_url, self.preferred_language)
+            if fhir_lang_concept:
+                fhir_lang_coding.display = fhir_lang_concept.display
+                fhir_lang_cc.text = fhir_lang_coding.display
             fhir_lang_cc.coding = [fhir_lang_coding]
             fhir_comm.language = fhir_lang_cc
             fhir_pt.communication = [fhir_comm]

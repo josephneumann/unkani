@@ -472,7 +472,7 @@ class Patient(db.Model):
             cc_ethnicity = codeableconcept.CodeableConcept()
             cc_ethnicity.text = ethnicity_dict.get(self.ethnicity)[0].capitalize()
             coding_ethnicity = coding.Coding()
-            coding_ethnicity.system = 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category'
+            coding_ethnicity.system = 'http://hl7.org/fhir/us/core/ValueSet/omb-ethnicity-category'
             coding_ethnicity.code = self.race
             coding_ethnicity.display = cc_ethnicity.text
             cc_ethnicity.coding = [coding_ethnicity]

@@ -47,7 +47,9 @@ class Config:
                        'V2 Identifier Type': 'http://hl7.org/fhir/ValueSet/v2-0203',
                        'issue-type': 'http://hl7.org/fhir/ValueSet/issue-type',
                        'issue-severity': 'http://hl7.org/fhir/ValueSet/issue-severity',
-                       'operation-outcome': 'http://hl7.org/fhir/ValueSet/operation-outcome'
+                       'operation-outcome': 'http://hl7.org/fhir/ValueSet/operation-outcome',
+                       'omb-race-category': 'http://hl7.org/fhir/us/core/ValueSet-omb-race-category.json'
+                       # 'omb-ethnicity-category': 'http://hl7.org/fhir/us/core/ValueSet-omb-ethnicity-category.json'
                        }
 
     ALLOWED_MIMETYPES = {

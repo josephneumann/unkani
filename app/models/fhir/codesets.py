@@ -389,7 +389,7 @@ def get_fhir_codeset(url):
         raise TypeError('Fetched resource was not a FHIR resource type of CodeSystem or ValueSet')
 
     try:
-        sd = SourceData(route='/{}'.format(resource_type.lower().strip()), payload=response.text, method='POST')
+        sd = SourceData(route='/{}'.format(resource_type.strip().lower()), payload=response.text, method='POST')
         db.session.add(sd)
         db.session.commit()
         return sd

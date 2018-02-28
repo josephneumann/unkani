@@ -39,11 +39,12 @@ def search_support_is_valid(support):
             return False
         if not support[key].get('model'):
             return False
-        if not support[key].get('column') or not isinstance(support[key].get('column'), list):
+        if not (support[key].get('column') or not isinstance(support[key].get('column'), list)) and not isinstance(
+                support[key].get('column'), dict):
             return False
         if not support[key].get('type') or support[key].get('type') not in ['bool', 'datetime', 'int',
                                                                             'string', 'timestamp', 'date',
-                                                                            'numeric']:
+                                                                            'numeric','token']:
             return False
         modifier_list = support[key].get('modifier')
         if not isinstance(modifier_list, list):
@@ -88,7 +89,11 @@ def parse_fhir_search(args, base, model_support={}):
         if arg_split[0] in support.keys():
             input_value = request.args.get(arg)
             search_key = arg_split[0]
+            if not input_value:
+                raise ValidationError(
+                    'No value was supplied with parameter {}'.format(search_key))
             value = None
+            column = None
             value_forced_by_operator = False
             try:
                 search_modifier = arg_split[1].lower().strip()
@@ -152,15 +157,38 @@ def parse_fhir_search(args, base, model_support={}):
                         raise ValidationError(
                             'The value for parameter ({}) was ({}) and could not be validated as a datetime input for the search' \
                                 .format(search_key, input_value))
-                if param_type == 'string':  # Deal with case comparison
+                elif param_type == 'string':  # Deal with case comparison
                     input_value = unidecode.unidecode(input_value)  # Handle accents per FHIR
                     if op == 'ilike':  # Handles the :contains modifier for string parameters
                         value = '%' + str(input_value) + '%'
                     if not op:  # If no modifier is defined for string parameters a case-insensitive starts_with comp
                         op = 'ilike'
                         value = str(input_value) + '%'
+                elif param_type == 'token' and input_value:  # Deal with Token values and codesystems
+                    input_value_split = input_value.split('|')
+                    if len(input_value_split) == 1:
+                        value = input_value_split[0]
+                    elif len(input_value_split) == 2:
+                        column_support = support[search_key].get('column')
+                        value_system = input_value_split[0].strip()
+                        if not isinstance(column_support, dict) or value_system not in column_support.keys():
+                            raise ValidationError(
+                                'The search parameter ({}) does not support the system ({})'.format(search_key,
+                                                                                                    value_system))
+                        print(value_system)
+                        column = [column_support.get(value_system)]
+                        if input_value_split[1]:
+                            value = input_value_split[1].strip()
+                        else:
+                            input_value = None  # So that None will be assigned with the if not Value catch-all
+                    else:
+                        raise ValidationError(
+                            'The value for the token parameter {} included >1 (|) character'.format(search_key))
+
                 if not value:
                     value = input_value
+                if not column:
+                    column = support[search_key].get('column')
 
             if not op:
                 op = '__eq__'
@@ -168,13 +196,15 @@ def parse_fhir_search(args, base, model_support={}):
             fhir_search_spec[search_key] = {'op': op,
                                             'value': value,
                                             'model': support[search_key].get('model'),
-                                            'column': support[search_key].get('column')}
+                                            'column': column}
     return fhir_search_spec
 
 
 def fhir_apply_search_to_query(fhir_search_spec, query, base):
     for key in fhir_search_spec.keys():
         column_spec = fhir_search_spec[key]['column']
+        if not column_spec:
+            continue
         executed_joins = []
         model = fhir_search_spec[key]['model']
         if model != base and model not in executed_joins:

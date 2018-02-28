@@ -189,7 +189,14 @@ def patient_search():
                                   'model': Patient,
                                   'column': ['preferred_language'],
                                   'type': 'string',
-                                  'validation': []}
+                                  'validation': []},
+                     'identifier': {'ordered': False,
+                                    'modifier': ['exact', 'contains'], #TODO: Support missing
+                                    'prefix': [],
+                                    'model': Patient,
+                                    'column': {'http://unkani.com': 'uuid', 'http://hl7.org/fhir/sid/us-ssn': 'ssn'},
+                                    'type': 'token',
+                                    'validation': []}  # TODO:  Validate SSN - match without hyphens
                      }
     # Parse the request args and execute the search.  Return un-executed query
     query = fhir_search(args=request.args, model_support=model_support, base=Patient, query=query)

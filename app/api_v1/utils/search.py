@@ -44,7 +44,7 @@ def search_support_is_valid(support):
             return False
         if not support[key].get('type') or support[key].get('type') not in ['bool', 'datetime', 'int',
                                                                             'string', 'timestamp', 'date',
-                                                                            'numeric','token']:
+                                                                            'numeric', 'token']:
             return False
         modifier_list = support[key].get('modifier')
         if not isinstance(modifier_list, list):
@@ -86,15 +86,38 @@ def parse_fhir_search(args, base, model_support={}):
     for arg in args:
         arg_split = arg.split(':')
         op = None
-        if arg_split[0] in support.keys():
-            input_value = request.args.get(arg)
-            search_key = arg_split[0]
+        value = None
+        column = None
+        value_forced_by_operator = False
+
+        search_key = arg_split[0]
+        input_value = request.args.get(arg)
+
+        if search_key in ['page', '_count', '_format']:
+            continue
+
+        if search_key == '_sort' and input_value:
+            sort_column = None
+            sort_type = None
+            if input_value[0:1] == '-':
+                sort_type = 'desc'
+                input_value = input_value[1:]
+            if input_value in support.keys():
+                sort_column = support[input_value].get('column')
+                if not sort_type:
+                    sort_type = 'asc'
+                fhir_search_spec[search_key] = {'op': sort_type,
+                                                'model': support[input_value].get('model'),
+                                                'column': sort_column}
+            else:
+                raise ValidationError('The sort key ({}) is not supported for this resource'.format(input_value))
+
+            continue
+
+        if search_key in support.keys():
             if not input_value:
                 raise ValidationError(
                     'No value was supplied with parameter {}'.format(search_key))
-            value = None
-            column = None
-            value_forced_by_operator = False
             try:
                 search_modifier = arg_split[1].lower().strip()
                 if search_modifier in support[search_key].get('modifier'):
@@ -203,12 +226,15 @@ def parse_fhir_search(args, base, model_support={}):
 def fhir_apply_search_to_query(fhir_search_spec, query, base):
     for key in fhir_search_spec.keys():
         column_spec = fhir_search_spec[key]['column']
-        if not column_spec:
-            continue
         executed_joins = []
         model = fhir_search_spec[key]['model']
         if model != base and model not in executed_joins:
             query = query.join(model)
+        if key == '_sort':
+            column = getattr(model, column_spec[0])
+            op = fhir_search_spec[key]['op']
+            query = query.order_by(getattr(column, op)())
+            continue
         if len(column_spec) == 1:
             column = getattr(model, column_spec[0])
             op = fhir_search_spec[key]['op']

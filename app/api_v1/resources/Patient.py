@@ -191,7 +191,7 @@ def patient_search():
                                   'type': 'string',
                                   'validation': []},
                      'identifier': {'ordered': False,
-                                    'modifier': ['exact', 'contains'], #TODO: Support missing
+                                    'modifier': ['exact', 'contains'],  # TODO: Support missing
                                     'prefix': [],
                                     'model': Patient,
                                     'column': {'http://unkani.com': 'uuid', 'http://hl7.org/fhir/sid/us-ssn': 'ssn'},

@@ -422,9 +422,9 @@ def fhir_apply_search_to_query(fhir_search_spec, base, query=None):
     ##############################################################
     # Loop through query search specification dicts
     ##############################################################
+    executed_joins = []  # Keep track of models that have been joined already so you don't join twice
     for key in fhir_search_spec.keys():
         column_spec = fhir_search_spec[key]['column']
-        executed_joins = []  # Keep track of models that have been joined already so you don't join twice
         model = fhir_search_spec[key]['model']
 
         # Execute a join if model does not match base model

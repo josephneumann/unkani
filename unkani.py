@@ -110,7 +110,7 @@ def deploy():
                 print("Codesets were retrieved and are now being processed.")
                 for sd in sd_to_process:
                     if isinstance(sd, SourceData):
-                        obj = process_fhir_codeset(source_data=sd)
+                        process_fhir_codeset(source_data=sd)
                 print("{} codesets were imported and processed!".format(len(sd_to_process) + 1))
             else:
                 print("All codesets were already up to date or they could not retrieved online.")

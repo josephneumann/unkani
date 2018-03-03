@@ -316,6 +316,32 @@ class ValueSet(db.Model):
                 code_set = code_set | inc.valueset.code_set
         return code_set
 
+    def get_concept(self, code):
+        for inc in self.fhir.compose.include:
+            if hasattr(inc, 'system') and inc.system:
+                if hasattr(inc, 'concept') and inc.concept:
+                    for x in inc.concept:
+                        if x.code == code:
+                            return x
+                else:
+                    cs = CodeSystem.query.filter(CodeSystem.url == inc.system).first()
+                    if cs:
+                        x = cs.get_concept(code)
+                        if x:
+                            return x
+            if hasattr(inc, 'valueset') and inc.valueset:
+                x = inc.valueset.get_concept()
+                if x:
+                    return x
+        return None
+
+    @staticmethod
+    def get_valueset_concept(url, code):
+        vs = ValueSet.query.filter(ValueSet.url == url).first()
+        if vs:
+            return vs.get_concept(code)
+        return None
+
     def dump_fhir_json(self):
         return self.data  # same as self.fhir.as_json()
 
@@ -363,7 +389,7 @@ def get_fhir_codeset(url):
         raise TypeError('Fetched resource was not a FHIR resource type of CodeSystem or ValueSet')
 
     try:
-        sd = SourceData(route='/{}'.format(resource_type.lower().strip()), payload=response.text, method='POST')
+        sd = SourceData(route='/{}'.format(resource_type.strip().lower()), payload=response.text, method='POST')
         db.session.add(sd)
         db.session.commit()
         return sd

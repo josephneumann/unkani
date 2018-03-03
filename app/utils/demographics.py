@@ -1,5 +1,6 @@
 import re
 import random
+import unidecode
 from datetime import datetime, date, timedelta
 from dateutil import parser as dateparser
 from dateutil.relativedelta import relativedelta
@@ -545,6 +546,7 @@ def normalize_name(name=None):
         return value
 
     if name:
+        name = unidecode.unidecode(name)  # Remove accents
         name = remove_paren(value=name)
         name = remove_restricted_chars(value=name).upper()
         name = finalize_output(value=name)
@@ -570,6 +572,7 @@ def normalize_username(username=None):
     def remove_restricted_chars(value):
         restricted_re = re.compile("[@]")
         value = restricted_re.sub('', value).strip()
+        value = unidecode.unidecode(value)
         return value
 
     def finalize_output(value):
@@ -578,7 +581,7 @@ def normalize_username(username=None):
 
     if username:
         username = remove_restricted_chars(value=username).upper()
-        name = finalize_output(value=username)
+        username = finalize_output(value=username)
 
     return username
 
@@ -1049,6 +1052,63 @@ def random_sex():
         return "F"
 
 
+language_dict = {"ar": ["ARABIC"],
+                 "bn": ["BENGALI"],
+                 "cs": ["CZECH"],
+                 "da": ["DANISH"],
+                 "de": ["GERMAN"],
+                 "de - AT": ["GERMAN(AUSTRIA)"],
+                 "de - CH": ["GERMAN(SWITZERLAND)"],
+                 "de - DE": ["GERMAN(GERMANY)"],
+                 "el": ["GREEK"],
+                 "en": ["ENGLISH", "ENG"],
+                 "en - AU": ["ENGLISH(AUSTRALIA)"],
+                 "en - CA": ["ENGLISH(CANADA)"],
+                 "en - GB": ["ENGLISH(GREAT BRITAIN"],
+                 "en - IN": ["ENGLISH(INDIA)"],
+                 "en - NZ": ["ENGLISH(NEW ZELAND)"],
+                 "en - SG": ["ENGLISH(SINGAPORE)"],
+                 "en - US": ["ENGLISH(UNITED STATES)"],
+                 "es": ["SPANISH"],
+                 "es - AR": ["SPANISH(ARGENTINA)"],
+                 "es - ES": ["SPANISH(SPAIN)"],
+                 "es - UY": ["SPANISH(URUGUAY)"],
+                 "fi": ["FINNISH"],
+                 "fr": ["FRENCH"],
+                 "fr - BE": ["FRENCH(BELGIUM)"],
+                 "fr - CH": ["FRENCH(SWITZERLAND)"],
+                 "fr - FR": ["FRENCH(FRANCE)"],
+                 "fy": ["FRYSIAN"],
+                 "fy - NL": ["FRYSIAN(NETHERLANDS)"],
+                 "hi": ["HINDI"],
+                 "hr": ["CROATIAN"],
+                 "it": ["ITALIAN"],
+                 "it - CH": ["ITALIAN(SWITZERLAND)"],
+                 "it - IT": ["ITALIAN(ITALY)"],
+                 "ja": ["JAPANESE"],
+                 "ko": ["KOREAN"],
+                 "nl": ["DUTCH"],
+                 "nl - BE": ["DUTCH(BELGIUM)"],
+                 "nl - NL": ["DUTCH(NETHERLANDS)"],
+                 "no": ["NORWEIGAN"],
+                 "no - NO": ["NORWEGIAN(NORWAY)"],
+                 "pa": ["PUNJABI"],
+                 "pt": ["PORTUGUESE"],
+                 "pt - BR": ["PORTUGUESE(BRAZIL)"],
+                 "ru": ["RUSSIAN"],
+                 "ru - RU": ["RUSSIAN(RUSSIA)"],
+                 "sr": ["SERBIAN"],
+                 "sr - SP": ["SERBIAN(SERBIA)"],
+                 "sv": ["SWEDISH"],
+                 "sv - SE": ["SWEDISH(SWEDEN)"],
+                 "te": ["Telegu"],
+                 "zh": ["CHINESE"],
+                 "zh - CN": ["CHINESE(CHINA)"],
+                 "zh - SG": ["CHINESE(SINGAPORE)"],
+                 "zh - TW": ["CHINESE(TAIWAIN)"]
+                 }
+
+
 def validate_language(language):
     """
     A utility function to normalize language values to the HL7 FHIR R3 Common Language Set
@@ -1060,61 +1120,6 @@ def validate_language(language):
         If language value can be validated, returns string representation of language from HL7 FHIR R3 Common Language
         If language value cannont be validated, raises ValueError
     """
-    language_dict = {"ar": ["ARABIC"],
-                     "bn": ["BENGALI"],
-                     "cs": ["CZECH"],
-                     "da": ["DANISH"],
-                     "de": ["GERMAN"],
-                     "de - AT": ["GERMAN(AUSTRIA)"],
-                     "de - CH": ["GERMAN(SWITZERLAND)"],
-                     "de - DE": ["GERMAN(GERMANY)"],
-                     "el": ["GREEK"],
-                     "en": ["ENGLISH", "ENG"],
-                     "en - AU": ["ENGLISH(AUSTRALIA)"],
-                     "en - CA": ["ENGLISH(CANADA)"],
-                     "en - GB": ["ENGLISH(GREAT BRITAIN"],
-                     "en - IN": ["ENGLISH(INDIA)"],
-                     "en - NZ": ["ENGLISH(NEW ZELAND)"],
-                     "en - SG": ["ENGLISH(SINGAPORE)"],
-                     "en - US": ["ENGLISH(UNITED STATES)"],
-                     "es": ["SPANISH"],
-                     "es - AR": ["SPANISH(ARGENTINA)"],
-                     "es - ES": ["SPANISH(SPAIN)"],
-                     "es - UY": ["SPANISH(URUGUAY)"],
-                     "fi": ["FINNISH"],
-                     "fr": ["FRENCH"],
-                     "fr - BE": ["FRENCH(BELGIUM)"],
-                     "fr - CH": ["FRENCH(SWITZERLAND)"],
-                     "fr - FR": ["FRENCH(FRANCE)"],
-                     "fy": ["FRYSIAN"],
-                     "fy - NL": ["FRYSIAN(NETHERLANDS)"],
-                     "hi": ["HINDI"],
-                     "hr": ["CROATIAN"],
-                     "it": ["ITALIAN"],
-                     "it - CH": ["ITALIAN(SWITZERLAND)"],
-                     "it - IT": ["ITALIAN(ITALY)"],
-                     "ja": ["JAPANESE"],
-                     "ko": ["KOREAN"],
-                     "nl": ["DUTCH"],
-                     "nl - BE": ["DUTCH(BELGIUM)"],
-                     "nl - NL": ["DUTCH(NETHERLANDS)"],
-                     "no": ["NORWEIGAN"],
-                     "no - NO": ["NORWEGIAN(NORWAY)"],
-                     "pa": ["PUNJABI"],
-                     "pt": ["PORTUGUESE"],
-                     "pt - BR": ["PORTUGUESE(BRAZIL)"],
-                     "ru": ["RUSSIAN"],
-                     "ru - RU": ["RUSSIAN(RUSSIA)"],
-                     "sr": ["SERBIAN"],
-                     "sr - SP": ["SERBIAN(SERBIA)"],
-                     "sv": ["SWEDISH"],
-                     "sv - SE": ["SWEDISH(SWEDEN)"],
-                     "te": ["Telegu"],
-                     "zh": ["CHINESE"],
-                     "zh - CN": ["CHINESE(CHINA)"],
-                     "zh - SG": ["CHINESE(SINGAPORE)"],
-                     "zh - TW": ["CHINESE(TAIWAIN)"]
-                     }
     n_language = None
     for lang in language_dict:
         formatted_language = language.upper().strip()

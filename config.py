@@ -35,20 +35,23 @@ class Config:
     CODESYSTEM_IMPORT = {'organization-type': 'http://hl7.org/fhir/organization-type',
                          'name-use': 'http://hl7.org/fhir/name-use'}
 
-    VALUESET_IMPORT = {'organization-type': 'http://hl7.org/fhir/ValueSet/organization-type',
-                       'administrative-gender': 'http://hl7.org/fhir/ValueSet/administrative-gender',
-                       'marital-status': 'http://hl7.org/fhir/ValueSet/marital-status',
-                       'languages': 'http://hl7.org/fhir/ValueSet/languages',
-                       'contact-point-system': 'http://hl7.org/fhir/ValueSet/contact-point-system',
-                       'contact-point-use': 'http://hl7.org/fhir/ValueSet/contact-point-use',
-                       'address-type': 'http://hl7.org/fhir/ValueSet/address-type',
-                       'address-use': 'http://hl7.org/fhir/ValueSet/address-use',
-                       'name-use': 'http://hl7.org/fhir/ValueSet/name-use',
-                       'V2 Identifier Type': 'http://hl7.org/fhir/ValueSet/v2-0203',
-                       'issue-type': 'http://hl7.org/fhir/ValueSet/issue-type',
-                       'issue-severity': 'http://hl7.org/fhir/ValueSet/issue-severity',
-                       'operation-outcome': 'http://hl7.org/fhir/ValueSet/operation-outcome'
-                       }
+    VALUESET_IMPORT = {
+        'organization-type': 'http://hl7.org/fhir/ValueSet/organization-type',
+        'administrative-gender': 'http://hl7.org/fhir/ValueSet/administrative-gender',
+        'marital-status': 'http://hl7.org/fhir/ValueSet/marital-status',
+        'languages': 'http://hl7.org/fhir/ValueSet/languages',
+        'contact-point-system': 'http://hl7.org/fhir/ValueSet/contact-point-system',
+        'contact-point-use': 'http://hl7.org/fhir/ValueSet/contact-point-use',
+        'address-type': 'http://hl7.org/fhir/ValueSet/address-type',
+        'address-use': 'http://hl7.org/fhir/ValueSet/address-use',
+        'name-use': 'http://hl7.org/fhir/ValueSet/name-use',
+        'V2 Identifier Type': 'http://hl7.org/fhir/ValueSet/v2-0203',
+        'issue-type': 'http://hl7.org/fhir/ValueSet/issue-type',
+        'issue-severity': 'http://hl7.org/fhir/ValueSet/issue-severity',
+        'operation-outcome': 'http://hl7.org/fhir/ValueSet/operation-outcome',
+        'omb-race-category': 'http://hl7.org/fhir/us/core/ValueSet-omb-race-category.json',
+        'omb-ethnicity-category': 'http://hl7.org/fhir/us/core/ValueSet-omb-ethnicity-category.json'
+    }
 
     ALLOWED_MIMETYPES = {
         'json': ['application/fhir+json', 'application/json+fhir', 'application/json'],

@@ -15,6 +15,7 @@ from flask_moment import Moment
 from raven.contrib.flask import Sentry
 from redis import Redis
 
+
 # Import config object [which is itself a dict of config objects] from config package
 from config import config
 

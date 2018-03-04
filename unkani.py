@@ -1,8 +1,5 @@
-import os
-import subprocess
-import sys
+import os, subprocess, sys, time, click
 
-import click
 from flask_migrate import Migrate
 from sqlalchemy import or_, and_, any_
 
@@ -150,28 +147,6 @@ def deploy():
             print()
             print("Total random users created: " + total_users)
 
-        if click.confirm('Create randomly generated patients?', default=True, show_default=True):
-            patient_create_number = click.prompt(text="How many random patients do you want to create?: ", default=100,
-                                                 type=int)
-            print("Creating " + str(patient_create_number) + " random patient(s)...")
-            patient_list = []
-            print("Generating a library of random demographics to use...")
-            demo_list = random_demographics(number=int(patient_create_number))
-            print("Creating patient objects...")
-            print(patient_create_number, end="...")
-            while len(patient_list) < int(patient_create_number):
-                pt = Patient()
-                pt.randomize_patient(demo_dict=demo_list.pop(0))
-                patient_list.append(pt)
-                print("{}".format(int(patient_create_number) - len(patient_list)), end='...', flush=True)
-            print()
-            print("Persisting objects to the database...")
-            db.session.add_all(patient_list)
-            db.session.commit()
-            total_patients = str(len(patient_list))
-            print()
-            print("Total random users created: " + total_patients)
-
         print("Process completed without errors.")
     else:
         print("Oh thank god............")
@@ -194,3 +169,20 @@ def gunicorn():
     ret = subprocess.call(
         ['gunicorn', '--bind', '0.0.0.0:5000', 'unkani:app'])
     sys.exit(ret)
+
+
+@app.cli.command()
+def create_patients():
+    if click.confirm('Create randomly generated patients?', default=True, show_default=True):
+        patient_create_number = click.prompt(text="How many random patients do you want to create?: ", default=100,
+                                             type=int)
+        remaining = int(patient_create_number)
+        print("Creating " + str(patient_create_number) + " random patient(s)...")
+        t1 = time.clock()
+        demo_list = random_demographics(number=remaining)
+        for demo in demo_list:
+            Patient.create_random_patient(demo_dict=demo)
+        db.session.commit()
+        t2 = time.clock()
+        print("{} total patients created in {} seconds".format(patient_create_number, str(round(t2 - t1, 3))))
+        print("Patient create time was {} seconds".format(round((t2 - t1) / patient_create_number, 3)))

@@ -1,5 +1,6 @@
 from app import db, ma
 from sqlalchemy.dialects.postgresql import UUID as postgresql_uuid
+from sqlalchemy import inspect
 from marshmallow import fields, post_load
 from app.utils.demographics import *
 from flask import url_for, render_template
@@ -363,194 +364,198 @@ class Patient(db.Model):
         :return:
             None
         """
-        # Initialize Patient resource
-        fhir_pt = fhir_patient.Patient()
+        # Patient object must be persistent to generate FHIR attributes
+        ins = inspect(self)
+        if ins.persistent:
+            # Initialize Patient resource
+            fhir_pt = fhir_patient.Patient()
 
-        # Set resource logical identifier
-        fhir_pt.id = self.get_url()
+            # Set resource logical identifier
+            fhir_pt.id = self.get_url()
 
-        # Build and assign Meta resource for Patient object
-        fhir_meta = meta.Meta()
-        fhir_meta.lastUpdated = fhir_gen_datetime(value=self.updated_at, error_out=False, to_date=False)
-        fhir_meta.versionId = str(self.version_number)
-        fhir_meta.profile = ['http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient']
-        fhir_pt.meta = fhir_meta
+            # Build and assign Meta resource for Patient object
+            fhir_meta = meta.Meta()
+            fhir_meta.lastUpdated = fhir_gen_datetime(value=self.updated_at, error_out=False, to_date=False)
+            fhir_meta.versionId = str(self.version_number)
+            fhir_meta.profile = ['http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient']
+            fhir_pt.meta = fhir_meta
 
-        # Patient name represented as HumanName resource
-        fhir_pt.name = []
-        fhir_pt.name.append(fhir_gen_humanname(use='usual', first_name=self.first_name, last_name=self.last_name,
-                                               middle_name=self.middle_name, suffix=self.suffix, prefix=self.prefix))
-        # Display MRN as identifier codeable concept = Patient.identifier.codeableconcept.coding
-        # Initialize Identifier resource
-        id_mrn = identifier.Identifier()
-        id_mrn.use = 'usual'
-        id_mrn.system = 'http://unkani.com'
-        id_mrn.value = str(self.uuid)
-
-        # Initialize CodeableConcept resource
-        mrn_cc = codeableconcept.CodeableConcept()
-        mrn_cc.text = 'Medical Record Number'
-
-        # Initialize Coding resource
-        mrn_coding = coding.Coding()
-        mrn_coding.system = 'http://hl7.org/fhir/v2/0203'
-        mrn_coding.code = 'MR'
-        mrn_coding.display = 'Medical Record Number'
-
-        # Assign Coding resource to CodeableConcept
-        mrn_cc.coding = [mrn_coding]
-
-        # Assign CodeableConcept to Identifier
-        id_mrn.type = mrn_cc
-
-        # Assign CodeableConcept to Patient
-        fhir_pt.identifier = [id_mrn]
-
-        # Display SSN as identifier codeable concept = Patient.identifier.codeableconcept.coding
-        if self.ssn:
+            # Patient name represented as HumanName resource
+            fhir_pt.name = []
+            fhir_pt.name.append(fhir_gen_humanname(use='usual', first_name=self.first_name, last_name=self.last_name,
+                                                   middle_name=self.middle_name, suffix=self.suffix,
+                                                   prefix=self.prefix))
+            # Display MRN as identifier codeable concept = Patient.identifier.codeableconcept.coding
             # Initialize Identifier resource
-            id_ssn = identifier.Identifier()
-            id_ssn.use = 'usual'
-            id_ssn.system = 'http://hl7.org/fhir/sid/us-ssn'
-            id_ssn.value = self.ssn
+            id_mrn = identifier.Identifier()
+            id_mrn.use = 'usual'
+            id_mrn.system = 'http://unkani.com'
+            id_mrn.value = str(self.uuid)
 
             # Initialize CodeableConcept resource
-            ssn_cc = codeableconcept.CodeableConcept()
-            ssn_cc.text = 'Social Security Number'
+            mrn_cc = codeableconcept.CodeableConcept()
+            mrn_cc.text = 'Medical Record Number'
 
             # Initialize Coding resource
-            ssn_coding = coding.Coding()
-            ssn_coding.system = 'http://hl7.org/fhir/v2/0203'
-            ssn_coding.code = 'SS'
-            ssn_coding.display = 'Social Security Number'
+            mrn_coding = coding.Coding()
+            mrn_coding.system = 'http://hl7.org/fhir/v2/0203'
+            mrn_coding.code = 'MR'
+            mrn_coding.display = 'Medical Record Number'
 
             # Assign Coding resource to CodeableConcept
-            ssn_cc.coding = [ssn_coding]
+            mrn_cc.coding = [mrn_coding]
 
             # Assign CodeableConcept to Identifier
-            id_ssn.type = ssn_cc
+            id_mrn.type = mrn_cc
 
             # Assign CodeableConcept to Patient
-            fhir_pt.identifier.append(id_ssn)
+            fhir_pt.identifier = [id_mrn]
 
-        if self.marital_status:
-            marital_status_cc = codeableconcept.CodeableConcept()
-            marital_status_url = 'http://hl7.org/fhir/ValueSet/marital-status'
-            marital_status_concept = ValueSet.get_valueset_concept(marital_status_url, self.marital_status)
-            if marital_status_concept:
-                marital_status_cc.text = getattr(marital_status_concept, 'display')
-            marital_status_coding = coding.Coding()
-            marital_status_coding.code = self.marital_status
-            marital_status_coding.system = marital_status_url
-            marital_status_coding.display = marital_status_cc.text
+            # Display SSN as identifier codeable concept = Patient.identifier.codeableconcept.coding
+            if self.ssn:
+                # Initialize Identifier resource
+                id_ssn = identifier.Identifier()
+                id_ssn.use = 'usual'
+                id_ssn.system = 'http://hl7.org/fhir/sid/us-ssn'
+                id_ssn.value = self.ssn
 
-            marital_status_cc.coding = [marital_status_coding]
-            fhir_pt.maritalStatus = marital_status_cc
+                # Initialize CodeableConcept resource
+                ssn_cc = codeableconcept.CodeableConcept()
+                ssn_cc.text = 'Social Security Number'
 
-        if self.race:
-            ext_race = extension.Extension()
-            ext_race.url = 'http://hl7.org/fhir/StructureDefinition/us-core-race'
-            race_url = 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category'
-            cc_race = codeableconcept.CodeableConcept()
-            race_concept = ValueSet.get_valueset_concept(race_url, self.race)
-            if race_concept:
-                cc_race.text = getattr(race_concept, 'display')
-            coding_race = coding.Coding()
-            coding_race.system = race_url
-            coding_race.code = self.race
-            coding_race.display = cc_race.text
-            cc_race.coding = [coding_race]
-            ext_race.valueCodeableConcept = cc_race
-            try:
-                fhir_pt.extension.append(ext_race)
-            except AttributeError:
-                fhir_pt.extension = [ext_race]
+                # Initialize Coding resource
+                ssn_coding = coding.Coding()
+                ssn_coding.system = 'http://hl7.org/fhir/v2/0203'
+                ssn_coding.code = 'SS'
+                ssn_coding.display = 'Social Security Number'
 
-        if self.ethnicity:
-            ext_ethnicity = extension.Extension()
-            ext_ethnicity.url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity'
-            cc_ethnicity = codeableconcept.CodeableConcept()
-            cc_ethnicity.text = ethnicity_dict.get(self.ethnicity)[0].capitalize()
-            coding_ethnicity = coding.Coding()
-            coding_ethnicity.system = 'http://hl7.org/fhir/us/core/ValueSet/omb-ethnicity-category'
-            coding_ethnicity.code = self.race
-            coding_ethnicity.display = cc_ethnicity.text
-            cc_ethnicity.coding = [coding_ethnicity]
-            ext_ethnicity.valueCodeableConcept = cc_ethnicity
+                # Assign Coding resource to CodeableConcept
+                ssn_cc.coding = [ssn_coding]
 
-            try:
-                fhir_pt.extension.append(ext_ethnicity)
-            except AttributeError:
-                fhir_pt.extension = [ext_ethnicity]
+                # Assign CodeableConcept to Identifier
+                id_ssn.type = ssn_cc
 
-        if self.sex:
-            sex_dict = {"administrativeGender": {"M": "male", "F": "female", "u": "unknown", "o": "other"},
-                        "usCoreBirthSex": {"M": "M", "F": "F", "U": "UNK", "O": "UNK"}}
+                # Assign CodeableConcept to Patient
+                fhir_pt.identifier.append(id_ssn)
 
-            fhir_pt.gender = sex_dict['administrativeGender'][str(self.sex).upper()]
+            if self.marital_status:
+                marital_status_cc = codeableconcept.CodeableConcept()
+                marital_status_url = 'http://hl7.org/fhir/ValueSet/marital-status'
+                marital_status_concept = ValueSet.get_valueset_concept(marital_status_url, self.marital_status)
+                if marital_status_concept:
+                    marital_status_cc.text = getattr(marital_status_concept, 'display')
+                marital_status_coding = coding.Coding()
+                marital_status_coding.code = self.marital_status
+                marital_status_coding.system = marital_status_url
+                marital_status_coding.display = marital_status_cc.text
 
-            ext_birth_sex = extension.Extension()
-            ext_birth_sex.url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex'
-            ext_birth_sex.valueCode = sex_dict['usCoreBirthSex'][str(self.sex).upper()]
+                marital_status_cc.coding = [marital_status_coding]
+                fhir_pt.maritalStatus = marital_status_cc
 
-            try:
-                fhir_pt.extension.append(ext_birth_sex)
-            except AttributeError:
-                fhir_pt.extension = [ext_birth_sex]
+            if self.race:
+                ext_race = extension.Extension()
+                ext_race.url = 'http://hl7.org/fhir/StructureDefinition/us-core-race'
+                race_url = 'http://hl7.org/fhir/us/core/ValueSet/omb-race-category'
+                cc_race = codeableconcept.CodeableConcept()
+                race_concept = ValueSet.get_valueset_concept(race_url, self.race)
+                if race_concept:
+                    cc_race.text = getattr(race_concept, 'display')
+                coding_race = coding.Coding()
+                coding_race.system = race_url
+                coding_race.code = self.race
+                coding_race.display = cc_race.text
+                cc_race.coding = [coding_race]
+                ext_race.valueCodeableConcept = cc_race
+                try:
+                    fhir_pt.extension.append(ext_race)
+                except AttributeError:
+                    fhir_pt.extension = [ext_race]
 
-        if self.dob:
-            fhir_pt.birthDate = fhir_gen_datetime(value=self.dob, to_date=True)
+            if self.ethnicity:
+                ext_ethnicity = extension.Extension()
+                ext_ethnicity.url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity'
+                cc_ethnicity = codeableconcept.CodeableConcept()
+                cc_ethnicity.text = ethnicity_dict.get(self.ethnicity)[0].capitalize()
+                coding_ethnicity = coding.Coding()
+                coding_ethnicity.system = 'http://hl7.org/fhir/us/core/ValueSet/omb-ethnicity-category'
+                coding_ethnicity.code = self.race
+                coding_ethnicity.display = cc_ethnicity.text
+                cc_ethnicity.coding = [coding_ethnicity]
+                ext_ethnicity.valueCodeableConcept = cc_ethnicity
 
-        fhir_pt.active = self.active
+                try:
+                    fhir_pt.extension.append(ext_ethnicity)
+                except AttributeError:
+                    fhir_pt.extension = [ext_ethnicity]
 
-        fhir_pt.deceasedBoolean = self.deceased
+            if self.sex:
+                sex_dict = {"administrativeGender": {"M": "male", "F": "female", "u": "unknown", "o": "other"},
+                            "usCoreBirthSex": {"M": "M", "F": "F", "U": "UNK", "O": "UNK"}}
 
-        if self.deceased_date:
-            fhir_pt.deceasedDateTime = fhir_gen_datetime(value=self.deceased_date, to_date=False)
+                fhir_pt.gender = sex_dict['administrativeGender'][str(self.sex).upper()]
 
-        if self.preferred_language:
-            fhir_comm = fhir_patient.PatientCommunication()
-            fhir_comm.preferred = True
-            fhir_lang_cc = codeableconcept.CodeableConcept()
-            fhir_lang_coding = coding.Coding()
-            fhir_lang_coding.code = self.preferred_language
-            fhir_lang_url = 'http://hl7.org/fhir/ValueSet/languages'
-            fhir_lang_coding.system = fhir_lang_url
-            fhir_lang_concept = ValueSet.get_valueset_concept(fhir_lang_url, self.preferred_language)
-            if fhir_lang_concept:
-                fhir_lang_coding.display = fhir_lang_concept.display
-                fhir_lang_cc.text = fhir_lang_coding.display
-            fhir_lang_cc.coding = [fhir_lang_coding]
-            fhir_comm.language = fhir_lang_cc
-            fhir_pt.communication = [fhir_comm]
+                ext_birth_sex = extension.Extension()
+                ext_birth_sex.url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex'
+                ext_birth_sex.valueCode = sex_dict['usCoreBirthSex'][str(self.sex).upper()]
 
-        contact_point_list = []
+                try:
+                    fhir_pt.extension.append(ext_birth_sex)
+                except AttributeError:
+                    fhir_pt.extension = [ext_birth_sex]
 
-        phone_list = self.phone_numbers.all()
-        if phone_list:
-            for ph in phone_list:
-                contact_point_list.append(ph.fhir)
+            if self.dob:
+                fhir_pt.birthDate = fhir_gen_datetime(value=self.dob, to_date=True)
 
-        email_list = self.email_addresses.all()
-        if email_list:
-            for em in email_list:
-                contact_point_list.append(em.fhir)
+            fhir_pt.active = self.active
 
-        if contact_point_list:
-            fhir_pt.telecom = contact_point_list
+            fhir_pt.deceasedBoolean = self.deceased
 
-        address_list = self.addresses.all()
-        if address_list:
-            fhir_pt.address = []
-            for addr in address_list:
-                fhir_pt.address.append(addr.fhir)
+            if self.deceased_date:
+                fhir_pt.deceasedDateTime = fhir_gen_datetime(value=self.deceased_date, to_date=False)
 
-        xhtml = render_template('fhir/patient.html', fhir_patient=fhir_pt, patient=self)
-        fhir_pt.text = narrative.Narrative()
-        fhir_pt.text.status = 'generated'
-        fhir_pt.text.div = xhtml
+            if self.preferred_language:
+                fhir_comm = fhir_patient.PatientCommunication()
+                fhir_comm.preferred = True
+                fhir_lang_cc = codeableconcept.CodeableConcept()
+                fhir_lang_coding = coding.Coding()
+                fhir_lang_coding.code = self.preferred_language
+                fhir_lang_url = 'http://hl7.org/fhir/ValueSet/languages'
+                fhir_lang_coding.system = fhir_lang_url
+                fhir_lang_concept = ValueSet.get_valueset_concept(fhir_lang_url, self.preferred_language)
+                if fhir_lang_concept:
+                    fhir_lang_coding.display = fhir_lang_concept.display
+                    fhir_lang_cc.text = fhir_lang_coding.display
+                fhir_lang_cc.coding = [fhir_lang_coding]
+                fhir_comm.language = fhir_lang_cc
+                fhir_pt.communication = [fhir_comm]
 
-        self._fhir = fhir_pt
+            contact_point_list = []
+
+            phone_list = self.phone_numbers.all()
+            if phone_list:
+                for ph in phone_list:
+                    contact_point_list.append(ph.fhir)
+
+            email_list = self.email_addresses.all()
+            if email_list:
+                for em in email_list:
+                    contact_point_list.append(em.fhir)
+
+            if contact_point_list:
+                fhir_pt.telecom = contact_point_list
+
+            address_list = self.addresses.all()
+            if address_list:
+                fhir_pt.address = []
+                for addr in address_list:
+                    fhir_pt.address.append(addr.fhir)
+
+            xhtml = render_template('fhir/patient.html', fhir_patient=fhir_pt, patient=self)
+            fhir_pt.text = narrative.Narrative()
+            fhir_pt.text.status = 'generated'
+            fhir_pt.text.div = xhtml
+
+            self._fhir = fhir_pt
 
     def dump_fhir_json(self):
         self.create_fhir_object()
@@ -624,6 +629,12 @@ class Patient(db.Model):
             prim_ph.primary = True
             for number in phone_list:
                 self.phone_numbers.append(number)
+
+    @staticmethod
+    def create_random_patient(demo_dict=None):
+        pt = Patient()
+        pt.randomize_patient(demo_dict=demo_dict)
+        db.session.add(pt)
 
     def generate_row_hash(self):
         data = {"first_name": self.first_name, "last_name": self.last_name, "middle_name": self.middle_name,

@@ -783,6 +783,17 @@ def random_dob():
     return dob
 
 
+def random_death_date(dob):
+    """
+    This function will return a date of death that is a randomly selected date between
+    the supplied dob and the current date
+    """
+    delta = datetime.today().date() - dob
+    int_delta = delta.days + delta.seconds
+    random_days = random.randrange(int_delta)
+    return dob + timedelta(days=random_days)
+
+
 race_dict = {"1002-5": ["AMERICAN INDIAN OR ALASKA NATIVE", "AI"],
              "2028-9": ["ASIAN", "AS"],
              "2054-5": ["BLACK OR AFRICAN AMERICAN", "B", "BL", "BLACK", "AFRICAN AMERICAN", "AA"],
@@ -1196,12 +1207,9 @@ def random_demographics(number=1):
     except ValueError:
         print("Invalid value passed as argument for 'number'.  Must be an integer of base 10.")
 
-    print("Creating random addresses...")
     address_list = random_full_address(number=number)
     result = []
 
-    print("Creating demographics for each random entity...")
-    print(number, end='...', flush=True)
     for x in range(0, number):
         sex = random_sex()
         first_name = random_first_name(sex=sex)
@@ -1217,7 +1225,8 @@ def random_demographics(number=1):
         dob = random_dob()
         multiple_birth = random_deceased()
         deceased = random_deceased()
-        deceased_date = None  # TODO randomize deceased date
+        if deceased:
+            deceased_date = random_death_date(dob=dob)
         marital_status = random_marital_status()
         preferred_language = random_language()
         race = random_race()
@@ -1232,11 +1241,8 @@ def random_demographics(number=1):
                      "preferred_language": preferred_language}
         demo_dict.update(address_list.pop(0))
         result.append(demo_dict)
-        print("{}".format(int(number) - len(result)), end='...', flush=True)
 
     if result:
-        print()
-        print("Random demographic library of {} entries created...".format(number))
         return result
     else:
         return None

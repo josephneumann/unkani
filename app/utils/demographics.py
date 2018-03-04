@@ -1227,6 +1227,8 @@ def random_demographics(number=1):
         deceased = random_deceased()
         if deceased:
             deceased_date = random_death_date(dob=dob)
+        else:
+            deceased_date = None
         marital_status = random_marital_status()
         preferred_language = random_language()
         race = random_race()

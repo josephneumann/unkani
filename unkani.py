@@ -172,7 +172,7 @@ def gunicorn():
 
 
 @app.cli.command()
-def create_patients():
+def patients():
     if click.confirm('Create randomly generated patients?', default=True, show_default=True):
         patient_create_number = click.prompt(text="How many random patients do you want to create?: ", default=100,
                                              type=int)

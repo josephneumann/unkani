@@ -387,6 +387,8 @@ def parse_fhir_search(args, base, model_support=None):
                                             'value': value,
                                             'model': support[search_key].get('model'),
                                             'column': column}
+        else:
+            raise ValidationError('An unknown parameter ({}) was passed to the search query'.format(search_key))
     return fhir_search_spec
 
 

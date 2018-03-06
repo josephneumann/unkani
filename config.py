@@ -29,7 +29,7 @@ class Config:
     SERVER_SESSION = True
     SESSION_TYPE = 'redis'
 
-    REDIS_URL = os.environ.get('REDIS_URL')
+    REDIS_URL = os.environ.get('REDIS_URL') or 'redis://'
     BROKER_TRANSPORT = 'redis',
 
     CODESYSTEM_IMPORT = {'organization-type': 'http://hl7.org/fhir/organization-type',
@@ -75,6 +75,7 @@ class DevelopmentConfig(Config):
     SSL_DISABLE = True
     SENTRY_DISABLE = True
     USE_RATE_LIMITS = True
+    WTF_CSRF_ENABLED = False
 
 
 class TestingConfig(Config):
